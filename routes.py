@@ -1,9 +1,28 @@
 from flask import render_template, request, redirect, url_for, flash, session, jsonify
 from app import app, db
 from models import User, Bill, Alert, WatchlistItem
-from services.congress_api import CongressAPI
-from services.ai_analysis import AIAnalyzer
-from services.bill_processor import BillProcessor
+# Import services with error handling
+try:
+    from services.congress_api import CongressAPI
+    from services.ai_analysis import AIAnalyzer
+    from services.bill_processor import BillProcessor
+except ImportError as e:
+    logging.warning(f"Service import error: {e}")
+    # Create placeholder classes for development
+    class CongressAPI:
+        def get_bill_by_number(self, query): return None
+        def search_bills(self, query): return []
+        def search_bills_by_sponsor(self, query): return []
+        def get_bill_details(self, congress, bill_type, number): return None
+    
+    class AIAnalyzer:
+        def analyze_bill(self, text, title): return {}
+        def calculate_alignment_score(self, analysis, prefs): return 0
+        def generate_user_specific_analysis(self, analysis, prefs, score): return {}
+    
+    class BillProcessor:
+        def process_bill_data(self, data): return None
+        def generate_user_alerts(self): return []
 import logging
 
 # Initialize services
@@ -38,7 +57,7 @@ def bill_search():
             
             if not search_query:
                 flash('Please enter a search term', 'warning')
-                return render_template('bill_search.html', bills=bills)
+                return render_template('search.html', bills=bills)
             
             if search_type == 'bill_number':
                 # Search for specific bill number
@@ -74,7 +93,7 @@ def bill_search():
             logging.error(f"Error in bill search: {str(e)}")
             error_message = "An error occurred while searching for bills. Please try again."
     
-    return render_template('bill_search.html', bills=bills, error_message=error_message)
+    return render_template('search.html', bills=bills, error_message=error_message)
 
 @app.route('/bill/<int:congress>/<bill_type>/<int:bill_number>')
 def bill_analysis(congress, bill_type, bill_number):
