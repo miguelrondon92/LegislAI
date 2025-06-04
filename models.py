@@ -19,6 +19,7 @@ class User(db.Model):
     # Relationships
     alerts = db.relationship('Alert', backref='user', lazy=True, cascade='all, delete-orphan')
     watchlists = db.relationship('WatchlistItem', backref='user', lazy=True, cascade='all, delete-orphan')
+    alignment_scores = db.relationship('UserBillAlignment', backref='user', lazy=True, cascade='all, delete-orphan')
     
     def get_policy_preferences(self):
         """Get policy preferences as dictionary"""

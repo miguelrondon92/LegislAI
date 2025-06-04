@@ -152,7 +152,7 @@ class CongressAPI:
         if not data or 'bills' not in data:
             return []
         
-        # Get detailed info for each bill
+        # Return basic bill summaries to avoid timeout
         bills = []
         for bill_summary in data['bills'][:limit]:
             try:
@@ -161,13 +161,35 @@ class CongressAPI:
                 bill_number = bill_summary.get('number')
                 
                 if congress and bill_type and bill_number:
-                    detailed_bill = self.get_bill_details(congress, bill_type, bill_number)
-                    if detailed_bill:
-                        bills.append(detailed_bill)
-                        
-                    # Rate limiting - don't fetch too many at once
-                    if len(bills) >= 10:
-                        break
+                    # Create basic bill object from search results
+                    basic_bill = {
+                        'congress': congress,
+                        'bill_type': bill_type,
+                        'bill_number': bill_number,
+                        'title': bill_summary.get('title', ''),
+                        'summary': bill_summary.get('title', ''),
+                        'sponsor_name': '',
+                        'sponsor_party': '',
+                        'sponsor_state': '',
+                        'introduced_date': None,
+                        'last_action_date': None,
+                        'status': 'Unknown',
+                        'congress_api_url': bill_summary.get('url', ''),
+                        'full_text': None
+                    }
+                    
+                    # Parse latest action if available
+                    if 'latestAction' in bill_summary:
+                        action = bill_summary['latestAction']
+                        basic_bill['status'] = action.get('text', 'Unknown')[:50]
+                        if 'actionDate' in action:
+                            try:
+                                from datetime import datetime
+                                basic_bill['last_action_date'] = datetime.strptime(action['actionDate'], '%Y-%m-%d')
+                            except:
+                                pass
+                    
+                    bills.append(basic_bill)
                         
             except Exception as e:
                 logging.error(f"Error processing bill in search results: {str(e)}")
