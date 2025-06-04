@@ -1,7 +1,9 @@
 import os
 import json
 import logging
+import time
 from openai import OpenAI
+from .analysis_cache import AnalysisCache
 
 class AIAnalyzer:
     """AI-powered analysis of legislative bills using OpenAI"""
@@ -11,6 +13,7 @@ class AIAnalyzer:
         # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
         # do not change this unless explicitly requested by the user
         self.model = "gpt-4o"
+        self.cache = AnalysisCache()
     
     def analyze_bill(self, bill_text, bill_title):
         """
