@@ -49,51 +49,43 @@ def bill_search():
     """Search for bills using various criteria"""
     bills = []
     error_message = None
+    query = ""
+    congress = 118
+    bill_type = ""
     
-    if request.method == 'POST':
+    # Handle both GET and POST requests
+    if request.method == 'GET':
+        query = request.args.get('q', '').strip()
+        congress = int(request.args.get('congress', 118))
+        bill_type = request.args.get('type', '')
+    else:  # POST
+        query = request.form.get('q', '').strip()
+        congress = int(request.form.get('congress', 118))
+        bill_type = request.form.get('type', '')
+    
+    if query:
         try:
-            search_type = request.form.get('search_type')
-            search_query = request.form.get('search_query', '').strip()
+            # Search for bills using the Congress API
+            bills_data = congress_api.search_bills(query, congress=congress, limit=20, bill_type=bill_type if bill_type else None)
             
-            if not search_query:
-                flash('Please enter a search term', 'warning')
-                return render_template('search.html', bills=bills)
-            
-            if search_type == 'bill_number':
-                # Search for specific bill number
-                bill_data = congress_api.get_bill_by_number(search_query)
-                if bill_data:
-                    bill = bill_processor.process_bill_data(bill_data)
-                    bills = [bill] if bill else []
-                else:
-                    error_message = f"Bill {search_query} not found"
-            
-            elif search_type == 'keyword':
-                # Search bills by keyword
-                bills_data = congress_api.search_bills(search_query)
+            if bills_data:
                 bills = []
                 for bill_data in bills_data[:20]:  # Limit to 20 results
                     bill = bill_processor.process_bill_data(bill_data)
                     if bill:
                         bills.append(bill)
-            
-            elif search_type == 'sponsor':
-                # Search by sponsor name
-                bills_data = congress_api.search_bills_by_sponsor(search_query)
-                bills = []
-                for bill_data in bills_data[:20]:
-                    bill = bill_processor.process_bill_data(bill_data)
-                    if bill:
-                        bills.append(bill)
-            
-            if not bills and not error_message:
+                        
+                if not bills:
+                    error_message = "No bills found matching your search criteria"
+            else:
                 error_message = "No bills found matching your search criteria"
                 
         except Exception as e:
             logging.error(f"Error in bill search: {str(e)}")
             error_message = "An error occurred while searching for bills. Please try again."
     
-    return render_template('search.html', bills=bills, error_message=error_message)
+    return render_template('search.html', bills=bills, error_message=error_message, 
+                         query=query, congress=congress, bill_type=bill_type)
 
 @app.route('/bill/<int:congress>/<bill_type>/<int:bill_number>')
 def bill_analysis(congress, bill_type, bill_number):
