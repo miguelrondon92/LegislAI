@@ -66,7 +66,7 @@ def bill_search():
     if query:
         try:
             # Search for bills using the Congress API
-            bills_data = congress_api.search_bills(query, congress=congress, limit=20, bill_type=bill_type if bill_type else None)
+            bills_data = congress_api.search_bills(query, limit=20)
             
             if bills_data:
                 bills = []

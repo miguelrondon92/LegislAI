@@ -54,8 +54,8 @@ function initializeTooltips() {
 function initializeSearch() {
     const searchForm = document.querySelector('form[action*="bill_search"]');
     if (searchForm) {
-        const searchInput = searchForm.querySelector('input[name="search_query"]');
-        const searchType = searchForm.querySelector('select[name="search_type"]');
+        const searchInput = searchForm.querySelector('input[name="q"]');
+        const searchType = searchForm.querySelector('select[name="type"]');
         
         // Add search suggestions
         if (searchInput) {
@@ -154,8 +154,10 @@ function hideSearchSuggestions() {
  * Validate search form
  */
 function validateSearchForm(form) {
-    const searchQuery = form.querySelector('input[name="search_query"]').value.trim();
-    const searchType = form.querySelector('select[name="search_type"]').value;
+    const searchInput = form.querySelector('input[name="q"]');
+    const searchQuery = searchInput ? searchInput.value.trim() : '';
+    const searchTypeEl = form.querySelector('select[name="type"]');
+    const searchType = searchTypeEl ? searchTypeEl.value : '';
     
     if (!searchQuery) {
         showNotification('Please enter a search term', 'warning');
