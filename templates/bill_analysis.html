@@ -1,0 +1,532 @@
+{% extends "base.html" %}
+
+{% block title %}{{ bill.get_bill_identifier() }} Analysis - Legislative Analysis Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Bill Header -->
+    <div class="col-12 mb-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2 class="card-title mb-2">
+                            {{ bill.get_bill_identifier() }}
+                            <span class="badge bg-light text-dark ms-2">{{ bill.congress }}th Congress</span>
+                        </h2>
+                        {% if bill.title %}
+                        <h5 class="card-subtitle mb-3 opacity-75">{{ bill.title }}</h5>
+                        {% endif %}
+                        <div class="row">
+                            {% if bill.sponsor_name %}
+                            <div class="col-md-6">
+                                <small>
+                                    <i data-feather="user" class="me-1" style="width: 16px; height: 16px;"></i>
+                                    <strong>Sponsor:</strong> {{ bill.sponsor_name }}
+                                    {% if bill.sponsor_party and bill.sponsor_state %}
+                                        ({{ bill.sponsor_party }}-{{ bill.sponsor_state }})
+                                    {% endif %}
+                                </small>
+                            </div>
+                            {% endif %}
+                            {% if bill.introduced_date %}
+                            <div class="col-md-6">
+                                <small>
+                                    <i data-feather="calendar" class="me-1" style="width: 16px; height: 16px;"></i>
+                                    <strong>Introduced:</strong> {{ bill.introduced_date.strftime('%B %d, %Y') }}
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <a href="{{ url_for('add_to_watchlist', bill_id=bill.id) }}" class="btn btn-light btn-lg">
+                            <i data-feather="bookmark" class="me-2"></i>Add to Watchlist
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if alignment_score is not none %}
+<!-- User Alignment Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-{{ 'success' if alignment_score > 0 else 'warning' if alignment_score < 0 else 'secondary' }}">
+            <div class="card-header bg-{{ 'success' if alignment_score > 0 else 'warning' if alignment_score < 0 else 'secondary' }} text-white">
+                <h5 class="mb-0">
+                    <i data-feather="target" class="me-2"></i>
+                    Your Policy Alignment: {{ "%.0f"|format(alignment_score) }}%
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <!-- Alignment Chart -->
+                        <canvas id="alignmentChart" width="300" height="200"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        {% if user_analysis %}
+                        <h6>Personalized Analysis</h6>
+                        <p><strong>Impact:</strong> {{ user_analysis.personal_impact }}</p>
+                        
+                        {% if user_analysis.key_concerns %}
+                        <div class="mb-3">
+                            <h6 class="text-warning">Key Concerns:</h6>
+                            <ul class="list-unstyled">
+                                {% for concern in user_analysis.key_concerns %}
+                                <li><i data-feather="alert-triangle" class="me-1 text-warning" style="width: 16px; height: 16px;"></i>{{ concern }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        {% if user_analysis.potential_benefits %}
+                        <div class="mb-3">
+                            <h6 class="text-success">Potential Benefits:</h6>
+                            <ul class="list-unstyled">
+                                {% for benefit in user_analysis.potential_benefits %}
+                                <li><i data-feather="check" class="me-1 text-success" style="width: 16px; height: 16px;"></i>{{ benefit }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Bill Analysis -->
+    <div class="col-lg-8 mb-4">
+        <!-- Bill Summary -->
+        {% if analysis and analysis.summary %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="file-text" class="me-2"></i>
+                    Bill Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                {% set summary = analysis.summary %}
+                <h6>Overview</h6>
+                <p>{{ summary.main_summary }}</p>
+                
+                {% if summary.key_provisions %}
+                <h6>Key Provisions</h6>
+                <ul>
+                    {% for provision in summary.key_provisions %}
+                    <li>{{ provision }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                
+                <div class="row">
+                    {% if summary.funding_amounts %}
+                    <div class="col-md-6">
+                        <h6>Funding</h6>
+                        <p class="text-muted">{{ summary.funding_amounts }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if summary.implementation_timeline %}
+                    <div class="col-md-6">
+                        <h6>Timeline</h6>
+                        <p class="text-muted">{{ summary.implementation_timeline }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if summary.plain_language_explanation %}
+                <div class="alert alert-info" role="alert">
+                    <h6 class="alert-heading">Plain Language Summary</h6>
+                    {{ summary.plain_language_explanation }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Policy Analysis -->
+        {% if analysis and analysis.policy_implications %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="layers" class="me-2"></i>
+                    Policy Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                {% set policy = analysis.policy_implications %}
+                
+                <div class="row mb-3">
+                    {% if policy.primary_policy_area %}
+                    <div class="col-md-6">
+                        <h6>Primary Policy Area</h6>
+                        <span class="badge bg-primary fs-6">{{ policy.primary_policy_area.title() }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if policy.bipartisan_potential %}
+                    <div class="col-md-6">
+                        <h6>Bipartisan Potential</h6>
+                        <span class="badge bg-info fs-6">{{ policy.bipartisan_potential }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if policy.secondary_areas %}
+                <div class="mb-3">
+                    <h6>Secondary Policy Areas</h6>
+                    {% for area in policy.secondary_areas %}
+                    <span class="badge bg-secondary me-1">{{ area.title() }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                {% if policy.categories %}
+                <h6>Policy Impact by Area</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Policy Area</th>
+                                <th>Impact Level</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category in policy.categories %}
+                            <tr>
+                                <td>{{ category.area.title() }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if category.impact_level == 'high' else 'warning' if category.impact_level == 'medium' else 'secondary' }}">
+                                        {{ category.impact_level.title() }}
+                                    </span>
+                                </td>
+                                <td>{{ category.description }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+                
+                {% if policy.controversial_aspects %}
+                <div class="alert alert-warning" role="alert">
+                    <h6 class="alert-heading">Potentially Controversial Aspects</h6>
+                    <ul class="mb-0">
+                        {% for aspect in policy.controversial_aspects %}
+                        <li>{{ aspect }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Stakeholder Analysis -->
+        {% if analysis and analysis.stakeholders %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="users" class="me-2"></i>
+                    Stakeholder Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                {% set stakeholders = analysis.stakeholders %}
+                
+                {% if stakeholders.affected_groups %}
+                <h6>Affected Groups</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Group</th>
+                                <th>Impact</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for group in stakeholders.affected_groups %}
+                            <tr>
+                                <td>{{ group.group }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if group.impact_type == 'positive' else 'danger' if group.impact_type == 'negative' else 'warning' }}">
+                                        {{ group.impact_type.title() }}
+                                    </span>
+                                </td>
+                                <td>{{ group.impact_description }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+                
+                {% if stakeholders.winners_losers %}
+                <div class="row">
+                    {% if stakeholders.winners_losers.potential_winners %}
+                    <div class="col-md-4">
+                        <h6 class="text-success">Potential Winners</h6>
+                        <ul class="list-unstyled">
+                            {% for winner in stakeholders.winners_losers.potential_winners %}
+                            <li><i data-feather="thumbs-up" class="me-1 text-success" style="width: 16px; height: 16px;"></i>{{ winner }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if stakeholders.winners_losers.potential_losers %}
+                    <div class="col-md-4">
+                        <h6 class="text-danger">Potential Losers</h6>
+                        <ul class="list-unstyled">
+                            {% for loser in stakeholders.winners_losers.potential_losers %}
+                            <li><i data-feather="thumbs-down" class="me-1 text-danger" style="width: 16px; height: 16px;"></i>{{ loser }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if stakeholders.winners_losers.neutral_parties %}
+                    <div class="col-md-4">
+                        <h6 class="text-muted">Neutral Impact</h6>
+                        <ul class="list-unstyled">
+                            {% for neutral in stakeholders.winners_losers.neutral_parties %}
+                            <li><i data-feather="minus" class="me-1 text-muted" style="width: 16px; height: 16px;"></i>{{ neutral }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                {% if stakeholders.geographic_impact %}
+                <div class="alert alert-info" role="alert">
+                    <strong>Geographic Impact:</strong> {{ stakeholders.geographic_impact }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Bill Details -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i data-feather="info" class="me-2"></i>
+                    Bill Details
+                </h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td><strong>Bill Number:</strong></td>
+                        <td>{{ bill.get_bill_identifier() }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Congress:</strong></td>
+                        <td>{{ bill.congress }}th</td>
+                    </tr>
+                    {% if bill.status %}
+                    <tr>
+                        <td><strong>Status:</strong></td>
+                        <td><small>{{ bill.status[:50] }}{% if bill.status|length > 50 %}...{% endif %}</small></td>
+                    </tr>
+                    {% endif %}
+                    {% if bill.last_action_date %}
+                    <tr>
+                        <td><strong>Last Action:</strong></td>
+                        <td>{{ bill.last_action_date.strftime('%m/%d/%Y') }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+                
+                {% if bill.congress_api_url %}
+                <div class="d-grid">
+                    <a href="{{ bill.congress_api_url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i data-feather="external-link" class="me-1"></i>
+                        View on Congress.gov
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Complexity Assessment -->
+        {% if analysis and analysis.complexity_assessment %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i data-feather="trending-up" class="me-2"></i>
+                    Complexity Assessment
+                </h6>
+            </div>
+            <div class="card-body">
+                {% set complexity = analysis.complexity_assessment %}
+                
+                {% if complexity.complexity_score %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span>Complexity Score</span>
+                        <span class="badge bg-{{ 'danger' if complexity.complexity_score > 80 else 'warning' if complexity.complexity_score > 60 else 'info' }}">
+                            {{ complexity.complexity_score }}/100
+                        </span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-{{ 'danger' if complexity.complexity_score > 80 else 'warning' if complexity.complexity_score > 60 else 'info' }}" 
+                             style="width: {{ complexity.complexity_score }}%"></div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <table class="table table-sm table-borderless">
+                    {% if complexity.reading_level %}
+                    <tr>
+                        <td><strong>Reading Level:</strong></td>
+                        <td>{{ complexity.reading_level }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if complexity.implementation_difficulty %}
+                    <tr>
+                        <td><strong>Implementation:</strong></td>
+                        <td>{{ complexity.implementation_difficulty }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if complexity.scope_of_impact %}
+                    <tr>
+                        <td><strong>Scope:</strong></td>
+                        <td>{{ complexity.scope_of_impact }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if complexity.urgency_level %}
+                    <tr>
+                        <td><strong>Urgency:</strong></td>
+                        <td>{{ complexity.urgency_level }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Quick Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i data-feather="zap" class="me-2"></i>
+                    Quick Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('add_to_watchlist', bill_id=bill.id) }}" class="btn btn-outline-primary">
+                        <i data-feather="bookmark" class="me-2"></i>
+                        Add to Watchlist
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary" onclick="shareAnalysis()">
+                        <i data-feather="share-2" class="me-2"></i>
+                        Share Analysis
+                    </button>
+                    <a href="{{ url_for('bill_search') }}" class="btn btn-outline-info">
+                        <i data-feather="arrow-left" class="me-2"></i>
+                        Back to Search
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if alignment_score is not none %}
+<!-- Alignment Chart Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('alignmentChart').getContext('2d');
+    const alignmentScore = {{ alignment_score }};
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Alignment', 'Neutral'],
+            datasets: [{
+                data: [Math.abs(alignmentScore), 100 - Math.abs(alignmentScore)],
+                backgroundColor: [
+                    alignmentScore > 0 ? '#198754' : '#dc3545',
+                    '#6c757d'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.dataIndex === 0) {
+                                return `${alignmentScore > 0 ? 'Alignment' : 'Conflict'}: ${Math.abs(alignmentScore)}%`;
+                            }
+                            return null;
+                        }
+                    }
+                }
+            },
+            cutout: '70%'
+        },
+        plugins: [{
+            beforeDraw: function(chart) {
+                const width = chart.width,
+                      height = chart.height,
+                      ctx = chart.ctx;
+                
+                ctx.restore();
+                const fontSize = (height / 114).toFixed(2);
+                ctx.font = fontSize + "em sans-serif";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = alignmentScore > 0 ? '#198754' : '#dc3545';
+                
+                const text = `${alignmentScore > 0 ? '+' : ''}${alignmentScore}%`;
+                const textX = Math.round((width - ctx.measureText(text).width) / 2);
+                const textY = height / 2;
+                
+                ctx.fillText(text, textX, textY);
+                ctx.save();
+            }
+        }]
+    });
+});
+
+function shareAnalysis() {
+    if (navigator.share) {
+        navigator.share({
+            title: '{{ bill.get_bill_identifier() }} Analysis',
+            text: 'Check out this legislative analysis',
+            url: window.location.href
+        });
+    } else {
+        // Fallback - copy to clipboard
+        navigator.clipboard.writeText(window.location.href).then(function() {
+            alert('Link copied to clipboard!');
+        });
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

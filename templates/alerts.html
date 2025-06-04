@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts - Legislative Analysis Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2 class="card-title mb-2">
+                            <i data-feather="bell" class="me-2"></i>
+                            Legislative Alerts
+                        </h2>
+                        <p class="card-text mb-0">
+                            Stay informed about bills that match or conflict with your policy preferences.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-dark" onclick="markAllAsRead()">
+                                <i data-feather="check-circle" class="me-2"></i>Mark All Read
+                            </button>
+                            <a href="{{ url_for('profile') }}" class="btn btn-outline-dark">
+                                <i data-feather="settings" class="me-2"></i>Alert Settings
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Unread Alerts -->
+    {% if unread_alerts %}
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i data-feather="bell" class="me-2"></i>
+                    Unread Alerts ({{ unread_alerts|length }})
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for alert in unread_alerts %}
+                    <div class="list-group-item list-group-item-action alert-item" data-alert-id="{{ alert.id }}">
+                        <div class="row align-items-start">
+                            <div class="col-md-8">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i data-feather="{{ 'thumbs-up' if alert.alert_type == 'alignment' else 'thumbs-down' if alert.alert_type == 'conflict' else 'file-text' }}" 
+                                       class="me-2 text-{{ 'success' if alert.alert_type == 'alignment' else 'danger' if alert.alert_type == 'conflict' else 'info' }}" 
+                                       style="width: 20px; height: 20px;"></i>
+                                    <h6 class="mb-0 flex-grow-1">{{ alert.title }}</h6>
+                                    <span class="badge bg-{{ 'danger' if alert.priority == 'high' else 'warning' if alert.priority == 'medium' else 'secondary' }} ms-2">
+                                        {{ alert.priority.title() }}
+                                    </span>
+                                </div>
+                                
+                                <p class="mb-2">{{ alert.message }}</p>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            <i data-feather="calendar" style="width: 14px; height: 14px;"></i>
+                                            {{ alert.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                                        </small>
+                                    </div>
+                                    {% if alert.alignment_score %}
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            <i data-feather="target" style="width: 14px; height: 14px;"></i>
+                                            Alignment Score: {{ "%.0f"|format(alert.alignment_score) }}%
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if alert.bill %}
+                                <div class="mt-2">
+                                    <a href="{{ url_for('bill_analysis', congress=alert.bill.congress, bill_type=alert.bill.bill_type, bill_number=alert.bill.bill_number) }}" 
+                                       class="btn btn-outline-primary btn-sm me-2">
+                                        <i data-feather="eye" class="me-1"></i>View Bill Analysis
+                                    </a>
+                                    <small class="text-muted">{{ alert.bill.get_bill_identifier() }}</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-4 text-md-end">
+                                {% if alert.alignment_score %}
+                                <div class="mb-3">
+                                    <canvas class="alignment-mini-chart" data-score="{{ alert.alignment_score }}" width="80" height="80"></canvas>
+                                </div>
+                                {% endif %}
+                                
+                                <div class="btn-group-vertical w-100" role="group">
+                                    <a href="{{ url_for('mark_alert_read', alert_id=alert.id) }}" class="btn btn-success btn-sm">
+                                        <i data-feather="check" class="me-1"></i>Mark as Read
+                                    </a>
+                                    {% if alert.bill %}
+                                    <a href="{{ url_for('add_to_watchlist', bill_id=alert.bill.id) }}" class="btn btn-outline-secondary btn-sm">
+                                        <i data-feather="bookmark" class="me-1"></i>Add to Watchlist
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Read Alerts -->
+    {% if read_alerts %}
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i data-feather="archive" class="me-2"></i>
+                    Previous Alerts ({{ read_alerts|length }})
+                </h5>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#readAlertsCollapse" aria-expanded="false">
+                    <i data-feather="eye" class="me-1"></i>Show/Hide
+                </button>
+            </div>
+            <div class="collapse" id="readAlertsCollapse">
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for alert in read_alerts[:10] %}  <!-- Show only last 10 read alerts -->
+                        <div class="list-group-item opacity-75">
+                            <div class="row align-items-center">
+                                <div class="col-md-10">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i data-feather="{{ 'thumbs-up' if alert.alert_type == 'alignment' else 'thumbs-down' if alert.alert_type == 'conflict' else 'file-text' }}" 
+                                           class="me-2 text-muted" style="width: 16px; height: 16px;"></i>
+                                        <h6 class="mb-0 text-muted">{{ alert.title }}</h6>
+                                        {% if alert.alignment_score %}
+                                        <span class="badge bg-secondary ms-2">{{ "%.0f"|format(alert.alignment_score) }}%</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="mb-1 text-muted small">{{ alert.message[:100] }}{% if alert.message|length > 100 %}...{% endif %}</p>
+                                    <small class="text-muted">
+                                        <i data-feather="calendar" style="width: 12px; height: 12px;"></i>
+                                        {{ alert.created_at.strftime('%m/%d/%Y') }}
+                                        {% if alert.bill %}
+                                        • {{ alert.bill.get_bill_identifier() }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    {% if alert.bill %}
+                                    <a href="{{ url_for('bill_analysis', congress=alert.bill.congress, bill_type=alert.bill.bill_type, bill_number=alert.bill.bill_number) }}" 
+                                       class="btn btn-outline-secondary btn-sm">
+                                        <i data-feather="eye" class="me-1"></i>View
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        {% if read_alerts|length > 10 %}
+                        <div class="list-group-item text-center">
+                            <small class="text-muted">
+                                ... and {{ read_alerts|length - 10 }} more alerts
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- No Alerts State -->
+    {% if not unread_alerts and not read_alerts %}
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i data-feather="bell-off" class="mb-3 text-muted" style="width: 64px; height: 64px;"></i>
+            <h4 class="text-muted">No Alerts Yet</h4>
+            <p class="text-muted">
+                You haven't received any alerts yet. Make sure you've set up your policy preferences<br>
+                and enabled alerts to start receiving notifications about relevant bills.
+            </p>
+            
+            <div class="row mt-4">
+                <div class="col-md-4 offset-md-2">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Set Up Preferences</h6>
+                            <p class="card-text small">
+                                Configure your policy interests to receive personalized alerts.
+                            </p>
+                            <a href="{{ url_for('profile') }}" class="btn btn-primary btn-sm">
+                                <i data-feather="settings" class="me-1"></i>Configure
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Search Bills</h6>
+                            <p class="card-text small">
+                                Find bills of interest and add them to your watchlist.
+                            </p>
+                            <a href="{{ url_for('bill_search') }}" class="btn btn-primary btn-sm">
+                                <i data-feather="search" class="me-1"></i>Search
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Alert Statistics -->
+{% if unread_alerts or read_alerts %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="bar-chart-2" class="me-2"></i>
+                    Alert Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h4 class="mb-0 text-primary">{{ unread_alerts|length }}</h4>
+                            <small class="text-muted">Unread Alerts</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h4 class="mb-0 text-info">{{ read_alerts|length }}</h4>
+                            <small class="text-muted">Total Alerts</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h4 class="mb-0 text-success">
+                                {{ unread_alerts|selectattr('alert_type', 'equalto', 'alignment')|list|length + read_alerts|selectattr('alert_type', 'equalto', 'alignment')|list|length }}
+                            </h4>
+                            <small class="text-muted">Positive Alignments</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="mb-0 text-warning">
+                            {{ unread_alerts|selectattr('alert_type', 'equalto', 'conflict')|list|length + read_alerts|selectattr('alert_type', 'equalto', 'conflict')|list|length }}
+                        </h4>
+                        <small class="text-muted">Policy Conflicts</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize mini alignment charts
+    document.querySelectorAll('.alignment-mini-chart').forEach(initMiniChart);
+    
+    // Auto-refresh alerts every 5 minutes
+    setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            checkForNewAlerts();
+        }
+    }, 300000); // 5 minutes
+});
+
+function initMiniChart(canvas) {
+    const ctx = canvas.getContext('2d');
+    const score = parseFloat(canvas.getAttribute('data-score'));
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [Math.abs(score), 100 - Math.abs(score)],
+                backgroundColor: [
+                    score > 0 ? '#198754' : '#dc3545',
+                    '#6c757d'
+                ],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
+            },
+            cutout: '60%'
+        },
+        plugins: [{
+            beforeDraw: function(chart) {
+                const width = chart.width,
+                      height = chart.height,
+                      ctx = chart.ctx;
+                
+                ctx.restore();
+                ctx.font = "12px sans-serif";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = score > 0 ? '#198754' : '#dc3545';
+                
+                const text = `${score > 0 ? '+' : ''}${score.toFixed(0)}%`;
+                const textX = Math.round((width - ctx.measureText(text).width) / 2);
+                const textY = height / 2;
+                
+                ctx.fillText(text, textX, textY);
+                ctx.save();
+            }
+        }]
+    });
+}
+
+function markAllAsRead() {
+    const unreadAlerts = document.querySelectorAll('.alert-item[data-alert-id]');
+    if (unreadAlerts.length === 0) {
+        alert('No unread alerts to mark as read.');
+        return;
+    }
+    
+    if (confirm(`Mark all ${unreadAlerts.length} alerts as read?`)) {
+        // For simplicity, redirect to mark each alert - in production, you'd use a batch endpoint
+        const alertIds = Array.from(unreadAlerts).map(el => el.getAttribute('data-alert-id'));
+        
+        // Mark first alert as read, then reload page
+        if (alertIds.length > 0) {
+            window.location.href = `/mark_alert_read/${alertIds[0]}`;
+        }
+    }
+}
+
+function checkForNewAlerts() {
+    // Simple check for new alerts by looking at the current count
+    // In a real app, you'd use a proper API endpoint
+    fetch('/api/generate_alerts')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.users_processed > 0) {
+                // Show subtle notification that new alerts may be available
+                showNotification('New alerts may be available. Refresh to see updates.', 'info');
+            }
+        })
+        .catch(error => {
+            console.error('Error checking for new alerts:', error);
+        });
+}
+
+function showNotification(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

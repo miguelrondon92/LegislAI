@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}Policy Preferences Setup - Legislative Analysis Platform{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-2">
+            <i class="fas fa-user-cog me-2"></i>
+            Policy Preferences Setup
+        </h1>
+        <p class="text-muted">
+            Configure your policy preferences to receive personalized bill analysis and alerts.
+            Use the sliders to indicate your stance on different policy areas.
+        </p>
+    </div>
+</div>
+
+<!-- Progress Indicator -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center py-3">
+                <h5 class="mb-2">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    How It Works
+                </h5>
+                <p class="mb-0">
+                    Move sliders left for opposition (-100%) or right for support (+100%). 
+                    Neutral (0%) means you have no strong preference. These preferences will be used to calculate 
+                    alignment scores with congressional bills.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preferences Form -->
+<form method="POST" action="{{ url_for('save_profile') }}" id="preferencesForm">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sliders-h me-2"></i>
+                        Policy Categories
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for category in categories %}
+                        <div class="col-md-6 mb-4">
+                            <div class="policy-category-card">
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas {{ category.icon }} fa-2x text-{{ category.color }} me-3"></i>
+                                    <div>
+                                        <h6 class="mb-1">{{ category.name }}</h6>
+                                        <small class="text-muted">{{ category.description }}</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="policy-slider-container">
+                                    <div class="d-flex justify-content-between text-muted small mb-2">
+                                        <span><i class="fas fa-thumbs-down"></i> Oppose</span>
+                                        <span>Neutral</span>
+                                        <span><i class="fas fa-thumbs-up"></i> Support</span>
+                                    </div>
+                                    
+                                    <input type="range" 
+                                           class="form-range policy-slider" 
+                                           min="-100" 
+                                           max="100" 
+                                           step="5"
+                                           value="{{ user_preferences.get(category.name, 0) }}"
+                                           name="pref_{{ category.name.lower().replace(' ', '_') }}"
+                                           id="slider_{{ category.name.lower().replace(' ', '_') }}"
+                                           data-category="{{ category.name }}">
+                                    
+                                    <div class="slider-value-display text-center mt-2">
+                                        <span class="badge bg-secondary" 
+                                              id="value_{{ category.name.lower().replace(' ', '_') }}">
+                                            {{ user_preferences.get(category.name, 0) }}%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <button type="button" class="btn btn-outline-secondary me-3" onclick="resetToDefaults()">
+                <i class="fas fa-undo me-1"></i>
+                Reset to Defaults
+            </button>
+            
+            <button type="button" class="btn btn-outline-info me-3" onclick="showPreview()">
+                <i class="fas fa-eye me-1"></i>
+                Preview Analysis
+            </button>
+            
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-save me-1"></i>
+                Save Preferences
+            </button>
+        </div>
+    </div>
+</form>
+
+<!-- Preferences Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Your Policy Profile Preview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-success">Strong Support (70%+)</h6>
+                        <ul id="strongSupport" class="list-unstyled"></ul>
+                        
+                        <h6 class="text-info">Moderate Support (30-69%)</h6>
+                        <ul id="moderateSupport" class="list-unstyled"></ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-warning">Moderate Opposition (-30 to -69%)</h6>
+                        <ul id="moderateOpposition" class="list-unstyled"></ul>
+                        
+                        <h6 class="text-danger">Strong Opposition (-70% or less)</h6>
+                        <ul id="strongOpposition" class="list-unstyled"></ul>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <canvas id="previewChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Close
+                </button>
+                <button type="button" class="btn btn-primary" onclick="$('#preferencesForm').submit();">
+                    Save These Preferences
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Setup Presets -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-magic me-2"></i>
+                    Quick Setup Presets
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    Get started quickly with these common political profiles. You can always adjust individual preferences afterward.
+                </p>
+                
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <div class="card border-primary">
+                            <div class="card-body text-center">
+                                <h6 class="card-title text-primary">Progressive</h6>
+                                <p class="card-text small">
+                                    Strong support for environment, healthcare, education, civil rights
+                                </p>
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="applyPreset('progressive')">
+                                    Apply Preset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="card border-danger">
+                            <div class="card-body text-center">
+                                <h6 class="card-title text-danger">Conservative</h6>
+                                <p class="card-text small">
+                                    Strong support for defense, traditional values, fiscal responsibility
+                                </p>
+                                <button type="button" class="btn btn-outline-danger btn-sm" 
+                                        onclick="applyPreset('conservative')">
+                                    Apply Preset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="card border-warning">
+                            <div class="card-body text-center">
+                                <h6 class="card-title text-warning">Libertarian</h6>
+                                <p class="card-text small">
+                                    Limited government, individual freedoms, free market economics
+                                </p>
+                                <button type="button" class="btn btn-outline-warning btn-sm" 
+                                        onclick="applyPreset('libertarian')">
+                                    Apply Preset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="card border-info">
+                            <div class="card-body text-center">
+                                <h6 class="card-title text-info">Moderate</h6>
+                                <p class="card-text small">
+                                    Balanced approach, case-by-case evaluation of policies
+                                </p>
+                                <button type="button" class="btn btn-outline-info btn-sm" 
+                                        onclick="applyPreset('moderate')">
+                                    Apply Preset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-light" role="alert">
+            <h6 class="alert-heading">
+                <i class="fas fa-question-circle me-2"></i>
+                How are these preferences used?
+            </h6>
+            <ul class="mb-0">
+                <li>Bills are analyzed by AI to identify their policy categories and impacts</li>
+                <li>Your preferences are compared against bill categories to generate alignment scores</li>
+                <li>Alignment scores range from -100% (strong conflict) to +100% (strong alignment)</li>
+                <li>You'll receive alerts for bills that strongly align with or conflict with your preferences</li>
+                <li>These preferences are stored locally and can be updated anytime</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/policy_slider.js') }}"></script>
+<script>
+// Preset configurations
+const presets = {
+    progressive: {
+        'Healthcare': 80, 'Environment': 90, 'Education': 85, 'Civil Rights': 90,
+        'Social Services': 75, 'Immigration': 60, 'Technology': 50, 'Justice': 40,
+        'Defense': -20, 'Economy': 30, 'Energy': 70, 'Agriculture': 40,
+        'Transportation': 60, 'Tax Policy': 50, 'Trade': 30
+    },
+    conservative: {
+        'Defense': 85, 'Economy': 80, 'Tax Policy': -60, 'Trade': 70,
+        'Agriculture': 60, 'Energy': 40, 'Transportation': 50, 'Justice': 75,
+        'Healthcare': -30, 'Environment': -40, 'Social Services': -50, 'Immigration': -40,
+        'Education': 20, 'Technology': 30, 'Civil Rights': 10
+    },
+    libertarian: {
+        'Economy': 90, 'Tax Policy': -80, 'Trade': 85, 'Technology': 70,
+        'Civil Rights': 60, 'Justice': -30, 'Defense': -20, 'Healthcare': -60,
+        'Education': -40, 'Social Services': -70, 'Environment': 20, 'Immigration': 40,
+        'Agriculture': -30, 'Transportation': -20, 'Energy': 50
+    },
+    moderate: {
+        'Healthcare': 20, 'Environment': 30, 'Economy': 40, 'Education': 50,
+        'Defense': 30, 'Immigration': 10, 'Technology': 40, 'Agriculture': 20,
+        'Transportation': 30, 'Energy': 20, 'Justice': 20, 'Social Services': 25,
+        'Tax Policy': 0, 'Trade': 30, 'Civil Rights': 40
+    }
+};
+
+function applyPreset(presetName) {
+    if (!confirm(`Apply the ${presetName} preset? This will override your current settings.`)) {
+        return;
+    }
+    
+    const preset = presets[presetName];
+    const sliders = document.querySelectorAll('.policy-slider');
+    
+    sliders.forEach(slider => {
+        const category = slider.dataset.category;
+        if (preset[category] !== undefined) {
+            slider.value = preset[category];
+            updateSliderDisplay(slider);
+        }
+    });
+    
+    showAlert(`Applied ${presetName} preset successfully!`, 'success');
+}
+
+function resetToDefaults() {
+    if (!confirm('Reset all preferences to neutral (0%)? This will clear your current settings.')) {
+        return;
+    }
+    
+    const sliders = document.querySelectorAll('.policy-slider');
+    sliders.forEach(slider => {
+        slider.value = 0;
+        updateSliderDisplay(slider);
+    });
+    
+    showAlert('All preferences reset to neutral.', 'info');
+}
+
+function showPreview() {
+    const preferences = getCurrentPreferences();
+    updatePreviewModal(preferences);
+    
+    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+}
+
+function getCurrentPreferences() {
+    const preferences = {};
+    const sliders = document.querySelectorAll('.policy-slider');
+    
+    sliders.forEach(slider => {
+        preferences[slider.dataset.category] = parseInt(slider.value);
+    });
+    
+    return preferences;
+}
+
+function updatePreviewModal(preferences) {
+    // Clear existing lists
+    document.getElementById('strongSupport').innerHTML = '';
+    document.getElementById('moderateSupport').innerHTML = '';
+    document.getElementById('moderateOpposition').innerHTML = '';
+    document.getElementById('strongOpposition').innerHTML = '';
+    
+    // Categorize preferences
+    Object.entries(preferences).forEach(([category, value]) => {
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `<i class="fas fa-circle me-2"></i>${category}: ${value}%`;
+        
+        if (value >= 70) {
+            document.getElementById('strongSupport').appendChild(listItem);
+        } else if (value >= 30) {
+            document.getElementById('moderateSupport').appendChild(listItem);
+        } else if (value <= -70) {
+            document.getElementById('strongOpposition').appendChild(listItem);
+        } else if (value <= -30) {
+            document.getElementById('moderateOpposition').appendChild(listItem);
+        }
+    });
+    
+    // Create chart
+    const ctx = document.getElementById('previewChart').getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (window.previewChartInstance) {
+        window.previewChartInstance.destroy();
+    }
+    
+    const labels = Object.keys(preferences);
+    const data = Object.values(preferences);
+    
+    window.previewChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Policy Preference (%)',
+                data: data,
+                backgroundColor: data.map(value => {
+                    if (value > 50) return '#28a745';
+                    if (value > 0) return '#17a2b8';
+                    if (value > -50) return '#ffc107';
+                    return '#dc3545';
+                }),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    min: -100,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('main .container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// Form validation
+document.getElementById('preferencesForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalHTML = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving...';
+    submitBtn.disabled = true;
+    
+    // Submit form after brief delay (to show loading state)
+    setTimeout(() => {
+        this.submit();
+    }, 500);
+});
+</script>
+{% endblock %}
