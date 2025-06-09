@@ -1,0 +1,335 @@
+{
+    "actions": {
+        "actions": [
+            {
+                "actionCode": "E20000",
+                "actionDate": "2025-06-06",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "Presented to President.",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "28000",
+                "actionDate": "2025-06-06",
+                "sourceSystem": {
+                    "code": 9,
+                    "name": "Library of Congress"
+                },
+                "text": "Presented to President.",
+                "type": "President"
+            },
+            {
+                "actionDate": "2025-05-23",
+                "sourceSystem": {
+                    "name": "Senate"
+                },
+                "text": "Message on Senate action sent to the House.",
+                "type": "Floor"
+            },
+            {
+                "actionDate": "2025-05-22",
+                "recordedVotes": [
+                    {
+                        "chamber": "Senate",
+                        "congress": 119,
+                        "date": "2025-05-22T17:00:30Z",
+                        "rollNumber": 279,
+                        "sessionNumber": 1,
+                        "url": "https://www.senate.gov/legislative/LIS/roll_call_votes/vote1191/vote_119_1_00279.xml"
+                    }
+                ],
+                "sourceSystem": {
+                    "name": "Senate"
+                },
+                "text": "Passed Senate without amendment by Yea-Nay Vote. 51 - 45. Record Vote Number: 279.",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "17000",
+                "actionDate": "2025-05-22",
+                "recordedVotes": [
+                    {
+                        "chamber": "Senate",
+                        "congress": 119,
+                        "date": "2025-05-22T17:00:30Z",
+                        "rollNumber": 279,
+                        "sessionNumber": 1,
+                        "url": "https://www.senate.gov/legislative/LIS/roll_call_votes/vote1191/vote_119_1_00279.xml"
+                    }
+                ],
+                "sourceSystem": {
+                    "code": 9,
+                    "name": "Library of Congress"
+                },
+                "text": "Passed/agreed to in Senate: Passed Senate without amendment by Yea-Nay Vote. 51 - 45. Record Vote Number: 279.",
+                "type": "Floor"
+            },
+            {
+                "actionDate": "2025-05-22",
+                "sourceSystem": {
+                    "name": "Senate"
+                },
+                "text": "Measure laid before Senate by motion. (consideration: CR S3102, S3105)",
+                "type": "Floor"
+            },
+            {
+                "actionDate": "2025-05-22",
+                "recordedVotes": [
+                    {
+                        "chamber": "Senate",
+                        "congress": 119,
+                        "date": "2025-05-22T15:57:19Z",
+                        "rollNumber": 278,
+                        "sessionNumber": 1,
+                        "url": "https://www.senate.gov/legislative/LIS/roll_call_votes/vote1191/vote_119_1_00278.xml"
+                    }
+                ],
+                "sourceSystem": {
+                    "name": "Senate"
+                },
+                "text": "Motion to proceed to consideration of measure agreed to in Senate by Yea-Nay Vote. 51 - 46. Record Vote Number: 278.",
+                "type": "Floor"
+            },
+            {
+                "actionDate": "2025-05-21",
+                "sourceSystem": {
+                    "name": "Senate"
+                },
+                "text": "Received in the Senate, read twice.",
+                "type": "IntroReferral"
+            },
+            {
+                "actionCode": "H38310",
+                "actionDate": "2025-04-30",
+                "actionTime": "17:42:58",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "Motion to reconsider laid on the table Agreed to without objection.",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H37100",
+                "actionDate": "2025-04-30",
+                "actionTime": "17:42:57",
+                "recordedVotes": [
+                    {
+                        "chamber": "House",
+                        "congress": 119,
+                        "date": "2025-04-30T21:42:57Z",
+                        "rollNumber": 111,
+                        "sessionNumber": 1,
+                        "url": "https://clerk.house.gov/evs/2025/roll111.xml"
+                    }
+                ],
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "On passage Passed by the Yeas and Nays: 231 - 191 (Roll no. 111). (text: CR H1741: 6)",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "8000",
+                "actionDate": "2025-04-30",
+                "actionTime": "17:42:57",
+                "recordedVotes": [
+                    {
+                        "chamber": "House",
+                        "congress": 119,
+                        "date": "2025-04-30T21:42:57Z",
+                        "rollNumber": 111,
+                        "sessionNumber": 1,
+                        "url": "https://clerk.house.gov/evs/2025/roll111.xml"
+                    }
+                ],
+                "sourceSystem": {
+                    "code": 9,
+                    "name": "Library of Congress"
+                },
+                "text": "Passed/agreed to in House: On passage Passed by the Yeas and Nays: 231 - 191 (Roll no. 111). (text: CR H1741: 6)",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H30000",
+                "actionDate": "2025-04-30",
+                "actionTime": "17:15:45",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "Considered as unfinished business. (consideration: CR H1759: 4)",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H8D000",
+                "actionDate": "2025-04-30",
+                "actionTime": "15:23:15",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "POSTPONED PROCEEDINGS - At the conclusion of debate on H.J. Res. 87, the Chair put the question on passage of the joint resolution and by voice vote, announced that the ayes had prevailed. Mr. Pallone demanded the yeas and nays and the Chair postponed further proceedings until a time to be announced.",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H35000",
+                "actionDate": "2025-04-30",
+                "actionTime": "15:22:20",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "The previous question was ordered pursuant to the rule.",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H8D000",
+                "actionDate": "2025-04-30",
+                "actionTime": "14:16:00",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "DEBATE - The House proceeded with one hour of debate on H.J. Res. 87.",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H8D000",
+                "actionDate": "2025-04-30",
+                "actionTime": "14:15:17",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "Rule provides for consideration of H.J. Res. 60, H.J. Res. 78, H.J. Res. 87, H.J. Res. 88 and H.J. Res. 89. The resolution provides for consideration of H.J. Res. 60, H.J. Res. 78, H.J. Res. 87, H.J. Res. 88, and H.J. Res. 89 under a closed rule with one hour of debate and one motion to recommit on each joint resolution.",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H30000",
+                "actionDate": "2025-04-30",
+                "actionTime": "14:15:12",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "Considered under the provisions of rule H. Res. 354. (consideration: CR H1741-1748: 6)",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H1L210",
+                "actionDate": "2025-04-28",
+                "actionTime": "19:35:46",
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "Rules Committee Resolution H. Res. 354 Reported to House. Rule provides for consideration of H.J. Res. 60, H.J. Res. 78, H.J. Res. 87, H.J. Res. 88 and H The resolution provides for consideration of H.J. Res. 60, H.J. Res. 78, H.J. Res. 87, H.J. Res. 88, and H.J. Res. 89 under a closed rule with one hour of debate and one motion to recommit on each joint resolution.",
+                "type": "Floor"
+            },
+            {
+                "actionCode": "H11100",
+                "actionDate": "2025-04-02",
+                "committees": [
+                    {
+                        "name": "Energy and Commerce Committee",
+                        "systemCode": "hsif00",
+                        "url": "https://api.congress.gov/v3/committee/house/hsif00?format=json"
+                    }
+                ],
+                "sourceSystem": {
+                    "code": 2,
+                    "name": "House floor actions"
+                },
+                "text": "Referred to the House Committee on Energy and Commerce.",
+                "type": "IntroReferral"
+            },
+            {
+                "actionCode": "Intro-H",
+                "actionDate": "2025-04-02",
+                "sourceSystem": {
+                    "code": 9,
+                    "name": "Library of Congress"
+                },
+                "text": "Introduced in House",
+                "type": "IntroReferral"
+            }
+        ],
+        "pagination": {
+            "count": 21,
+            "next": "https://api.congress.gov/v3/bill/119/hjres/87/actions?offset=20&limit=20&format=json"
+        },
+        "request": {
+            "billNumber": "87",
+            "billType": "hjres",
+            "billUrl": "https://api.congress.gov/v3/bill/119/hjres/87?format=json",
+            "congress": "119",
+            "contentType": "application/json",
+            "format": "json"
+        }
+    },
+    "committees": {
+        "count": 1,
+        "url": "https://api.congress.gov/v3/bill/119/hjres/87/committees?format=json"
+    },
+    "congress": 119,
+    "constitutionalAuthorityStatementText": "<pre>\n[Congressional Record Volume 171, Number 59 (Wednesday, April 2, 2025)]\n[House]\nFrom the Congressional Record Online through the Government Publishing Office [<a href=\"https://www.gpo.gov\">www.gpo.gov</a>]\nBy Mr. JAMES:\nH.J. Res. 87.\nCongress has the power to enact this legislation pursuant\nto the following:\nArticle I, Section 8, Clause 18\n[Page H1413]\n</pre>",
+    "cosponsors": {
+        "count": 24,
+        "countIncludingWithdrawnCosponsors": 24,
+        "url": "https://api.congress.gov/v3/bill/119/hjres/87/cosponsors?format=json"
+    },
+    "introducedDate": "2025-04-02",
+    "latestAction": {
+        "actionDate": "2025-06-06",
+        "text": "Presented to President."
+    },
+    "number": "87",
+    "originChamber": "House",
+    "originChamberCode": "H",
+    "policyArea": {
+        "name": "Environmental Protection"
+    },
+    "relatedBills": {
+        "count": 3,
+        "url": "https://api.congress.gov/v3/bill/119/hjres/87/relatedbills?format=json"
+    },
+    "sponsors": [
+        {
+            "bioguideId": "J000307",
+            "district": 10,
+            "firstName": "John",
+            "fullName": "Rep. James, John [R-MI-10]",
+            "isByRequest": "N",
+            "lastName": "James",
+            "party": "R",
+            "state": "MI",
+            "url": "https://api.congress.gov/v3/member/J000307?format=json"
+        }
+    ],
+    "subjects": {
+        "count": 8,
+        "url": "https://api.congress.gov/v3/bill/119/hjres/87/subjects?format=json"
+    },
+    "summaries": {
+        "count": 1,
+        "url": "https://api.congress.gov/v3/bill/119/hjres/87/summaries?format=json"
+    },
+    "textVersions": {
+        "count": 4,
+        "url": "https://api.congress.gov/v3/bill/119/hjres/87/text?format=json"
+    },
+    "title": "Providing congressional disapproval under chapter 8 of title 5, United States Code, of the rule submitted by the Environmental Protection Agency relating to \"California State Motor Vehicle and Engine Pollution Control Standards; Heavy-Duty Vehicle and Engine Emission Warranty and Maintenance Provisions; Advanced Clean Trucks; Zero Emission Airport Shuttle; Zero-Emission Power Train Certification; Waiver of Preemption; Notice of Decision\".",
+    "titles": {
+        "count": 2,
+        "url": "https://api.congress.gov/v3/bill/119/hjres/87/titles?format=json"
+    },
+    "type": "HJRES",
+    "updateDate": "2025-06-07T08:06:01Z",
+    "updateDateIncludingText": "2025-06-07T08:06:01Z",
+    "full_text": "\n[Congressional Bills 119th Congress]\n[From the U.S. Government Publishing Office]\n[H.J. Res. 87 Enrolled Bill (ENR)]\n\n        H.J.Res.87\n\n                     One Hundred Nineteenth Congress\n\n                                 of the\n\n                        United States of America\n\n\n                          AT THE FIRST SESSION\n\n           Begun and held at the City of Washington on Friday,\n         the third day of January, two thousand and twenty-five\n\n\n                            Joint Resolution\n\n\n \n Providing congressional disapproval under chapter 8 of title 5, United \n   States Code, of the rule submitted by the Environmental Protection \nAgency relating to ``California State Motor Vehicle and Engine Pollution \n Control Standards; Heavy-Duty Vehicle and Engine Emission Warranty and \n  Maintenance Provisions; Advanced Clean Trucks; Zero Emission Airport \nShuttle; Zero-Emission Power Train Certification; Waiver of Preemption; \n                          Notice of Decision''.\n\n    Resolved by the Senate and House of Representatives of the United \nStates of America in Congress assembled, That Congress disapproves the \nrule submitted by the Environmental Protection Agency relating to \n``California State Motor Vehicle and Engine Pollution Control \nStandards; Heavy-Duty Vehicle and Engine Emission Warranty and \nMaintenance Provisions; Advanced Clean Trucks; Zero Emission Airport \nShuttle; Zero-Emission Power Train Certification; Waiver of Preemption; \nNotice of Decision'' (88 Fed. Reg. 20688 (April 6, 2023)), and such \nrule shall have no force or effect.\n\n                               Speaker of the House of Representatives.\n\n                            Vice President of the United States and    \n                                               President of the Senate.\n\n"
+}

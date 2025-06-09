@@ -4,6 +4,10 @@ import time
 import logging
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
+import json
+import re
+
+CURRENT_CONGRESS = 119
 
 class CongressAPI:
     """Client for interacting with the Congress.gov API"""
@@ -51,15 +55,18 @@ class CongressAPI:
         try:
             # Parse bill identifier
             parts = bill_identifier.upper().replace('-', '').replace(' ', '')
+            print(parts)
             if parts.startswith('HR'):
                 bill_type = 'hr'
                 bill_number = parts[2:]
             elif parts.startswith('S') and not parts.startswith('SJRES'):
                 bill_type = 's'
                 bill_number = parts[1:]
-            elif parts.startswith('HJRES'):
+            elif parts.lower().replace(".","").startswith('hjres'):
                 bill_type = 'hjres'
-                bill_number = parts[5:]
+                bill_number = re.findall(r'\d+', parts)
+                bill_number = bill_number[-1]
+                print(f"bill_number: {bill_number}")
             elif parts.startswith('SJRES'):
                 bill_type = 'sjres'
                 bill_number = parts[5:]
@@ -68,7 +75,7 @@ class CongressAPI:
                 return None
             
             # Use current congress (118th)
-            congress = 118
+            congress = CURRENT_CONGRESS
             
             return self.get_bill_details(congress, bill_type, bill_number)
             
@@ -113,10 +120,6 @@ class CongressAPI:
         
         # Try to get the introduced version or the latest available
         latest_version = versions[0]
-        for version in versions:
-            if version.get('type') == 'Introduced in House' or version.get('type') == 'Introduced in Senate':
-                latest_version = version
-                break
         
         # Extract text content
         formats = latest_version.get('formats', [])
@@ -127,7 +130,7 @@ class CongressAPI:
                     try:
                         text_response = self.session.get(text_url, timeout=30)
                         if text_response.status_code == 200:
-                            return text_response.text
+                            return re.sub(r'<[^>]*>', '', text_response.text)
                     except Exception as e:
                         logging.error(f"Error fetching bill text: {str(e)}")
         
@@ -272,3 +275,8 @@ class CongressAPI:
                     continue
         
         return recent_bills
+
+if __name__ == "__main__":
+    c = CongressAPI()
+    bill = c.get_bill_by_number("H.J.Res.87")
+    print(json.dumps(bill, indent= 2))

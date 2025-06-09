@@ -2,19 +2,18 @@ import json
 import os
 import logging
 from typing import Dict, List, Optional
-from openai import OpenAI
-
+from google import genai
 
 class AIAnalyzer:
     """AI-powered legislative analysis using OpenAI"""
     
     def __init__(self):
-        self.api_key = os.environ.get('OPENAI_API_KEY')
+        self.api_key = os.environ.get('GEMENI_API_KEY')
         if not self.api_key:
             logging.warning("OpenAI API key not found. AI analysis will be disabled.")
             self.client = None
         else:
-            self.client = OpenAI(api_key=self.api_key)
+            self.client = genai.Client(api_key=self.api_key)
     
     def analyze_bill(self, bill) -> Dict:
         """Perform comprehensive AI analysis of a bill"""
@@ -76,7 +75,7 @@ class AIAnalyzer:
         
         if bill.full_text:
             # Limit text length for API efficiency
-            full_text = bill.full_text[:10000]  # Limit to first 10k characters
+            full_text = bill.full_text#[:10000]  # Limit to first 10k characters
             text_parts.append(f"Full Text: {full_text}")
         
         return "\n\n".join(text_parts)
@@ -257,31 +256,37 @@ Focus on major stakeholder groups like: businesses, consumers, workers, taxpayer
         try:
             # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
             # do not change this unless explicitly requested by the user
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """You are an expert at explaining complex legislation in plain language. 
-                        Create a clear, concise summary that explains:
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=f"""
+                You are an expert at explaining complex legislation in plain language.
+                Create a clear, concise summary that explains:
                         1. What the bill does
                         2. Who it affects
                         3. Key provisions
                         4. Potential impacts
-                        
-                        Write for a general audience without legal jargon."""
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Title: {title}\n\nBill Text:\n{bill_text[:4000]}"
-                    }
-                ],
-                temperature=0.4,
-                max_tokens=500
-            )
+                        Write for a general audience without legal jargon.
+                        bill title: {title}
+                        bill text: {bill_text}, also, do all of this in spanish"""
+                        )
             
-            return response.choices[0].message.content.strip()
+            return response.text
             
         except Exception as e:
             logging.error(f"Summary generation error: {str(e)}")
             return None
+
+if __name__ == "__main__": 
+    with open('test_data.json', 'r') as file:
+        bill = json.load(file)
+    ai = AIAnalyzer()
+    print(f"keys: {bill.keys()}")
+
+    bill_text = bill['full_text']
+    title = bill['title']
+    print(f"bill_text: {bill_text[:50]}")
+    print(f"bill title: {title}")
+
+    summary = ai.generate_bill_summary(bill_text, title)
+
+    print(f"summary: {summary}")
