@@ -1,24 +1,35 @@
 import json
 import os
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from google import genai
+from openai import OpenAI
+import re
+from datetime import datetime
+from utils.constants import FEDERAL_POLICY_CATEGORIES
+#from .notification_service import NotificationService
+
+logger = logging.getLogger(__name__)
 
 class AIAnalyzer:
-    """AI-powered legislative analysis using OpenAI"""
+    """AI-powered legislative analysis using Gemini"""
     
     def __init__(self):
         self.api_key = os.environ.get('GEMENI_API_KEY')
         if not self.api_key:
-            logging.warning("OpenAI API key not found. AI analysis will be disabled.")
+            logging.warning("Gemini API key not found. AI analysis will be disabled.")
             self.client = None
         else:
             self.client = genai.Client(api_key=self.api_key)
+        #self.notification_service = NotificationService()
+        
+        # Use the standardized federal policy categories
+        self.policy_categories = FEDERAL_POLICY_CATEGORIES
     
     def analyze_bill(self, bill) -> Dict:
         """Perform comprehensive AI analysis of a bill"""
         if not self.client:
-            logging.warning("OpenAI client not available")
+            logging.warning("Gemini client not available")
             return {}
         
         try:
@@ -36,7 +47,7 @@ class AIAnalyzer:
             categories = self._categorize_bill(text_to_analyze, bill.title)
             if categories:
                 bill.set_policy_categories(categories)
-                analysis_results['categories'] = categories
+                analysis_results['policy_implications'] = categories
             
             # 2. Stakeholder analysis
             stakeholders = self._analyze_stakeholders(text_to_analyze, bill.title)
@@ -55,6 +66,17 @@ class AIAnalyzer:
             if controversy is not None:
                 bill.controversy_score = controversy
                 analysis_results['controversy'] = controversy
+            
+            # 5. Generate summary
+            summary = self.generate_bill_summary(text_to_analyze, bill.title)
+            if summary:
+                analysis_results['summary'] = summary
+            
+            # Store the complete analysis
+            bill.set_ai_analysis(analysis_results)
+            
+            # Trigger notifications for this bill
+            # self.notification_service.process_new_bill_analysis(bill.id)
             
             return analysis_results
             
@@ -83,37 +105,40 @@ class AIAnalyzer:
     def _categorize_bill(self, bill_text: str, title: str) -> Optional[Dict]:
         """Categorize bill into policy domains with confidence scores"""
         try:
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-            # do not change this unless explicitly requested by the user
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """You are an expert policy analyst. Categorize the given bill into policy domains and assign confidence scores.
-                        
-Available categories: Healthcare, Environment, Economy, Education, Defense, Immigration, Technology, Agriculture, Transportation, Energy, Justice, Social Services, Tax Policy, Trade, Civil Rights.
-
-Return JSON with categories as keys and confidence scores (0-100) as values. Only include categories with confidence > 20."""
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Title: {title}\n\nBill Text:\n{bill_text[:3000]}"
-                    }
+            categories_list = ', '.join(self.policy_categories)
+            prompt = f"""
+            Analyze the policy implications of this congressional bill.
+            
+            Bill Title: {title}
+            Bill Text: {bill_text[:3000]}
+            
+            Categorize this bill and analyze its policy implications. Use ONLY the following categories for all policy area fields:
+            {categories_list}
+            
+            Respond in JSON format:
+            {{
+                "primary_policy_area": "The main policy area (must be one of the provided categories)",
+                "secondary_areas": ["list", "of", "secondary", "policy", "areas"],
+                "categories": [
+                    {{
+                        "area": "policy area name (must be one of the provided categories)",
+                        "impact_level": "low/medium/high",
+                        "description": "How this bill affects this area"
+                    }}
                 ],
-                response_format={"type": "json_object"},
-                temperature=0.3
+                "controversial_aspects": ["aspects that might be controversial"],
+                "bipartisan_potential": "Assessment of bipartisan support likelihood",
+                "main_themes": ["key", "themes", "in", "the", "bill"]
+            }}
+            """
+            
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
             )
             
-            result = json.loads(response.choices[0].message.content)
-            
-            # Validate and normalize scores
-            normalized_result = {}
-            for category, score in result.items():
-                if isinstance(score, (int, float)) and 0 <= score <= 100:
-                    normalized_result[category] = float(score)
-            
-            return normalized_result if normalized_result else None
+            result = json.loads(response.text)
+            return result
             
         except Exception as e:
             logging.error(f"Policy categorization error: {str(e)}")
@@ -122,38 +147,32 @@ Return JSON with categories as keys and confidence scores (0-100) as values. Onl
     def _analyze_stakeholders(self, bill_text: str, title: str) -> Optional[Dict]:
         """Identify stakeholders affected by the bill"""
         try:
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-            # do not change this unless explicitly requested by the user
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """You are an expert policy analyst. Identify stakeholder groups affected by this bill and assess the impact.
+            prompt = f"""
+            You are an expert policy analyst. Identify stakeholder groups affected by this bill and assess the impact.
 
-Return JSON with this structure:
-{
-    "winners": ["group1", "group2"],
-    "losers": ["group3", "group4"],
-    "neutral": ["group5"],
-    "impacts": {
-        "group1": "positive impact description",
-        "group3": "negative impact description"
-    }
-}
+            Bill Title: {title}
+            Bill Text: {bill_text[:3000]}
 
-Focus on major stakeholder groups like: businesses, consumers, workers, taxpayers, government agencies, nonprofits, specific industries, etc."""
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Title: {title}\n\nBill Text:\n{bill_text[:3000]}"
-                    }
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3
+            Return JSON with this structure:
+            {{
+                "winners": ["group1", "group2"],
+                "losers": ["group3", "group4"],
+                "neutral": ["group5"],
+                "impacts": {{
+                    "group1": "positive impact description",
+                    "group3": "negative impact description"
+                }}
+            }}
+
+            Focus on major stakeholder groups like: businesses, consumers, workers, taxpayers, government agencies, nonprofits, specific industries, etc.
+            """
+            
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
             )
             
-            result = json.loads(response.choices[0].message.content)
+            result = json.loads(response.text)
             return result
             
         except Exception as e:
@@ -254,28 +273,29 @@ Focus on major stakeholder groups like: businesses, consumers, workers, taxpayer
     def generate_bill_summary(self, bill_text: str, title: str) -> Optional[str]:
         """Generate a plain-language summary of the bill"""
         try:
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-            # do not change this unless explicitly requested by the user
+            prompt = f"""
+            You are an expert at explaining complex legislation in plain language.
+            Create a clear, concise summary that explains:
+            1. What the bill does
+            2. Who it affects
+            3. Key provisions
+            4. Potential impacts
+            Write for a general audience without legal jargon.
+            
+            Bill Title: {title}
+            Bill Text: {bill_text[:4000]}
+            """
+            
             response = self.client.models.generate_content(
                 model="gemini-2.0-flash",
-                contents=f"""
-                You are an expert at explaining complex legislation in plain language.
-                Create a clear, concise summary that explains:
-                        1. What the bill does
-                        2. Who it affects
-                        3. Key provisions
-                        4. Potential impacts
-                        Write for a general audience without legal jargon.
-                        bill title: {title}
-                        bill text: {bill_text}, also, do all of this in spanish"""
-                        )
+                contents=prompt
+            )
             
             return response.text
             
         except Exception as e:
             logging.error(f"Summary generation error: {str(e)}")
             return None
-
 if __name__ == "__main__": 
     with open('test_data.json', 'r') as file:
         bill = json.load(file)
@@ -290,3 +310,4 @@ if __name__ == "__main__":
     summary = ai.generate_bill_summary(bill_text, title)
 
     print(f"summary: {summary}")
+

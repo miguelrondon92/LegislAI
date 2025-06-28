@@ -1,0 +1,165 @@
+
+
+
+2025-06-19 09:48:17,101 - __main__ - INFO - Created test user: test_user_1750344497 with email: test_1750344497@example.com
+2025-06-19 09:48:17,105 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 09:48:17,107 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 09:48:17,108 - __main__ - INFO - Created test data - User ID: 6, Bill ID: 6
+2025-06-19 09:48:17,115 - services.notification_service - INFO - Processed notifications for bill HJRES-87
+2025-06-19 09:49:17,099 - services.notification_scheduler - INFO - Notification scheduler stopped
+2025-06-19 09:49:17,105 - __main__ - INFO - Processed bill for notifications
+2025-06-19 09:49:17,109 - __main__ - INFO - Sent pending notifications
+2025-06-19 09:54:01,907 - __main__ - INFO - Created test user: test_user_1750344841 with email: test_1750344841@example.com
+2025-06-19 09:54:01,911 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 09:54:01,912 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 09:54:01,913 - __main__ - INFO - Created test data - User ID: 7, Bill ID: 7
+2025-06-19 09:54:01,920 - services.notification_service - INFO - Processed notifications for bill HJRES-87
+2025-06-19 09:55:01,905 - services.notification_scheduler - INFO - Notification scheduler stopped
+2025-06-19 09:55:01,906 - __main__ - INFO - Processed bill for notifications
+2025-06-19 09:55:01,907 - __main__ - ERROR - Error in test_notification: name 'test_user' is not defined
+2025-06-19 09:56:59,293 - __main__ - INFO - Created test user: test_user_1750345019 with email: test_1750345019@example.com
+2025-06-19 09:56:59,297 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 09:56:59,299 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 09:56:59,299 - __main__ - INFO - Created test data - User: test_user_1750345019, Bill: HJRES-87
+2025-06-19 09:56:59,307 - services.notification_service - INFO - Processed notifications for bill HJRES-87
+2025-06-19 09:57:59,290 - services.notification_scheduler - INFO - Notification scheduler stopped
+2025-06-19 09:57:59,290 - __main__ - INFO - Processed bill for notifications
+2025-06-19 09:57:59,291 - __main__ - INFO - About to send test email to: test_1750345019@example.com from: from@example.com
+2025-06-19 09:57:59,292 - __main__ - INFO - Sent pending notifications
+2025-06-19 09:57:59,320 - __main__ - INFO - Sending test string email to: test_1750345019@example.com from: from@example.com
+2025-06-19 09:57:59,320 - __main__ - ERROR - Error in test_notification: name 'mail' is not defined
+2025-06-19 09:59:41,280 - __main__ - INFO - Created test user: test_user_1750345181 with email: test_1750345181@example.com
+2025-06-19 09:59:41,284 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 09:59:41,288 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 09:59:41,290 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 09:59:41,292 - __main__ - INFO - Created test alert for user test_1750345181@example.com with dummy bill TEST-1
+2025-06-19 09:59:41,293 - __main__ - INFO - Created test data - User: test_user_1750345181, Bill: HJRES-87
+2025-06-19 09:59:41,300 - services.notification_service - INFO - Processed notifications for bill HJRES-87
+2025-06-19 10:00:41,278 - services.notification_scheduler - INFO - Notification scheduler stopped
+2025-06-19 10:00:41,281 - __main__ - INFO - Processed bill for notifications
+2025-06-19 10:00:41,281 - __main__ - INFO - About to send test email to: test_1750345181@example.com from: from@example.com
+2025-06-19 10:00:41,293 - __main__ - INFO - Sent pending notifications
+2025-06-19 10:00:41,323 - __main__ - INFO - Sending test string email to: test_1750345181@example.com from: from@example.com
+2025-06-19 10:00:41,323 - __main__ - ERROR - Error in test_notification: name 'mail' is not defined
+2025-06-19 10:01:42,817 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:01:42,818 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:01:42,819 - __main__ - INFO - Created test user: test_user_1750345302 with email: test_1750345302@example.com
+2025-06-19 10:01:42,823 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:01:42,825 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:01:42,826 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:01:42,828 - __main__ - INFO - Created test alert for user test_1750345302@example.com with dummy bill TEST-1
+2025-06-19 10:01:42,829 - __main__ - INFO - Created test data - User: test_user_1750345302, Bill: HJRES-87
+2025-06-19 10:01:42,836 - services.notification_service - INFO - Processed notifications for bill HJRES-87
+2025-06-19 10:01:42,837 - __main__ - INFO - Processed bill for notifications
+2025-06-19 10:01:42,837 - __main__ - INFO - About to send test email to: test_1750345302@example.com from: from@example.com
+2025-06-19 10:01:42,838 - __main__ - INFO - Sent pending notifications
+2025-06-19 10:01:42,859 - __main__ - INFO - Sending test string email to: test_1750345302@example.com from: from@example.com
+2025-06-19 10:01:43,594 - __main__ - INFO - Test string email sent.
+2025-06-19 10:02:07,504 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:02:07,505 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:02:07,506 - __main__ - INFO - Created test user: test_user_1750345327 with email: test_1750345327@example.com
+2025-06-19 10:02:07,510 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:02:07,511 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:02:07,513 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:02:07,516 - __main__ - INFO - Created test alert for user test_1750345327@example.com with dummy bill TEST-1
+2025-06-19 10:02:07,516 - __main__ - INFO - Created test data - User: test_user_1750345327, Bill: HJRES-87
+2025-06-19 10:02:07,524 - services.notification_service - INFO - Processed notifications for bill HJRES-87
+2025-06-19 10:02:07,524 - __main__ - INFO - Processed bill for notifications
+2025-06-19 10:02:07,524 - __main__ - INFO - About to send test email to: test_1750345327@example.com from: from@example.com
+2025-06-19 10:02:07,527 - __main__ - INFO - Sent pending notifications
+2025-06-19 10:02:07,546 - __main__ - INFO - Sending test string email to: test_1750345327@example.com from: from@example.com
+2025-06-19 10:02:08,266 - __main__ - INFO - Test string email sent.
+2025-06-19 10:03:30,118 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:03:30,118 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:03:30,120 - __main__ - INFO - Created test user: test_user_1750345410 with email: test_1750345410@example.com
+2025-06-19 10:03:30,123 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:03:30,125 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:03:30,126 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:03:30,129 - __main__ - INFO - Created test alert for user test_1750345410@example.com with actual bill HJRES-87
+2025-06-19 10:03:30,129 - __main__ - INFO - Created test data - User: test_user_1750345410, Bill: HJRES-87
+2025-06-19 10:03:30,137 - services.notification_service - INFO - Processed notifications for bill HJRES-87
+2025-06-19 10:03:30,137 - __main__ - INFO - Processed bill for notifications
+2025-06-19 10:03:30,137 - __main__ - INFO - About to send test email to: test_1750345410@example.com from: from@example.com
+2025-06-19 10:03:30,140 - __main__ - INFO - Sent pending notifications
+2025-06-19 10:03:30,164 - __main__ - INFO - Sending test string email to: test_1750345410@example.com from: from@example.com
+2025-06-19 10:03:30,928 - __main__ - INFO - Test string email sent.
+2025-06-19 10:05:14,835 - __main__ - INFO - Created test user: test_user_1750345514 with email: test_1750345514@example.com
+2025-06-19 10:05:14,835 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:05:14,837 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:05:14,839 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:05:14,841 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:05:14,842 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:05:14,845 - __main__ - INFO - Created test alert for user test_1750345514@example.com with actual bill HJRES-87
+2025-06-19 10:05:14,845 - __main__ - INFO - Created test data - User: test_user_1750345514, Bill: HJRES-87
+2025-06-19 10:05:14,845 - __main__ - INFO - Triggering NotificationScheduler to send notifications...
+2025-06-19 10:05:14,845 - services.notification_scheduler - INFO - Starting notification delivery
+2025-06-19 10:05:14,849 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:05:14,849 - __main__ - INFO - NotificationScheduler sent notifications.
+2025-06-19 10:05:14,870 - __main__ - INFO - Sending test string email to: test_1750345514@example.com from: from@example.com
+2025-06-19 10:05:15,616 - __main__ - INFO - Test string email sent.
+2025-06-19 10:06:47,927 - __main__ - INFO - Created test user: test_user_1750345607 with email: test_1750345607@example.com
+2025-06-19 10:06:47,930 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:06:47,930 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:06:47,932 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:06:47,934 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:06:47,935 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:06:47,938 - __main__ - INFO - Created test alert for user test_1750345607@example.com with actual bill HJRES-87
+2025-06-19 10:06:47,938 - __main__ - INFO - Created test data - User: test_user_1750345607, Bill: HJRES-87
+2025-06-19 10:06:47,938 - __main__ - INFO - Triggering NotificationScheduler to send notifications...
+2025-06-19 10:06:47,938 - services.notification_scheduler - INFO - Starting notification delivery
+2025-06-19 10:06:47,943 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:06:47,943 - __main__ - INFO - NotificationScheduler sent notifications.
+2025-06-19 10:26:59,433 - __main__ - INFO - Created test user: test_user_1750346819 with email: test_1750346819@example.com
+2025-06-19 10:26:59,437 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:26:59,439 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:26:59,439 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:26:59,440 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:26:59,441 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:26:59,444 - __main__ - INFO - Created test alert for user test_1750346819@example.com with actual bill HJRES-87
+2025-06-19 10:26:59,444 - __main__ - INFO - Created test data - User: test_user_1750346819, Bill: HJRES-87
+2025-06-19 10:26:59,444 - __main__ - INFO - Triggering NotificationScheduler to send notifications...
+2025-06-19 10:26:59,444 - services.notification_scheduler - INFO - Starting notification delivery
+2025-06-19 10:26:59,449 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:26:59,450 - __main__ - INFO - NotificationScheduler sent notifications.
+2025-06-19 10:31:38,754 - __main__ - INFO - Created test user: test_user_1750347098 with email: test_1750347098@example.com
+2025-06-19 10:31:38,759 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:31:38,763 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:31:38,765 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:31:38,767 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:31:38,767 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:31:38,768 - __main__ - INFO - Created test alert for user test_1750347098@example.com with actual bill HJRES-87
+2025-06-19 10:31:38,769 - __main__ - INFO - Created test data - User: test_user_1750347098, Bill: HJRES-87
+2025-06-19 10:31:38,769 - __main__ - INFO - Triggering NotificationScheduler to send notifications...
+2025-06-19 10:31:38,769 - services.notification_scheduler - INFO - Starting notification delivery
+2025-06-19 10:31:38,774 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:31:38,774 - __main__ - INFO - NotificationScheduler sent notifications.
+2025-06-19 10:31:38,788 - __main__ - INFO - Sending simple test email to: your@email.com
+2025-06-19 10:31:39,354 - __main__ - ERROR - Failed to send simple test email: The message does not specify a sender and a default sender has not been configured
+2025-06-19 10:32:59,333 - __main__ - INFO - Created test user: test_user_1750347179 with email: test_1750347179@example.com
+2025-06-19 10:32:59,337 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:32:59,338 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:32:59,340 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:32:59,347 - __main__ - INFO - Created test alert for user test_1750347179@example.com with actual bill HJRES-87
+2025-06-19 10:32:59,347 - __main__ - INFO - Created test data - User: test_user_1750347179, Bill: HJRES-87
+2025-06-19 10:32:59,347 - __main__ - INFO - Triggering NotificationScheduler to send notifications...
+2025-06-19 10:32:59,347 - services.notification_scheduler - INFO - Starting notification delivery
+2025-06-19 10:32:59,350 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:32:59,351 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:32:59,354 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:32:59,354 - __main__ - INFO - NotificationScheduler sent notifications.
+2025-06-19 10:32:59,378 - __main__ - INFO - Sending simple test email to: your@email.com
+2025-06-19 10:33:00,128 - __main__ - INFO - Simple test email sent successfully.
+2025-06-19 10:35:28,809 - __main__ - INFO - Created test user: test_user_1750347328 with email: test_1750347328@example.com
+2025-06-19 10:35:28,815 - __main__ - INFO - Created test bill: HJRES-87
+2025-06-19 10:35:28,819 - __main__ - INFO - Set AI analysis for test bill
+2025-06-19 10:35:28,821 - __main__ - INFO - Created dummy bill for test notification: TEST-1
+2025-06-19 10:35:28,827 - __main__ - INFO - Created test alert for user test_1750347328@example.com with actual bill HJRES-87
+2025-06-19 10:35:28,828 - services.notification_service - ERROR - Error sending notifications: cannot join current thread
+2025-06-19 10:35:28,828 - __main__ - INFO - Created test data - User: test_user_1750347328, Bill: HJRES-87
+2025-06-19 10:35:28,828 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:35:28,828 - __main__ - INFO - Triggering NotificationScheduler to send notifications...
+2025-06-19 10:35:28,828 - services.notification_scheduler - INFO - Starting notification delivery
+2025-06-19 10:35:28,834 - services.notification_scheduler - INFO - Completed notification delivery
+2025-06-19 10:35:28,834 - __main__ - INFO - NotificationScheduler sent notifications.
+2025-06-19 10:35:28,859 - __main__ - INFO - Sending simple test email to: your@email.com
+2025-06-19 10:35:29,613 - __main__ - INFO - Simple test email sent successfully.

@@ -50,18 +50,26 @@ class CongressAPI:
     
     def get_bill_by_number(self, bill_identifier):
         """
-        Get a bill by its identifier (e.g., 'HR-1234', 'S-567')
+        Get a bill by its identifier (e.g., 'HR-1234', 'S-567', 'H.Res.516')
         """
         try:
             # Parse bill identifier
-            parts = bill_identifier.upper().replace('-', '').replace(' ', '')
+            parts = bill_identifier.upper().replace('-', '').replace(' ', '').replace('.', '')
             print(parts)
-            if parts.startswith('HR'):
+            
+            # Handle different bill types
+            if parts.startswith('HR') and not parts.startswith('HRES'):
                 bill_type = 'hr'
                 bill_number = parts[2:]
-            elif parts.startswith('S') and not parts.startswith('SJRES'):
+            elif parts.startswith('S') and not parts.startswith('SJRES') and not parts.startswith('SRES'):
                 bill_type = 's'
                 bill_number = parts[1:]
+            elif parts.startswith('HRES'):
+                bill_type = 'hres'
+                bill_number = parts[4:]
+            elif parts.startswith('SRES'):
+                bill_type = 'sres'
+                bill_number = parts[4:]
             elif parts.lower().replace(".","").startswith('hjres'):
                 bill_type = 'hjres'
                 bill_number = re.findall(r'\d+', parts)
@@ -70,11 +78,17 @@ class CongressAPI:
             elif parts.startswith('SJRES'):
                 bill_type = 'sjres'
                 bill_number = parts[5:]
+            elif parts.startswith('HCONRES'):
+                bill_type = 'hconres'
+                bill_number = parts[7:]
+            elif parts.startswith('SCONRES'):
+                bill_type = 'sconres'
+                bill_number = parts[7:]
             else:
                 logging.error(f"Invalid bill identifier format: {bill_identifier}")
                 return None
             
-            # Use current congress (118th)
+            # Use current congress (119th)
             congress = CURRENT_CONGRESS
             
             return self.get_bill_details(congress, bill_type, bill_number)

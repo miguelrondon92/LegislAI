@@ -2,17 +2,22 @@ import os
 import json
 import logging
 import time
-from openai import OpenAI
+from google import genai
 from .analysis_cache import AnalysisCache
+from utils.constants import FEDERAL_POLICY_CATEGORIES
+from datetime import datetime
 
 class AIAnalyzer:
-    """AI-powered analysis of legislative bills using OpenAI"""
+    """AI-powered analysis of legislative bills using Gemini"""
     
     def __init__(self):
-        self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-        # do not change this unless explicitly requested by the user
-        self.model = "gpt-4o"
+        self.api_key = os.environ.get("GEMINI_API_KEY")
+        if not self.api_key:
+            logging.warning("GEMINI_API_KEY not found. AI analysis will be disabled.")
+            self.client = None
+        else:
+            self.client = genai.Client(api_key=self.api_key)
+        self.model = "gemini-2.0-flash"
         self.cache = AnalysisCache()
     
     def analyze_bill(self, bill_text, bill_title):
@@ -21,19 +26,10 @@ class AIAnalyzer:
         Returns dictionary with analysis results
         """
         try:
-            # First, get a summary and key points
             summary_analysis = self._get_bill_summary(bill_text, bill_title)
-            
-            # Then analyze policy implications
             policy_analysis = self._analyze_policy_implications(bill_text, bill_title)
-            
-            # Identify stakeholders
             stakeholder_analysis = self._identify_stakeholders(bill_text, bill_title)
-            
-            # Assess complexity and impact
             complexity_analysis = self._assess_complexity_and_impact(bill_text, bill_title)
-            
-            # Combine all analyses
             full_analysis = {
                 'summary': summary_analysis,
                 'policy_implications': policy_analysis,
@@ -41,9 +37,7 @@ class AIAnalyzer:
                 'complexity_assessment': complexity_analysis,
                 'generated_at': str(datetime.utcnow())
             }
-            
             return full_analysis
-            
         except Exception as e:
             logging.error(f"Error in AI analysis: {str(e)}")
             return {
@@ -54,196 +48,100 @@ class AIAnalyzer:
                 'complexity_assessment': {'score': 0, 'reading_level': 'Unknown'}
             }
     
-    def _get_bill_summary(self, bill_text, bill_title):
-        """Generate a comprehensive summary of the bill"""
-        prompt = f"""
-        Analyze this congressional bill and provide a comprehensive summary.
-        
-        Bill Title: {bill_title}
-        
-        Bill Text: {bill_text[:8000]}  # Limit text length for API
-        
-        Please provide your analysis in JSON format with these fields:
-        {{
-            "main_summary": "A 2-3 sentence summary of what this bill does",
-            "key_provisions": ["list", "of", "key", "provisions"],
-            "funding_amounts": "Any significant funding amounts mentioned",
-            "implementation_timeline": "When this would take effect",
-            "plain_language_explanation": "Explain this bill as if to a high school student"
-        }}
-        """
-        
+    def _gemini_json(self, prompt, system_message=None, max_tokens=1000):
+        if not self.client:
+            return None
         try:
-            response = self.client.chat.completions.create(
+            contents = prompt
+            response = self.client.models.generate_content(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert legislative analyst. Provide accurate, objective analysis of congressional bills."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                max_tokens=1000
+                contents=contents
             )
+            # Gemini returns a response with a 'candidates' list
+            text = response.candidates[0].content.parts[0].text
             
-            return json.loads(response.choices[0].message.content)
+            # Handle Gemini's markdown code block format
+            if text.startswith('```json'):
+                # Extract JSON from markdown code blocks
+                start = text.find('```json') + 7
+                end = text.rfind('```')
+                if end > start:
+                    text = text[start:end].strip()
+            elif text.startswith('```'):
+                # Handle generic code blocks
+                start = text.find('```') + 3
+                end = text.rfind('```')
+                if end > start:
+                    text = text[start:end].strip()
             
+            return json.loads(text)
         except Exception as e:
-            logging.error(f"Error in bill summary analysis: {str(e)}")
-            return {
-                "main_summary": "Unable to generate summary due to technical error",
-                "key_provisions": [],
-                "funding_amounts": "Unknown",
-                "implementation_timeline": "Unknown",
-                "plain_language_explanation": "Analysis unavailable"
-            }
+            logging.error(f"Gemini API error: {str(e)}")
+            return None
+    
+    def _get_bill_summary(self, bill_text, bill_title):
+        prompt = f"""
+        Analyze this congressional bill and provide a comprehensive summary.\n\n        Bill Title: {bill_title}\n\n        Bill Text: {bill_text[:8000]}  # Limit text length for API\n\n        Please provide your analysis in JSON format with these fields:\n        {{\n            \"main_summary\": \"A 2-3 sentence summary of what this bill does\",\n            \"key_provisions\": [\"list\", \"of\", \"key\", \"provisions\"],\n            \"funding_amounts\": \"Any significant funding amounts mentioned\",\n            \"implementation_timeline\": \"When this would take effect\",\n            \"plain_language_explanation\": \"Explain this bill as if to a high school student\"\n        }}\n        """
+        result = self._gemini_json(prompt)
+        if result:
+            return result
+        return {
+            "main_summary": "Unable to generate summary due to technical error",
+            "key_provisions": [],
+            "funding_amounts": "Unknown",
+            "implementation_timeline": "Unknown",
+            "plain_language_explanation": "Analysis unavailable"
+        }
     
     def _analyze_policy_implications(self, bill_text, bill_title):
-        """Analyze the policy implications and categorize the bill"""
+        categories_list = ', '.join(FEDERAL_POLICY_CATEGORIES)
         prompt = f"""
-        Analyze the policy implications of this congressional bill.
-        
-        Bill Title: {bill_title}
-        Bill Text: {bill_text[:8000]}
-        
-        Categorize this bill and analyze its policy implications. Respond in JSON format:
-        {{
-            "primary_policy_area": "The main policy area (healthcare, environment, economy, etc.)",
-            "secondary_areas": ["list", "of", "secondary", "policy", "areas"],
-            "categories": [
-                {{
-                    "area": "policy area name",
-                    "impact_level": "low/medium/high",
-                    "description": "How this bill affects this area"
-                }}
-            ],
-            "controversial_aspects": ["aspects that might be controversial"],
-            "bipartisan_potential": "Assessment of bipartisan support likelihood",
-            "main_themes": ["key", "themes", "in", "the", "bill"]
-        }}
-        """
-        
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a policy expert analyzing legislative bills objectively."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                max_tokens=1000
-            )
-            
-            return json.loads(response.choices[0].message.content)
-            
-        except Exception as e:
-            logging.error(f"Error in policy analysis: {str(e)}")
-            return {
-                "primary_policy_area": "Unknown",
-                "secondary_areas": [],
-                "categories": [],
-                "controversial_aspects": [],
-                "bipartisan_potential": "Unknown",
-                "main_themes": []
-            }
+        Analyze the policy implications of this congressional bill.\n\n        Bill Title: {bill_title}\n        Bill Text: {bill_text[:8000]}\n\n        Categorize this bill and analyze its policy implications. Use ONLY the following categories for all policy area fields:\n        {categories_list}\n\n        Respond in JSON format:\n        {{\n            \"primary_policy_area\": \"The main policy area (must be one of the provided categories)\",\n            \"secondary_areas\": [\"list\", \"of\", \"secondary\", \"policy\", \"areas\"],\n            \"categories\": [\n                {{\n                    \"area\": \"policy area name (must be one of the provided categories)\",\n                    \"impact_level\": \"low/medium/high\",\n                    \"description\": \"How this bill affects this area\"\n                }}\n            ],\n            \"controversial_aspects\": [\"aspects that might be controversial\"],\n            \"bipartisan_potential\": \"Assessment of bipartisan support likelihood\",\n            \"main_themes\": [\"key\", \"themes\", \"in\", \"the\", \"bill\"]\n        }}\n        """
+        result = self._gemini_json(prompt)
+        if result:
+            return result
+        return {
+            "primary_policy_area": "Unknown",
+            "secondary_areas": [],
+            "categories": [],
+            "controversial_aspects": [],
+            "bipartisan_potential": "Unknown",
+            "main_themes": []
+        }
     
     def _identify_stakeholders(self, bill_text, bill_title):
-        """Identify stakeholders affected by the bill"""
         prompt = f"""
-        Identify the stakeholders who would be affected by this congressional bill.
-        
-        Bill Title: {bill_title}
-        Bill Text: {bill_text[:8000]}
-        
-        Analyze who would be affected and respond in JSON format:
-        {{
-            "affected_groups": [
-                {{
-                    "group": "name of affected group",
-                    "impact_type": "positive/negative/mixed",
-                    "impact_description": "how they would be affected"
-                }}
-            ],
-            "winners_losers": {{
-                "potential_winners": ["groups that would benefit"],
-                "potential_losers": ["groups that might be negatively affected"],
-                "neutral_parties": ["groups with mixed or neutral impact"]
-            }},
-            "geographic_impact": "Which regions/states would be most affected",
-            "industry_sectors": ["sectors", "that", "would", "be", "affected"]
-        }}
-        """
-        
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a stakeholder analysis expert for legislative bills."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                max_tokens=1000
-            )
-            
-            return json.loads(response.choices[0].message.content)
-            
-        except Exception as e:
-            logging.error(f"Error in stakeholder analysis: {str(e)}")
-            return {
-                "affected_groups": [],
-                "winners_losers": {
-                    "potential_winners": [],
-                    "potential_losers": [],
-                    "neutral_parties": []
-                },
-                "geographic_impact": "Unknown",
-                "industry_sectors": []
-            }
+        Identify the stakeholders who would be affected by this congressional bill.\n\n        Bill Title: {bill_title}\n        Bill Text: {bill_text[:8000]}\n\n        Analyze who would be affected and respond in JSON format:\n        {{\n            \"affected_groups\": [\n                {{\n                    \"group\": \"name of affected group\",\n                    \"impact_type\": \"positive/negative/mixed\",\n                    \"impact_description\": \"how they would be affected\"\n                }}\n            ],\n            \"winners_losers\": {{\n                \"potential_winners\": [\"groups that would benefit\"],\n                \"potential_losers\": [\"groups that might be negatively affected\"],\n                \"neutral_parties\": [\"groups with mixed or neutral impact\"]\n            }},\n            \"geographic_impact\": \"Which regions/states would be most affected\",\n            \"industry_sectors\": [\"sectors\", \"that\", \"would\", \"be\", \"affected\"]\n        }}\n        """
+        result = self._gemini_json(prompt)
+        if result:
+            return result
+        return {
+            "affected_groups": [],
+            "winners_losers": {
+                "potential_winners": [],
+                "potential_losers": [],
+                "neutral_parties": []
+            },
+            "geographic_impact": "Unknown",
+            "industry_sectors": []
+        }
     
     def _assess_complexity_and_impact(self, bill_text, bill_title):
-        """Assess the complexity and potential impact of the bill"""
         prompt = f"""
-        Assess the complexity and potential impact of this congressional bill.
-        
-        Bill Title: {bill_title}
-        Bill Text: {bill_text[:6000]}
-        
-        Provide your assessment in JSON format:
-        {{
-            "complexity_score": 85,  # 0-100 scale
-            "reading_level": "Graduate/College/High School/Middle School",
-            "implementation_difficulty": "Easy/Moderate/Difficult/Very Difficult",
-            "scope_of_impact": "Local/State/National/International",
-            "estimated_cost_impact": "Low/Medium/High/Very High",
-            "regulatory_burden": "Minimal/Light/Moderate/Heavy",
-            "urgency_level": "Low/Medium/High/Critical",
-            "complexity_factors": ["factors that make this bill complex"]
-        }}
-        """
-        
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert in legislative complexity analysis."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                max_tokens=800
-            )
-            
-            return json.loads(response.choices[0].message.content)
-            
-        except Exception as e:
-            logging.error(f"Error in complexity analysis: {str(e)}")
-            return {
-                "complexity_score": 50,
-                "reading_level": "Unknown",
-                "implementation_difficulty": "Unknown",
-                "scope_of_impact": "Unknown",
-                "estimated_cost_impact": "Unknown",
-                "regulatory_burden": "Unknown",
-                "urgency_level": "Unknown",
-                "complexity_factors": []
-            }
+        Assess the complexity and potential impact of this congressional bill.\n\n        Bill Title: {bill_title}\n        Bill Text: {bill_text[:6000]}\n\n        Provide your assessment in JSON format:\n        {{\n            \"complexity_score\": 85,  # 0-100 scale\n            \"reading_level\": \"Graduate/College/High School/Middle School\",\n            \"implementation_difficulty\": \"Easy/Moderate/Difficult/Very Difficult\",\n            \"scope_of_impact\": \"Local/State/National/International\",\n            \"estimated_cost_impact\": \"Low/Medium/High/Very High\",\n            \"regulatory_burden\": \"Minimal/Light/Moderate/Heavy\",\n            \"urgency_level\": \"Low/Medium/High/Critical\",\n            \"complexity_factors\": [\"factors that make this bill complex\"]\n        }}\n        """
+        result = self._gemini_json(prompt, max_tokens=800)
+        if result:
+            return result
+        return {
+            "complexity_score": 50,
+            "reading_level": "Unknown",
+            "implementation_difficulty": "Unknown",
+            "scope_of_impact": "Unknown",
+            "estimated_cost_impact": "Unknown",
+            "regulatory_burden": "Unknown",
+            "urgency_level": "Unknown",
+            "complexity_factors": []
+        }
     
     def calculate_alignment_score(self, bill_analysis, user_preferences):
         """
@@ -321,36 +219,17 @@ class AIAnalyzer:
                         strong_preferences.append(f"{area}: {stance}")
             
             prompt = f"""
-            Based on this bill analysis and user preferences, provide personalized insights.
-            
-            Bill Analysis Summary: {bill_analysis.get('summary', {}).get('main_summary', '')}
-            Policy Areas: {bill_analysis.get('policy_implications', {}).get('primary_policy_area', '')}
-            
-            User's Strong Preferences: {'; '.join(strong_preferences)}
-            Calculated Alignment Score: {alignment_score}
-            
-            Provide personalized analysis in JSON format:
-            {{
-                "personal_impact": "How this bill might personally affect someone with these preferences",
-                "key_concerns": ["specific concerns based on user preferences"],
-                "potential_benefits": ["potential benefits for this user"],
-                "action_recommendations": ["what actions the user might consider taking"],
-                "explanation_of_score": "Why the alignment score is what it is"
-            }}
-            """
-            
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are providing personalized political analysis based on user preferences."},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={"type": "json_object"},
-                max_tokens=800
-            )
-            
-            return json.loads(response.choices[0].message.content)
-            
+            Based on this bill analysis and user preferences, provide personalized insights.\n\n            Bill Analysis Summary: {bill_analysis.get('summary', {}).get('main_summary', '')}\n            Policy Areas: {bill_analysis.get('policy_implications', {}).get('primary_policy_area', '')}\n\n            User's Strong Preferences: {'; '.join(strong_preferences)}\n            Calculated Alignment Score: {alignment_score}\n\n            Provide personalized analysis in JSON format:\n            {{\n                \"personal_impact\": \"How this bill might personally affect someone with these preferences\",\n                \"key_concerns\": [\"specific concerns based on user preferences\"],\n                \"potential_benefits\": [\"potential benefits for this user\"],\n                \"action_recommendations\": [\"what actions the user might consider taking\"],\n                \"explanation_of_score\": \"Why the alignment score is what it is\"\n            }}\n            """
+            result = self._gemini_json(prompt, max_tokens=800)
+            if result:
+                return result
+            return {
+                "personal_impact": "Unable to generate personalized analysis",
+                "key_concerns": [],
+                "potential_benefits": [],
+                "action_recommendations": [],
+                "explanation_of_score": "Analysis unavailable due to technical error"
+            }
         except Exception as e:
             logging.error(f"Error generating user-specific analysis: {str(e)}")
             return {
@@ -360,6 +239,3 @@ class AIAnalyzer:
                 "action_recommendations": [],
                 "explanation_of_score": "Analysis unavailable due to technical error"
             }
-
-# Import datetime for timestamps
-from datetime import datetime

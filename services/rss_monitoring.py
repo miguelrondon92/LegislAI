@@ -12,7 +12,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('rss_monitor.log'),
+        logging.FileHandler('logs/rss_monitor.log'),
         logging.StreamHandler()
     ]
 )

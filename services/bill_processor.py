@@ -1,8 +1,11 @@
 import logging
+import json
+import os
 from datetime import datetime
 from app import db
 from models import Bill, User, Alert
 from services.ai_analysis import AIAnalyzer
+from services.congress_api import CongressAPI
 from utils.text_processing import clean_bill_text, extract_sections
 
 class BillProcessor:
@@ -10,6 +13,91 @@ class BillProcessor:
     
     def __init__(self):
         self.ai_analyzer = AIAnalyzer()
+        self.congress_api = CongressAPI()
+        self.seen_items_file = "seen_items.json"
+    
+    def read_seen_items(self):
+        """Read bill items from seen_items.json"""
+        try:
+            if not os.path.exists(self.seen_items_file):
+                logging.warning(f"Seen items file {self.seen_items_file} not found")
+                return []
+            
+            with open(self.seen_items_file, 'r') as f:
+                data = json.load(f)
+                return data.get('seen_items', [])
+                
+        except Exception as e:
+            logging.error(f"Error reading seen items: {str(e)}")
+            return []
+    
+    def process_seen_items(self):
+        """Process all bill items from seen_items.json"""
+        try:
+            seen_items = self.read_seen_items()
+            if not seen_items:
+                logging.info("No items found in seen_items.json")
+                return []
+            
+            processed_bills = []
+            logging.info(f"Processing {len(seen_items)} items from seen_items.json")
+            
+            for item in seen_items:
+                try:
+                    # Parse bill identifier (e.g., "H.Res.516")
+                    bill_data = self.congress_api.get_bill_by_number(item)
+                    if bill_data:
+                        bill = self.process_bill_data(bill_data)
+                        if bill:
+                            processed_bills.append(bill)
+                            logging.info(f"Successfully processed {item}")
+                        else:
+                            logging.warning(f"Failed to process bill data for {item}")
+                    else:
+                        logging.warning(f"Could not fetch bill data for {item}")
+                        
+                except Exception as e:
+                    logging.error(f"Error processing item {item}: {str(e)}")
+                    continue
+            
+            logging.info(f"Successfully processed {len(processed_bills)} out of {len(seen_items)} items")
+            return processed_bills
+            
+        except Exception as e:
+            logging.error(f"Error processing seen items: {str(e)}")
+            return []
+    
+    def update_seen_items(self, new_items):
+        """Update seen_items.json with new items"""
+        try:
+            current_items = self.read_seen_items()
+            updated_items = list(set(current_items + new_items))  # Remove duplicates
+            
+            data = {
+                "seen_items": updated_items,
+                "last_updated": datetime.utcnow().isoformat()
+            }
+            
+            with open(self.seen_items_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            logging.info(f"Updated seen_items.json with {len(new_items)} new items")
+            
+        except Exception as e:
+            logging.error(f"Error updating seen items: {str(e)}")
+    
+    def add_to_seen_items(self, bill_identifier):
+        """Add a bill identifier to seen_items.json"""
+        try:
+            current_items = self.read_seen_items()
+            if bill_identifier not in current_items:
+                self.update_seen_items([bill_identifier])
+                logging.info(f"Added {bill_identifier} to seen_items.json")
+            else:
+                logging.info(f"{bill_identifier} already in seen_items.json")
+                
+        except Exception as e:
+            logging.error(f"Error adding to seen items: {str(e)}")
     
     def process_bill_data(self, bill_data):
         """
@@ -45,6 +133,10 @@ class BillProcessor:
                     bill_number=bill_number
                 )
                 db.session.add(bill)
+                
+                # Add to seen items for new bills
+                bill_identifier = f"{bill_type.upper()}.{bill_number}"
+                self.add_to_seen_items(bill_identifier)
             
             # Update bill fields
             bill.title = title
