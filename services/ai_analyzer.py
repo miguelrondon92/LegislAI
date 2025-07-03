@@ -15,9 +15,9 @@ class AIAnalyzer:
     """AI-powered legislative analysis using Gemini"""
     
     def __init__(self):
-        self.api_key = os.environ.get('GEMENI_API_KEY')
+        self.api_key = os.environ.get('GEMINI_API_KEY')
         if not self.api_key:
-            logging.warning("Gemini API key not found. AI analysis will be disabled.")
+            logging.warning("GEMINI_API_KEY not found. AI analysis will be disabled.")
             self.client = None
         else:
             self.client = genai.Client(api_key=self.api_key)
@@ -26,67 +26,86 @@ class AIAnalyzer:
         # Use the standardized federal policy categories
         self.policy_categories = FEDERAL_POLICY_CATEGORIES
     
-    def analyze_bill(self, bill) -> Dict:
+    def analyze_bill(self, bill_or_text, title=None) -> Dict:
         """Perform comprehensive AI analysis of a bill"""
         if not self.client:
             logging.warning("Gemini client not available")
             return {}
         
         try:
-            # Prepare bill text for analysis
-            text_to_analyze = self._prepare_bill_text(bill)
+            # Handle both bill objects and text inputs
+            if hasattr(bill_or_text, 'get_bill_identifier'):
+                # It's a bill object
+                bill = bill_or_text
+                text_to_analyze = self._prepare_bill_text(bill)
+                title = bill.title
+            else:
+                # It's text input
+                text_to_analyze = str(bill_or_text)
+                title = title or "Unknown Bill"
             
             if not text_to_analyze:
-                logging.warning(f"No text available for bill {bill.get_bill_identifier()}")
+                logging.warning(f"No text available for analysis")
                 return {}
             
             # Perform different types of analysis
             analysis_results = {}
             
-            # 1. Policy categorization
-            categories = self._categorize_bill(text_to_analyze, bill.title)
-            if categories:
-                bill.set_policy_categories(categories)
+            # 1. Generate summary first (most important)
+            summary = self.generate_bill_summary(text_to_analyze, title)
+            if summary and "Unable to generate summary due to technical error" not in summary:
+                analysis_results['summary'] = {
+                    'main_summary': summary,
+                    'key_provisions': [],
+                    'funding_amounts': 'Unknown',
+                    'implementation_timeline': 'Unknown',
+                    'plain_language_explanation': summary
+                }
+            
+            # 2. Policy categorization
+            categories = self._categorize_bill(text_to_analyze, title)
+            if categories and isinstance(categories, dict):
                 analysis_results['policy_implications'] = categories
             
-            # 2. Stakeholder analysis
-            stakeholders = self._analyze_stakeholders(text_to_analyze, bill.title)
-            if stakeholders:
-                bill.set_stakeholder_analysis(stakeholders)
+            # 3. Stakeholder analysis
+            stakeholders = self._analyze_stakeholders(text_to_analyze, title)
+            if stakeholders and isinstance(stakeholders, dict):
                 analysis_results['stakeholders'] = stakeholders
             
-            # 3. Complexity scoring
+            # 4. Complexity scoring
             complexity = self._assess_complexity(text_to_analyze)
             if complexity is not None:
-                bill.complexity_score = complexity
-                analysis_results['complexity'] = complexity
+                analysis_results['complexity_assessment'] = {
+                    'complexity_score': complexity,
+                    'reading_level': 'Unknown',
+                    'implementation_difficulty': 'Unknown',
+                    'scope_of_impact': 'Unknown',
+                    'estimated_cost_impact': 'Unknown',
+                    'regulatory_burden': 'Unknown',
+                    'urgency_level': 'Unknown',
+                    'complexity_factors': []
+                }
             
-            # 4. Controversy detection
-            controversy = self._detect_controversy(text_to_analyze, bill.title)
+            # 5. Controversy detection
+            controversy = self._detect_controversy(text_to_analyze, title)
             if controversy is not None:
-                bill.controversy_score = controversy
-                analysis_results['controversy'] = controversy
+                analysis_results['controversy_score'] = controversy
             
-            # 5. Generate summary
-            summary = self.generate_bill_summary(text_to_analyze, bill.title)
-            if summary:
-                analysis_results['summary'] = summary
+            # Add timestamp
+            analysis_results['generated_at'] = datetime.now().isoformat()
             
-            # Store the complete analysis
-            bill.set_ai_analysis(analysis_results)
-            
-            # Trigger notifications for this bill
-            # self.notification_service.process_new_bill_analysis(bill.id)
+            # If we have a bill object, store the analysis
+            if hasattr(bill_or_text, 'set_ai_analysis'):
+                bill_or_text.set_ai_analysis(analysis_results)
             
             return analysis_results
             
         except Exception as e:
-            logging.error(f"AI analysis error for bill {bill.get_bill_identifier()}: {str(e)}")
+            logging.error(f"AI analysis error: {str(e)}")
             return {}
     
     def _prepare_bill_text(self, bill) -> str:
-        """Prepare bill text for AI analysis"""
-        # Combine available text sources
+        """Prepare bill text for analysis"""
         text_parts = []
         
         if bill.title:
@@ -95,16 +114,37 @@ class AIAnalyzer:
         if bill.summary:
             text_parts.append(f"Summary: {bill.summary}")
         
-        if bill.full_text:
+        # Fetch full text from API when needed
+        full_text = bill.get_full_text()
+        if full_text:
             # Limit text length for API efficiency
-            full_text = bill.full_text#[:10000]  # Limit to first 10k characters
+            full_text = full_text[:10000]  # Limit to first 10k characters
             text_parts.append(f"Full Text: {full_text}")
         
         return "\n\n".join(text_parts)
     
+    def _clean_json_response(self, response_text: str) -> str:
+        """Clean JSON response by removing markdown code blocks if present"""
+        if not response_text:
+            return ""
+        
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]  # Remove ```json
+        elif response_text.startswith("```"):
+            response_text = response_text[3:]  # Remove ```
+        
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]  # Remove trailing ```
+        
+        return response_text.strip()
+
     def _categorize_bill(self, bill_text: str, title: str) -> Optional[Dict]:
         """Categorize bill into policy domains with confidence scores"""
         try:
+            if not self.client:
+                return None
+                
             categories_list = ', '.join(self.policy_categories)
             prompt = f"""
             Analyze the policy implications of this congressional bill.
@@ -137,7 +177,20 @@ class AIAnalyzer:
                 contents=prompt
             )
             
-            result = json.loads(response.text)
+            if not response or not response.text:
+                logging.warning("Empty response from Gemini")
+                return None
+            
+            logging.info(f"Gemini response: {response.text[:500]}...")
+            
+            # Clean the response to extract JSON
+            cleaned_response = self._clean_json_response(response.text)
+            result = json.loads(cleaned_response)
+            
+            # Validate that we got actual data
+            if not result or not isinstance(result, dict):
+                return None
+                
             return result
             
         except Exception as e:
@@ -147,6 +200,9 @@ class AIAnalyzer:
     def _analyze_stakeholders(self, bill_text: str, title: str) -> Optional[Dict]:
         """Identify stakeholders affected by the bill"""
         try:
+            if not self.client:
+                return None
+                
             prompt = f"""
             You are an expert policy analyst. Identify stakeholder groups affected by this bill and assess the impact.
 
@@ -172,7 +228,20 @@ class AIAnalyzer:
                 contents=prompt
             )
             
-            result = json.loads(response.text)
+            if not response or not response.text:
+                logging.warning("Empty response from Gemini for stakeholder analysis")
+                return None
+            
+            logging.info(f"Gemini stakeholder response: {response.text[:500]}...")
+            
+            # Clean the response to extract JSON
+            cleaned_response = self._clean_json_response(response.text)
+            result = json.loads(cleaned_response)
+            
+            # Validate that we got actual data
+            if not result or not isinstance(result, dict):
+                return None
+                
             return result
             
         except Exception as e:
@@ -273,6 +342,9 @@ class AIAnalyzer:
     def generate_bill_summary(self, bill_text: str, title: str) -> Optional[str]:
         """Generate a plain-language summary of the bill"""
         try:
+            if not self.client:
+                return None
+                
             prompt = f"""
             You are an expert at explaining complex legislation in plain language.
             Create a clear, concise summary that explains:
@@ -291,7 +363,16 @@ class AIAnalyzer:
                 contents=prompt
             )
             
-            return response.text
+            if not response or not response.text:
+                return None
+                
+            summary = response.text.strip()
+            
+            # Check if the response contains error indicators
+            if "Unable to generate summary due to technical error" in summary:
+                return None
+                
+            return summary
             
         except Exception as e:
             logging.error(f"Summary generation error: {str(e)}")

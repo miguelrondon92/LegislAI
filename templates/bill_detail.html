@@ -341,7 +341,20 @@
             </div>
             <div class="card-body">
                 <div id="bill-text" class="bill-text">
-                    <pre>{{ bill.full_text }}</pre>
+                    <div id="text-loading" class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">Loading bill text from Congress API...</p>
+                    </div>
+                    <div id="text-content" style="display: none;">
+                        <pre id="bill-text-content"></pre>
+                    </div>
+                    <div id="text-error" style="display: none;">
+                        <div class="alert alert-warning" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Unable to load bill text. You can view the full text on the 
+                            <a href="{{ bill.congress_api_url }}" target="_blank">Congress.gov website</a>.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -398,7 +411,7 @@ const alignmentChart = new Chart(ctx, {
 // Text size toggle
 let textSizeState = 'normal';
 function toggleTextSize() {
-    const billText = document.getElementById('bill-text');
+    const billText = document.getElementById('bill-text-content');
     if (textSizeState === 'normal') {
         billText.style.fontSize = '1.2em';
         textSizeState = 'large';
@@ -406,6 +419,46 @@ function toggleTextSize() {
         billText.style.fontSize = '1em';
         textSizeState = 'normal';
     }
+}
+
+// Load bill text when text tab is clicked
+document.addEventListener('DOMContentLoaded', function() {
+    const textTab = document.querySelector('a[href="#text"]');
+    if (textTab) {
+        textTab.addEventListener('click', function() {
+            loadBillText();
+        });
+    }
+});
+
+function loadBillText() {
+    const loadingDiv = document.getElementById('text-loading');
+    const contentDiv = document.getElementById('text-content');
+    const errorDiv = document.getElementById('text-error');
+    const textContent = document.getElementById('bill-text-content');
+    
+    // Show loading state
+    loadingDiv.style.display = 'block';
+    contentDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    
+    // Fetch bill text from API
+    fetch(`/api/bill/{{ bill.congress }}/{{ bill.bill_type }}/{{ bill.bill_number }}/text`)
+        .then(response => response.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+            if (data.success && data.full_text) {
+                textContent.textContent = data.full_text;
+                contentDiv.style.display = 'block';
+            } else {
+                errorDiv.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading bill text:', error);
+            loadingDiv.style.display = 'none';
+            errorDiv.style.display = 'block';
+        });
 }
 </script>
 {% endblock %}

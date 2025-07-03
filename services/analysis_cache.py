@@ -176,22 +176,23 @@ class AnalysisCache:
     def store_bill_with_analysis(self, bill_data: Dict) -> Optional[str]:
         """Store bill in enhanced table and return UUID"""
         try:
-            content_hash = self.get_content_hash(bill_data.get('full_text', ''))
+            # Create content hash from title and summary (not full text)
+            content_for_hash = bill_data.get('title', '') + bill_data.get('summary', '')
+            content_hash = self.get_content_hash(content_for_hash)
             congress_id = f"{bill_data['congress']}-{bill_data['bill_type']}-{bill_data['bill_number']}"
             
             query = text("""
                 INSERT INTO bills_enhanced 
-                (congress_id, bill_number, bill_type, congress, title, summary, full_text,
+                (congress_id, bill_number, bill_type, congress, title, summary,
                  version_hash, status, sponsors, committees, introduced_date, last_action_date,
                  congress_api_url)
                 VALUES (:congress_id, :bill_number, :bill_type, :congress, :title, :summary, 
-                        :full_text, :version_hash, :status, :sponsors, :committees, 
+                        :version_hash, :status, :sponsors, :committees, 
                         :introduced_date, :last_action_date, :congress_api_url)
                 ON CONFLICT (congress_id) 
                 DO UPDATE SET 
                     title = EXCLUDED.title,
                     summary = EXCLUDED.summary,
-                    full_text = EXCLUDED.full_text,
                     version_hash = EXCLUDED.version_hash,
                     status = EXCLUDED.status,
                     sponsors = EXCLUDED.sponsors,
@@ -208,7 +209,6 @@ class AnalysisCache:
                 'congress': bill_data.get('congress', 0),
                 'title': bill_data.get('title', ''),
                 'summary': bill_data.get('summary', ''),
-                'full_text': bill_data.get('full_text', ''),
                 'version_hash': content_hash,
                 'status': bill_data.get('status', ''),
                 'sponsors': json.dumps(bill_data.get('sponsors', [])),
@@ -238,7 +238,7 @@ class AnalysisCache:
             congress_id = f"{congress}-{bill_type}-{bill_number}"
             
             query = text("""
-                SELECT id, title, summary, full_text, version_hash, status, 
+                SELECT id, title, summary, version_hash, status, 
                        sponsors, committees, introduced_date, last_action_date,
                        congress_api_url, last_updated
                 FROM bills_enhanced 
@@ -255,15 +255,14 @@ class AnalysisCache:
                     'bill_number': bill_number,
                     'title': result[1],
                     'summary': result[2],
-                    'full_text': result[3],
-                    'version_hash': result[4],
-                    'status': result[5],
-                    'sponsors': result[6] if result[6] else [],
-                    'committees': result[7] if result[7] else [],
-                    'introduced_date': result[8],
-                    'last_action_date': result[9],
-                    'congress_api_url': result[10],
-                    'last_updated': result[11],
+                    'version_hash': result[3],
+                    'status': result[4],
+                    'sponsors': result[5] if result[5] else [],
+                    'committees': result[6] if result[6] else [],
+                    'introduced_date': result[7],
+                    'last_action_date': result[8],
+                    'congress_api_url': result[9],
+                    'last_updated': result[10],
                     'from_cache': True
                 }
             

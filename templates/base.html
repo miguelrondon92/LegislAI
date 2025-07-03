@@ -23,7 +23,7 @@
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
                 <i data-feather="file-text" class="me-2"></i>
-                Legislative Analysis Platform
+                LegisLAI
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,9 +42,10 @@
                             <i data-feather="search" class="me-1"></i>Search Bills
                         </a>
                     </li>
+                    {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('profile') }}">
-                            <i data-feather="user" class="me-1"></i>Policy Profile
+                        <a class="nav-link" href="{{ url_for('auth.policy_interests') }}">
+                            <i data-feather="target" class="me-1"></i>Policy Interests
                         </a>
                     </li>
                     <li class="nav-item">
@@ -52,15 +53,45 @@
                             <i data-feather="bell" class="me-1"></i>Alerts
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('workflow_dashboard') }}">
+                            <i data-feather="activity" class="me-1"></i>Workflow
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
                 
                 <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <span class="navbar-text">
-                            <i data-feather="shield" class="me-1"></i>
-                            Analyzing Congressional Bills
-                        </span>
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i data-feather="user" class="me-1"></i>{{ current_user.get_full_name() }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                                <i data-feather="settings" class="me-2"></i>Profile
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.policy_interests') }}">
+                                <i data-feather="target" class="me-2"></i>Policy Interests
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.signout') }}">
+                                <i data-feather="log-out" class="me-2"></i>Sign Out
+                            </a></li>
+                        </ul>
                     </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.signin') }}">
+                            <i data-feather="log-in" class="me-1"></i>Sign In
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-outline-primary btn-sm ms-2" href="{{ url_for('auth.signup') }}">
+                            <i data-feather="user-plus" class="me-1"></i>Sign Up
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
@@ -88,6 +119,18 @@
             <p class="lead text-muted">
                 Democratizing understanding of congressional bills through intelligent analysis and personalized insights.
             </p>
+            
+            {% if not current_user.is_authenticated %}
+            <div class="mt-4">
+                <a href="{{ url_for('auth.signup') }}" class="btn btn-primary btn-lg me-3">
+                    <i data-feather="user-plus" class="me-2"></i>Get Started
+                </a>
+                <a href="{{ url_for('auth.signin') }}" class="btn btn-outline-primary btn-lg">
+                    <i data-feather="log-in" class="me-2"></i>Sign In
+                </a>
+            </div>
+            {% endif %}
+            
             <div class="row mt-5">
                 <div class="col-md-4">
                     <div class="card bg-secondary">
@@ -126,7 +169,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <h6 class="text-light">Legislative Analysis Platform</h6>
+                    <h6 class="text-light">LegisLAI</h6>
                     <p class="text-muted small">
                         Powered by Congress.gov API and OpenAI for accurate, real-time legislative analysis.
                     </p>

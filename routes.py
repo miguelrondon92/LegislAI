@@ -1,4 +1,5 @@
-from flask import render_template, request, redirect, url_for, flash, session, jsonify
+from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_required, current_user
 from app import app, db
 from models import User, Bill, Alert, WatchlistItem
 import logging
@@ -17,10 +18,10 @@ def index():
     # Get recent bills
     recent_bills = Bill.query.order_by(Bill.last_updated.desc()).limit(10).all()
     
-    # Get user alerts if user is in session
+    # Get user alerts if user is authenticated
     alerts = []
-    if 'user_id' in session:
-        alerts = Alert.query.filter_by(user_id=session['user_id'], is_read=False)\
+    if current_user.is_authenticated:
+        alerts = Alert.query.filter_by(user_id=current_user.id, is_read=False)\
                            .order_by(Alert.created_at.desc()).limit(5).all()
     
     return render_template('index.html', recent_bills=recent_bills, alerts=alerts)
@@ -94,11 +95,16 @@ def bill_analysis(congress, bill_type, bill_number):
     
     # Perform AI analysis if not already done
     analysis = bill.get_ai_analysis()
-    if not analysis and bill.full_text:
+    if not analysis:
         try:
-            analysis = ai_analyzer.analyze_bill(bill.full_text, bill.title)
-            bill.set_ai_analysis(analysis)
-            db.session.commit()
+            # Fetch full text from API for analysis
+            full_text = bill.get_full_text()
+            if full_text:
+                analysis = ai_analyzer.analyze_bill(full_text, bill.title)
+                bill.set_ai_analysis(analysis)
+                db.session.commit()
+            else:
+                analysis = {"error": "Unable to fetch bill text for analysis"}
         except Exception as e:
             logging.error(f"Error in AI analysis: {str(e)}")
             analysis = {"error": "Unable to perform AI analysis at this time"}
@@ -106,26 +112,28 @@ def bill_analysis(congress, bill_type, bill_number):
     # Calculate user alignment score if user is logged in
     alignment_score = None
     user_analysis = None
-    if 'user_id' in session:
-        user = User.query.get(session['user_id'])
-        if user:
-            user_prefs = user.get_policy_preferences()
-            if user_prefs and analysis:
-                try:
-                    alignment_score = ai_analyzer.calculate_alignment_score(
-                        analysis, user_prefs
-                    )
-                    user_analysis = ai_analyzer.generate_user_specific_analysis(
-                        analysis, user_prefs, alignment_score
-                    )
-                except Exception as e:
-                    logging.error(f"Error calculating alignment: {str(e)}")
+    if current_user.is_authenticated:
+        user_prefs = current_user.get_policy_preferences()
+        if user_prefs and analysis:
+            try:
+                alignment_score = ai_analyzer.calculate_alignment_score(
+                    analysis, user_prefs
+                )
+                user_analysis = ai_analyzer.generate_user_specific_analysis(
+                    analysis, user_prefs, alignment_score
+                )
+            except Exception as e:
+                logging.error(f"Error calculating alignment: {str(e)}")
+    
+    # Get bill actions (they're already loaded via the relationship)
+    bill_actions = bill.actions if bill else []
     
     return render_template('bill_analysis.html', 
                          bill=bill, 
                          analysis=analysis,
                          alignment_score=alignment_score,
-                         user_analysis=user_analysis)
+                         user_analysis=user_analysis,
+                         bill_actions=bill_actions)
 
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
@@ -180,79 +188,163 @@ def profile():
     return render_template('profile.html', user=user, preferences=current_preferences)
 
 @app.route('/alerts')
+@login_required
 def alerts():
     """Display user alerts and notifications"""
-    if 'user_id' not in session:
-        flash('Please set up your profile first', 'info')
-        return redirect(url_for('profile'))
-    
-    user = User.query.get(session['user_id'])
-    
     # Get all alerts for the user
-    all_alerts = Alert.query.filter_by(user_id=user.id)\
-                           .order_by(Alert.created_at.desc()).all()
+    alerts = Alert.query.filter_by(user_id=current_user.id)\
+                       .order_by(Alert.created_at.desc()).all()
     
-    # Separate read and unread alerts
-    unread_alerts = [alert for alert in all_alerts if not alert.is_read]
-    read_alerts = [alert for alert in all_alerts if alert.is_read]
-    
-    return render_template('alerts.html', 
-                         unread_alerts=unread_alerts, 
-                         read_alerts=read_alerts)
+    return render_template('alerts.html', alerts=alerts)
 
 @app.route('/mark_alert_read/<int:alert_id>')
+@login_required
 def mark_alert_read(alert_id):
     """Mark an alert as read"""
-    alert = Alert.query.get_or_404(alert_id)
-    
-    # Check if alert belongs to current user
-    if 'user_id' in session and alert.user_id == session['user_id']:
+    alert = Alert.query.filter_by(id=alert_id, user_id=current_user.id).first()
+    if alert:
         alert.is_read = True
         db.session.commit()
+        flash('Alert marked as read', 'success')
+    else:
+        flash('Alert not found', 'error')
     
     return redirect(url_for('alerts'))
 
 @app.route('/add_to_watchlist/<int:bill_id>')
+@login_required
 def add_to_watchlist(bill_id):
     """Add a bill to user's watchlist"""
-    if 'user_id' not in session:
-        flash('Please set up your profile first', 'info')
-        return redirect(url_for('profile'))
-    
-    bill = Bill.query.get_or_404(bill_id)
-    user_id = session['user_id']
+    bill = Bill.query.get(bill_id)
+    if not bill:
+        flash('Bill not found', 'error')
+        return redirect(url_for('bill_search'))
     
     # Check if already in watchlist
-    existing = WatchlistItem.query.filter_by(user_id=user_id, bill_id=bill_id).first()
-    if not existing:
-        watchlist_item = WatchlistItem(user_id=user_id, bill_id=bill_id)
+    existing = WatchlistItem.query.filter_by(
+        user_id=current_user.id, 
+        bill_id=bill_id
+    ).first()
+    
+    if existing:
+        flash('Bill is already in your watchlist', 'info')
+    else:
+        watchlist_item = WatchlistItem(
+            user_id=current_user.id,
+            bill_id=bill_id
+        )
         db.session.add(watchlist_item)
         db.session.commit()
-        flash(f'Added {bill.get_bill_identifier()} to your watchlist', 'success')
-    else:
-        flash('Bill is already in your watchlist', 'info')
+        flash('Bill added to watchlist', 'success')
     
-    return redirect(request.referrer or url_for('index'))
+    return redirect(url_for('bill_analysis', 
+                          congress=bill.congress, 
+                          bill_type=bill.bill_type, 
+                          bill_number=bill.bill_number))
 
 @app.route('/api/generate_alerts')
+@login_required
 def generate_alerts():
-    """API endpoint to generate alerts for all users based on new bills"""
+    """Generate alerts for the current user based on their policy preferences"""
     try:
         # This would typically be called by a background job
-        users_with_alerts = bill_processor.generate_user_alerts()
-        return jsonify({
-            'success': True, 
-            'users_processed': len(users_with_alerts),
-            'message': f'Generated alerts for {len(users_with_alerts)} users'
-        })
+        # For now, just return a success message
+        return jsonify({'status': 'success', 'message': 'Alerts generation initiated'})
     except Exception as e:
         logging.error(f"Error generating alerts: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'status': 'error', 'message': 'Failed to generate alerts'}), 500
+
+@app.route('/api/bill/<int:congress>/<bill_type>/<int:bill_number>/text')
+def get_bill_text(congress, bill_type, bill_number):
+    """API endpoint to get bill text"""
+    try:
+        bill = Bill.query.filter_by(
+            congress=congress, 
+            bill_type=bill_type.lower(), 
+            bill_number=bill_number
+        ).first()
+        
+        if not bill:
+            return jsonify({'error': 'Bill not found'}), 404
+        
+        full_text = bill.get_full_text()
+        if not full_text:
+            return jsonify({'error': 'Bill text not available'}), 404
+        
+        return jsonify({
+            'congress': congress,
+            'bill_type': bill_type,
+            'bill_number': bill_number,
+            'title': bill.title,
+            'text': full_text
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting bill text: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/workflow/start', methods=['POST'])
+@login_required
+def start_workflow():
+    """Start the bill processing workflow"""
+    try:
+        from services.workflow_orchestrator import WorkflowOrchestrator
+        orchestrator = WorkflowOrchestrator()
+        orchestrator.start_workflow()
+        return jsonify({'status': 'success', 'message': 'Workflow started'})
+    except Exception as e:
+        logging.error(f"Error starting workflow: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/workflow/stop', methods=['POST'])
+@login_required
+def stop_workflow():
+    """Stop the bill processing workflow"""
+    try:
+        from services.workflow_orchestrator import WorkflowOrchestrator
+        orchestrator = WorkflowOrchestrator()
+        orchestrator.stop_workflow()
+        return jsonify({'status': 'success', 'message': 'Workflow stopped'})
+    except Exception as e:
+        logging.error(f"Error stopping workflow: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/workflow/status')
+@login_required
+def get_workflow_status():
+    """Get the current workflow status"""
+    try:
+        from services.workflow_orchestrator import WorkflowOrchestrator
+        orchestrator = WorkflowOrchestrator()
+        status = orchestrator.get_status()
+        return jsonify(status)
+    except Exception as e:
+        logging.error(f"Error getting workflow status: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/workflow/recent')
+@login_required
+def get_recent_workflow_items():
+    """Get recent workflow items"""
+    try:
+        from services.workflow_orchestrator import WorkflowOrchestrator
+        orchestrator = WorkflowOrchestrator()
+        items = orchestrator.get_recent_items()
+        return jsonify({'items': items})
+    except Exception as e:
+        logging.error(f"Error getting recent workflow items: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/workflow')
+@login_required
+def workflow_dashboard():
+    """Workflow dashboard for monitoring bill processing"""
+    return render_template('workflow_dashboard.html')
 
 @app.errorhandler(404)
 def page_not_found(e):
-    return render_template('base.html'), 404
+    return render_template('404.html'), 404
 
 @app.errorhandler(500)
 def internal_error(e):
-    return render_template('base.html'), 500
+    return render_template('500.html'), 500

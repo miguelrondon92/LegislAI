@@ -177,7 +177,7 @@
                     {% if policy.bipartisan_potential %}
                     <div class="col-md-6">
                         <h6>Bipartisan Potential</h6>
-                        <span class="badge bg-info fs-6">{{ policy.bipartisan_potential }}</span>
+                        <span class="badge bg-info fs-6 bipartisan-potential-value">{{ policy.bipartisan_potential }}</span>
                     </div>
                     {% endif %}
                 </div>
@@ -315,6 +315,49 @@
                     <strong>Geographic Impact:</strong> {{ stakeholders.geographic_impact }}
                 </div>
                 {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Bill Actions Timeline -->
+        {% if bill_actions %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="clock" class="me-2"></i>
+                    Legislative History
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    {% for action in bill_actions %}
+                    <div class="timeline-item mb-4">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <div class="timeline-marker bg-{{ 'success' if action.action_type == 'enacted' else 'primary' if action.action_type == 'passed' else 'warning' if action.action_type == 'referred' else 'info' }}"></div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0">{{ action.action_type.title() }}</h6>
+                                    <small class="text-muted">{{ action.get_formatted_date() }}</small>
+                                </div>
+                                <p class="mb-1">{{ action.action_text }}</p>
+                                {% if action.action_description %}
+                                <small class="text-muted">{{ action.action_description }}</small>
+                                {% endif %}
+                                {% if action.source_system_name %}
+                                <div class="mt-1">
+                                    <small class="text-muted">
+                                        <i data-feather="database" class="me-1" style="width: 14px; height: 14px;"></i>
+                                        Source: {{ action.source_system_name }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
         {% endif %}

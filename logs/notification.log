@@ -749,3 +749,1388 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 17:04:03,519 - root - INFO - Successfully processed 2 out of 2 items
 2025-06-27 17:04:03,519 - httpcore.connection - DEBUG - close.started
 2025-06-27 17:04:03,520 - httpcore.connection - DEBUG - close.complete
+2025-06-28 15:21:35,275 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 15:24:20,512 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 15:24:25,685 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:24:25,686 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:24:34,050 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:24:34,050 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:33:08,292 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 15:35:19,372 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 15:35:25,832 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:35:25,833 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:35:45,299 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:35:45,300 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:35:45,329 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:35:45,337 - root - INFO - Processed 4 actions for bill HR-9999
+2025-06-28 15:45:41,683 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:45:41,686 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:45:41,990 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:45:41,990 - root - WARNING - Gemini API key not found. AI analysis will be disabled.
+2025-06-28 15:45:41,990 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:45:41,990 - root - WARNING - Gemini API key not found. AI analysis will be disabled.
+2025-06-28 15:50:18,499 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 15:50:22,692 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 15:50:47,408 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 15:51:53,658 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 15:52:17,887 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 15:52:17,887 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:00:21,927 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:00:21,930 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:00:41,646 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:00:41,701 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-06-28 16:00:41,701 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-06-28 16:00:44,314 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:00:44] "GET / HTTP/1.1" 200 -
+2025-06-28 16:00:44,331 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:00:44] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:00:44,332 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:00:44] "GET /static/css/style.css HTTP/1.1" 200 -
+2025-06-28 16:00:50,150 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:00:50] "GET /auth/signup HTTP/1.1" 200 -
+2025-06-28 16:00:50,165 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:00:50] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:00:50,168 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:00:50] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:01:29,387 - app - ERROR - Exception on /auth/signup [POST]
+Traceback (most recent call last):
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: user.password_hash
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "/Users/miguelrondon/Desktop/code/legislai/auth.py", line 49, in signup
+    elif User.query.filter_by(username=username).first():
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
+    return self.limit(1)._iter().first()  # type: ignore
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+    return meth(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+    return self._exec_single_context(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: user.password_hash
+[SQL: SELECT user.id AS user_id, user.username AS user_username, user.email AS user_email, user.password_hash AS user_password_hash, user.created_at AS user_created_at, user.first_name AS user_first_name, user.last_name AS user_last_name, user.organization AS user_organization, user.role AS user_role, user.location AS user_location, user.policy_preferences AS user_policy_preferences, user.alert_frequency AS user_alert_frequency, user.alert_enabled AS user_alert_enabled, user.is_active AS user_is_active, user.email_verified AS user_email_verified, user.verification_token AS user_verification_token 
+FROM user 
+WHERE user.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('miguelrondon92@gmail.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-06-28 16:01:29,403 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:01:29] "[35m[1mPOST /auth/signup HTTP/1.1[0m" 500 -
+2025-06-28 16:01:29,417 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:01:29] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:01:29,417 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:01:29] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:02:54,526 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:03:02,799 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:03:12,414 - app - ERROR - Exception on /auth/signup [POST]
+Traceback (most recent call last):
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: user.password_hash
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "/Users/miguelrondon/Desktop/code/legislai/auth.py", line 49, in signup
+    elif User.query.filter_by(username=username).first():
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
+    return self.limit(1)._iter().first()  # type: ignore
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+    return meth(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+    return self._exec_single_context(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: user.password_hash
+[SQL: SELECT user.id AS user_id, user.username AS user_username, user.email AS user_email, user.password_hash AS user_password_hash, user.created_at AS user_created_at, user.first_name AS user_first_name, user.last_name AS user_last_name, user.organization AS user_organization, user.role AS user_role, user.location AS user_location, user.policy_preferences AS user_policy_preferences, user.alert_frequency AS user_alert_frequency, user.alert_enabled AS user_alert_enabled, user.is_active AS user_is_active, user.email_verified AS user_email_verified, user.verification_token AS user_verification_token 
+FROM user 
+WHERE user.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('miguelrondon92@gmail.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-06-28 16:03:12,420 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:12] "[35m[1mPOST /auth/signup HTTP/1.1[0m" 500 -
+2025-06-28 16:03:12,440 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:12] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:03:12,442 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:12] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:03:15,132 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:15] "GET /auth/signin HTTP/1.1" 200 -
+2025-06-28 16:03:15,146 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:15] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:03:15,147 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:15] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:03:32,691 - app - ERROR - Exception on /auth/signin [POST]
+Traceback (most recent call last):
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: no such column: user.password_hash
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "/Users/miguelrondon/Desktop/code/legislai/auth.py", line 115, in signin
+    user = User.query.filter(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
+    return self.limit(1)._iter().first()  # type: ignore
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+    return meth(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+    return self._exec_single_context(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+    self.dialect.do_execute(
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: user.password_hash
+[SQL: SELECT user.id AS user_id, user.username AS user_username, user.email AS user_email, user.password_hash AS user_password_hash, user.created_at AS user_created_at, user.first_name AS user_first_name, user.last_name AS user_last_name, user.organization AS user_organization, user.role AS user_role, user.location AS user_location, user.policy_preferences AS user_policy_preferences, user.alert_frequency AS user_alert_frequency, user.alert_enabled AS user_alert_enabled, user.is_active AS user_is_active, user.email_verified AS user_email_verified, user.verification_token AS user_verification_token 
+FROM user 
+WHERE user.username = ? OR user.email = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('miguelrondon92@gmail.com', 'miguelrondon92@gmail.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-06-28 16:03:32,694 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:32] "[35m[1mPOST /auth/signin HTTP/1.1[0m" 500 -
+2025-06-28 16:03:32,708 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:32] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:03:32,712 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:32] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:03:35,595 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:35] "GET / HTTP/1.1" 200 -
+2025-06-28 16:03:35,611 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:35] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:03:35,613 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:35] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:04:37,992 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:04:44,041 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:05:37,959 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:05:41,499 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:05:44,973 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:05:50,537 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:05:50,538 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:06:08,719 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:06:08,773 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-06-28 16:06:08,773 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-06-28 16:06:16,724 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:16] "GET / HTTP/1.1" 200 -
+2025-06-28 16:06:16,743 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:16] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:06:16,744 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:16] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:06:19,364 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:19] "GET /auth/signup HTTP/1.1" 200 -
+2025-06-28 16:06:19,379 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:19] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:06:19,380 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:19] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:06:43,581 - app - ERROR - Exception on /auth/signup [POST]
+Traceback (most recent call last):
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+  File "/Users/miguelrondon/Desktop/code/legislai/auth.py", line 71, in signup
+    flash(error, 'error')
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/helpers.py", line 335, in flash
+    session["_flashes"] = flashes
+  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/sessions.py", line 104, in _fail
+    raise RuntimeError(
+RuntimeError: The session is unavailable because no secret key was set.  Set the secret_key on the application to something unique and secret.
+2025-06-28 16:06:43,587 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:43] "[35m[1mPOST /auth/signup HTTP/1.1[0m" 500 -
+2025-06-28 16:06:43,599 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:43] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:06:43,602 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:43] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:07:30,817 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:07:30,870 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-06-28 16:07:30,870 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-06-28 16:07:36,189 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:36] "GET / HTTP/1.1" 200 -
+2025-06-28 16:07:36,205 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:36] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:07:36,206 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:36] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:07:38,847 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:38] "GET /auth/signin HTTP/1.1" 200 -
+2025-06-28 16:07:38,863 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:38] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:07:38,864 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:38] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:07:39,797 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:39] "GET /auth/signup HTTP/1.1" 200 -
+2025-06-28 16:07:39,812 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:39] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:07:39,813 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:39] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:07:56,613 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:56] "POST /auth/signup HTTP/1.1" 200 -
+2025-06-28 16:07:56,626 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:56] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:07:56,626 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:07:56] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:09:32,016 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:09:32,070 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-06-28 16:09:32,070 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-06-28 16:09:35,804 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:35] "GET / HTTP/1.1" 200 -
+2025-06-28 16:09:35,824 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:35] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:09:35,824 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:35] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:09:40,952 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:40] "GET /auth/profile HTTP/1.1" 200 -
+2025-06-28 16:09:40,966 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:40] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:09:40,974 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:40] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:09:46,795 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:46] "[32mGET /auth/signout HTTP/1.1[0m" 302 -
+2025-06-28 16:09:46,803 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:46] "GET / HTTP/1.1" 200 -
+2025-06-28 16:09:46,820 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:46] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:09:46,820 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:46] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:09:48,667 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:48] "GET /auth/signin HTTP/1.1" 200 -
+2025-06-28 16:09:48,683 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:48] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:09:48,684 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:48] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:09:57,168 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:57] "POST /auth/signin HTTP/1.1" 200 -
+2025-06-28 16:09:57,178 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:57] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:09:57,179 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:09:57] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:10:04,304 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:10:04] "[32mPOST /auth/signin HTTP/1.1[0m" 302 -
+2025-06-28 16:10:04,310 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:10:04] "GET / HTTP/1.1" 200 -
+2025-06-28 16:10:04,328 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:10:04] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:10:04,328 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:10:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:10:26,069 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:10:26] "GET /workflow HTTP/1.1" 200 -
+2025-06-28 16:10:26,086 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:10:26] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:10:26,090 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:10:26] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:11:51,333 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:51] "GET / HTTP/1.1" 200 -
+2025-06-28 16:11:51,350 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:51] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:11:51,351 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:51] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:11:54,488 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:54] "GET /auth/policy-interests HTTP/1.1" 200 -
+2025-06-28 16:11:54,506 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:54] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:11:54,509 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:54] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:11:56,467 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:56] "GET /alerts HTTP/1.1" 200 -
+2025-06-28 16:11:56,484 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:56] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:11:56,485 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:11:56] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:12:01,730 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:01] "GET /workflow HTTP/1.1" 200 -
+2025-06-28 16:12:01,749 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:01] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:12:01,750 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:01] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:12:03,995 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:03] "GET /alerts HTTP/1.1" 200 -
+2025-06-28 16:12:04,012 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:12:04,013 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:04] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:12:04,766 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:04] "GET /auth/policy-interests HTTP/1.1" 200 -
+2025-06-28 16:12:04,781 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:12:04,784 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:04] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:12:05,452 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:05] "GET /bill_search HTTP/1.1" 200 -
+2025-06-28 16:12:05,465 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:05] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:12:05,466 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:05] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:12:06,078 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:06] "GET / HTTP/1.1" 200 -
+2025-06-28 16:12:06,099 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:06] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:12:06,100 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:06] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:12:07,242 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:07] "GET /workflow HTTP/1.1" 200 -
+2025-06-28 16:12:07,257 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:07] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:12:07,261 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:12:07] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:15:07,306 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:15:07] "GET /auth/policy-interests HTTP/1.1" 200 -
+2025-06-28 16:15:07,329 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:15:07] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:15:07,330 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:15:07] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:15:44,421 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:15:44] "[32mPOST /auth/policy-interests HTTP/1.1[0m" 302 -
+2025-06-28 16:15:44,427 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:15:44] "GET / HTTP/1.1" 200 -
+2025-06-28 16:15:44,443 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:15:44] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-28 16:15:44,444 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:15:44] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-28 16:20:33,014 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:20:33,015 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:20:33,024 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:20:33,024 - __main__ - INFO - Starting to fetch bills from the last 10 days...
+2025-06-28 16:20:33,024 - __main__ - INFO - Date range: 2025-06-18 to 2025-06-28
+2025-06-28 16:20:33,025 - __main__ - INFO - Fetching bills by update date...
+2025-06-28 16:20:33,030 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 16:20:36,791 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=0&sort=updateDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:20:40,443 - root - INFO - Fetched 50 bills from 2025-06-18 16:20:33.024892 to 2025-06-28 16:20:33.024899
+2025-06-28 16:20:40,444 - __main__ - INFO - Fetching bills by introduction date...
+2025-06-28 16:20:43,805 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=0&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:20:50,805 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=50&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:20:57,783 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=100&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:21:04,570 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=150&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:21:11,853 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=200&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:21:18,823 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=250&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:21:25,742 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=300&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:21:32,701 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=350&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:21:40,278 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=400&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:21:47,169 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=50&offset=450&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:09,766 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:23:09,766 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:23:09,777 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:23:09,777 - __main__ - INFO - Starting to fetch bills from the last 10 days...
+2025-06-28 16:23:09,777 - __main__ - INFO - Date range: 2025-06-18 to 2025-06-28
+2025-06-28 16:23:09,777 - __main__ - INFO - Fetching bills by update date...
+2025-06-28 16:23:09,784 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 16:23:12,952 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=0&sort=updateDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:12,954 - root - INFO - Reached maximum number of bills (5)
+2025-06-28 16:23:12,954 - root - INFO - Fetched 5 bills from 2025-06-18 16:23:09.777362 to 2025-06-28 16:23:09.777368
+2025-06-28 16:23:12,955 - __main__ - INFO - Fetching bills by introduction date...
+2025-06-28 16:23:15,639 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=0&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:21,459 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=5&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:27,568 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=10&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:33,906 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=15&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:39,783 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=20&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:46,859 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=25&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:52,869 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=30&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:23:59,019 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=5&offset=35&sort=introducedDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:24:32,413 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:24:32,414 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:24:32,424 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:24:32,424 - __main__ - INFO - Starting to fetch recent bills (last 10 days)...
+2025-06-28 16:24:32,424 - __main__ - INFO - Cutoff date: 2025-06-18
+2025-06-28 16:24:32,425 - __main__ - INFO - Fetching 30 most recent bills...
+2025-06-28 16:24:32,430 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 16:24:40,748 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=30&sort=updateDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:24:40,830 - __main__ - INFO - Received 30 bills from Congress API
+2025-06-28 16:24:40,830 - __main__ - INFO - Found 10 bills from the last 10 days
+2025-06-28 16:24:40,830 - __main__ - INFO - Processing bill 1/10: HR-1
+2025-06-28 16:24:40,917 - __main__ - INFO - Fetching details for HR-1...
+2025-06-28 16:24:41,216 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 16:24:44,742 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 16:24:44,747 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 16:24:45,317 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 16:24:48,681 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 16:24:48,767 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:24:48,767 - root - INFO - Added HR.1 to seen_items.json
+2025-06-28 16:24:48,799 - root - INFO - Processed 16 actions for bill HR-1
+2025-06-28 16:24:48,946 - __main__ - INFO - Successfully stored: HR-1
+2025-06-28 16:24:49,049 - __main__ - INFO - Processing bill 2/10: SJRES-60
+2025-06-28 16:24:49,050 - __main__ - INFO - Fetching details for SJRES-60...
+2025-06-28 16:24:52,008 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60 HTTP/1.1" 200 None
+2025-06-28 16:24:55,551 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/text HTTP/1.1" 200 None
+2025-06-28 16:24:59,226 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/actions HTTP/1.1" 200 None
+2025-06-28 16:24:59,230 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:24:59,230 - root - INFO - Added SJRES.60 to seen_items.json
+2025-06-28 16:24:59,238 - root - INFO - Processed 2 actions for bill SJRES-60
+2025-06-28 16:24:59,242 - __main__ - INFO - Successfully stored: SJRES-60
+2025-06-28 16:24:59,347 - __main__ - INFO - Processing bill 3/10: SJRES-59
+2025-06-28 16:24:59,351 - __main__ - INFO - Fetching details for SJRES-59...
+2025-06-28 16:25:02,801 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/59 HTTP/1.1" 200 None
+2025-06-28 16:25:06,396 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/59/text HTTP/1.1" 200 None
+2025-06-28 16:25:06,604 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/sjres59/BILLS-119sjres59is.htm HTTP/1.1" 200 None
+2025-06-28 16:25:10,041 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/59/actions HTTP/1.1" 200 None
+2025-06-28 16:25:10,051 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:25:10,051 - root - INFO - Added SJRES.59 to seen_items.json
+2025-06-28 16:25:10,063 - root - INFO - Processed 4 actions for bill SJRES-59
+2025-06-28 16:25:10,071 - __main__ - INFO - Successfully stored: SJRES-59
+2025-06-28 16:25:10,176 - __main__ - INFO - Processing bill 4/10: HR-875
+2025-06-28 16:25:10,182 - __main__ - INFO - Fetching details for HR-875...
+2025-06-28 16:25:13,621 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/875 HTTP/1.1" 200 None
+2025-06-28 16:25:17,220 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/875/text HTTP/1.1" 200 None
+2025-06-28 16:25:17,339 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr875/BILLS-119hr875eh.htm HTTP/1.1" 200 None
+2025-06-28 16:25:20,993 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/875/actions HTTP/1.1" 200 None
+2025-06-28 16:25:21,076 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:25:21,076 - root - INFO - Added HR.875 to seen_items.json
+2025-06-28 16:25:21,107 - root - INFO - Processed 19 actions for bill HR-875
+2025-06-28 16:25:21,112 - __main__ - INFO - Successfully stored: HR-875
+2025-06-28 16:25:21,218 - __main__ - INFO - Processing bill 5/10: HR-275
+2025-06-28 16:25:21,220 - __main__ - INFO - Fetching details for HR-275...
+2025-06-28 16:25:24,463 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/275 HTTP/1.1" 200 None
+2025-06-28 16:25:28,027 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/275/text HTTP/1.1" 200 None
+2025-06-28 16:25:28,129 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr275/BILLS-119hr275eh.htm HTTP/1.1" 200 None
+2025-06-28 16:25:31,937 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/275/actions HTTP/1.1" 200 None
+2025-06-28 16:25:31,946 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:25:31,947 - root - INFO - Added HR.275 to seen_items.json
+2025-06-28 16:25:31,978 - root - INFO - Processed 20 actions for bill HR-275
+2025-06-28 16:25:31,983 - __main__ - INFO - Successfully stored: HR-275
+2025-06-28 16:25:32,089 - __main__ - INFO - Processing bill 6/10: S-2202
+2025-06-28 16:25:32,093 - __main__ - INFO - Fetching details for S-2202...
+2025-06-28 16:25:35,253 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/2202 HTTP/1.1" 200 None
+2025-06-28 16:25:38,794 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/2202/text HTTP/1.1" 200 None
+2025-06-28 16:25:42,428 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/2202/actions HTTP/1.1" 200 None
+2025-06-28 16:25:42,435 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:25:42,435 - root - INFO - Added S.2202 to seen_items.json
+2025-06-28 16:25:42,445 - root - INFO - Processed 2 actions for bill S-2202
+2025-06-28 16:25:42,448 - __main__ - INFO - Successfully stored: S-2202
+2025-06-28 16:25:42,553 - __main__ - INFO - Processing bill 7/10: S-2201
+2025-06-28 16:25:42,555 - __main__ - INFO - Fetching details for S-2201...
+2025-06-28 16:25:46,074 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/2201 HTTP/1.1" 200 None
+2025-06-28 16:25:49,595 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/2201/text HTTP/1.1" 200 None
+2025-06-28 16:25:53,230 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/2201/actions HTTP/1.1" 200 None
+2025-06-28 16:25:53,238 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:25:53,238 - root - INFO - Added S.2201 to seen_items.json
+2025-06-28 16:25:53,248 - root - INFO - Processed 2 actions for bill S-2201
+2025-06-28 16:25:53,251 - __main__ - INFO - Successfully stored: S-2201
+2025-06-28 16:25:53,356 - __main__ - INFO - Processing bill 8/10: S-257
+2025-06-28 16:25:53,360 - __main__ - INFO - Fetching details for S-257...
+2025-06-28 16:25:56,858 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/257 HTTP/1.1" 200 None
+2025-06-28 16:26:00,454 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/257/text HTTP/1.1" 200 None
+2025-06-28 16:26:01,874 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/s257/BILLS-119s257es.htm HTTP/1.1" 200 None
+2025-06-28 16:26:04,210 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/257/actions HTTP/1.1" 200 None
+2025-06-28 16:26:04,217 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:26:04,217 - root - INFO - Added S.257 to seen_items.json
+2025-06-28 16:26:04,239 - root - INFO - Processed 12 actions for bill S-257
+2025-06-28 16:26:04,253 - __main__ - INFO - Successfully stored: S-257
+2025-06-28 16:26:04,358 - __main__ - INFO - Processing bill 9/10: S-98
+2025-06-28 16:26:04,362 - __main__ - INFO - Fetching details for S-98...
+2025-06-28 16:26:07,656 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/98 HTTP/1.1" 200 None
+2025-06-28 16:26:11,265 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/98/text HTTP/1.1" 200 None
+2025-06-28 16:26:11,363 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/s98/BILLS-119s98es.htm HTTP/1.1" 200 None
+2025-06-28 16:26:15,124 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/s/98/actions HTTP/1.1" 200 None
+2025-06-28 16:26:15,131 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:26:15,131 - root - INFO - Added S.98 to seen_items.json
+2025-06-28 16:26:15,148 - root - INFO - Processed 9 actions for bill S-98
+2025-06-28 16:26:15,154 - __main__ - INFO - Successfully stored: S-98
+2025-06-28 16:26:15,260 - __main__ - INFO - Processing bill 10/10: HCONRES-39
+2025-06-28 16:26:15,265 - __main__ - INFO - Fetching details for HCONRES-39...
+2025-06-28 16:26:18,510 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hconres/39 HTTP/1.1" 200 None
+2025-06-28 16:26:22,062 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hconres/39/text HTTP/1.1" 200 None
+2025-06-28 16:26:22,231 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hconres39/BILLS-119hconres39eh.htm HTTP/1.1" 200 None
+2025-06-28 16:26:25,878 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hconres/39/actions HTTP/1.1" 200 None
+2025-06-28 16:26:25,886 - root - INFO - Updated seen_items.json with 1 new items
+2025-06-28 16:26:25,886 - root - INFO - Added HCONRES.39 to seen_items.json
+2025-06-28 16:26:25,907 - root - INFO - Processed 11 actions for bill HCONRES-39
+2025-06-28 16:26:25,913 - __main__ - INFO - Successfully stored: HCONRES-39
+2025-06-28 16:26:26,018 - __main__ - INFO - Fetch operation completed:
+2025-06-28 16:26:26,018 - __main__ - INFO -   - Bills stored: 10
+2025-06-28 16:26:26,018 - __main__ - INFO -   - Bills skipped: 0
+2025-06-28 16:32:20,771 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:32:20,776 - root - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-06-28 16:32:20,785 - __main__ - INFO - Starting AI analysis cleanup...
+2025-06-28 16:32:20,806 - __main__ - INFO - Found 7 bills with AI analysis data
+2025-06-28 16:32:20,807 - __main__ - INFO - Cleaned AI analysis for bill HR-1
+2025-06-28 16:32:20,807 - __main__ - INFO - Cleaned AI analysis for bill SJRES-59
+2025-06-28 16:32:20,807 - __main__ - INFO - Cleaned AI analysis for bill HR-875
+2025-06-28 16:32:20,807 - __main__ - INFO - Cleaned AI analysis for bill HR-275
+2025-06-28 16:32:20,807 - __main__ - INFO - Cleaned AI analysis for bill S-257
+2025-06-28 16:32:20,807 - __main__ - INFO - Cleaned AI analysis for bill S-98
+2025-06-28 16:32:20,807 - __main__ - INFO - Cleaned AI analysis for bill HCONRES-39
+2025-06-28 16:32:20,812 - __main__ - INFO - Cleanup completed: 7 bills cleaned out of 7
+2025-06-28 16:32:20,813 - __main__ - INFO - Cleanup finished.
+2025-06-28 16:34:59,539 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:34:59,614 - __main__ - INFO - Starting to fetch recent bills (last 10 days)...
+2025-06-28 16:34:59,614 - __main__ - INFO - Cutoff date: 2025-06-18
+2025-06-28 16:34:59,614 - __main__ - INFO - Fetching 3 most recent bills...
+2025-06-28 16:34:59,617 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 16:35:02,609 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=3&sort=updateDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:35:02,613 - __main__ - INFO - Received 3 bills from Congress API
+2025-06-28 16:35:02,614 - __main__ - INFO - Found 1 bills from the last 10 days
+2025-06-28 16:35:02,615 - __main__ - INFO - Processing bill 1/1: HR-1
+2025-06-28 16:35:02,781 - __main__ - INFO - Bill already exists: HR-1
+2025-06-28 16:35:02,781 - __main__ - INFO - Fetch operation completed:
+2025-06-28 16:35:02,781 - __main__ - INFO -   - Bills stored: 0
+2025-06-28 16:35:02,781 - __main__ - INFO -   - Bills skipped: 1
+2025-06-28 16:37:14,168 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:37:14,229 - __main__ - INFO - Bill truncation utility
+2025-06-28 16:37:14,229 - __main__ - INFO - This will delete ALL bills and related data from the database.
+2025-06-28 16:37:14,229 - __main__ - INFO - Make sure you have a backup if needed.
+2025-06-28 16:37:14,229 - __main__ - INFO - Starting truncation of bills and related tables...
+2025-06-28 16:37:14,259 - __main__ - INFO - Current counts:
+2025-06-28 16:37:14,259 - __main__ - INFO -   - Bills: 10
+2025-06-28 16:37:14,259 - __main__ - INFO -   - Bill Actions: 89
+2025-06-28 16:37:14,259 - __main__ - INFO -   - Alerts: 0
+2025-06-28 16:37:14,259 - __main__ - INFO -   - User Bill Alignments: 0
+2025-06-28 16:37:14,259 - __main__ - INFO -   - Watchlist Items: 0
+2025-06-28 16:37:23,818 - __main__ - INFO - Truncating child tables...
+2025-06-28 16:37:23,822 - __main__ - INFO - Deleted 89 bill actions
+2025-06-28 16:37:23,823 - __main__ - INFO - Deleted 0 alerts
+2025-06-28 16:37:23,824 - __main__ - INFO - Deleted 0 user bill alignments
+2025-06-28 16:37:23,825 - __main__ - INFO - Deleted 0 watchlist items
+2025-06-28 16:37:23,825 - __main__ - INFO - Deleted 10 bills
+2025-06-28 16:37:23,830 - __main__ - INFO - ✅ Successfully truncated all bills and related tables!
+2025-06-28 16:37:23,834 - __main__ - INFO - New counts:
+2025-06-28 16:37:23,834 - __main__ - INFO -   - Bills: 0
+2025-06-28 16:37:23,834 - __main__ - INFO -   - Bill Actions: 0
+2025-06-28 16:37:23,834 - __main__ - INFO -   - Alerts: 0
+2025-06-28 16:37:23,834 - __main__ - INFO -   - User Bill Alignments: 0
+2025-06-28 16:37:23,834 - __main__ - INFO -   - Watchlist Items: 0
+2025-06-28 16:37:34,323 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:37:34,390 - __main__ - INFO - Starting to fetch recent bills (last 10 days)...
+2025-06-28 16:37:34,390 - __main__ - INFO - Cutoff date: 2025-06-18
+2025-06-28 16:37:34,390 - __main__ - INFO - Fetching 6 most recent bills...
+2025-06-28 16:37:34,392 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 16:37:37,313 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=6&sort=updateDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:37:37,316 - __main__ - INFO - Received 6 bills from Congress API
+2025-06-28 16:37:37,317 - __main__ - INFO - Found 2 bills from the last 10 days
+2025-06-28 16:37:37,317 - __main__ - INFO - Processing bill 1/2: HR-1
+2025-06-28 16:37:37,369 - __main__ - INFO - Fetching details for HR-1...
+2025-06-28 16:37:38,186 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 16:37:41,786 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 16:37:41,790 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 16:37:41,878 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 16:37:45,387 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 16:37:45,469 - root - INFO - HR.1 already in seen_items.json
+2025-06-28 16:37:45,510 - root - INFO - Processed 16 actions for bill HR-1
+2025-06-28 16:37:45,662 - root - ERROR - Error in AI analysis for bill HR-1: analyze_bill() missing 1 required positional argument: 'bill_title'
+2025-06-28 16:37:45,663 - __main__ - INFO - Successfully stored: HR-1
+2025-06-28 16:37:45,768 - __main__ - INFO - Processing bill 2/2: SJRES-60
+2025-06-28 16:37:45,770 - __main__ - INFO - Fetching details for SJRES-60...
+2025-06-28 16:37:48,995 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60 HTTP/1.1" 200 None
+2025-06-28 16:37:52,591 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/text HTTP/1.1" 200 None
+2025-06-28 16:37:56,189 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/actions HTTP/1.1" 200 None
+2025-06-28 16:37:56,193 - root - INFO - SJRES.60 already in seen_items.json
+2025-06-28 16:37:56,202 - root - INFO - Processed 2 actions for bill SJRES-60
+2025-06-28 16:37:56,206 - __main__ - INFO - Successfully stored: SJRES-60
+2025-06-28 16:37:56,311 - __main__ - INFO - Fetch operation completed:
+2025-06-28 16:37:56,311 - __main__ - INFO -   - Bills stored: 2
+2025-06-28 16:37:56,311 - __main__ - INFO -   - Bills skipped: 0
+2025-06-28 16:38:27,207 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:38:27,272 - __main__ - INFO - Starting to fetch recent bills (last 10 days)...
+2025-06-28 16:38:27,273 - __main__ - INFO - Cutoff date: 2025-06-18
+2025-06-28 16:38:27,273 - __main__ - INFO - Fetching 3 most recent bills...
+2025-06-28 16:38:27,275 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 16:38:27,673 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill?limit=3&sort=updateDate%2Bdesc HTTP/1.1" 200 None
+2025-06-28 16:38:27,676 - __main__ - INFO - Received 3 bills from Congress API
+2025-06-28 16:38:27,676 - __main__ - INFO - Found 1 bills from the last 10 days
+2025-06-28 16:38:27,677 - __main__ - INFO - Processing bill 1/1: HR-1
+2025-06-28 16:38:27,727 - __main__ - INFO - Bill already exists: HR-1
+2025-06-28 16:38:27,727 - __main__ - INFO - Fetch operation completed:
+2025-06-28 16:38:27,727 - __main__ - INFO -   - Bills stored: 0
+2025-06-28 16:38:27,727 - __main__ - INFO -   - Bills skipped: 1
+2025-06-28 16:39:11,789 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 16:39:11,848 - __main__ - INFO - Starting AI analysis on existing bills...
+2025-06-28 16:39:11,879 - __main__ - INFO - Found 2 bills without AI analysis
+2025-06-28 16:39:11,879 - __main__ - INFO - Performing AI analysis on HR-1: One Big Beautiful Bill Act
+2025-06-28 16:39:11,881 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 16:39:12,359 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 16:39:15,711 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 16:39:15,717 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 16:39:15,800 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 16:39:19,275 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 16:39:19,279 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 16:39:19,285 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 16:39:19,315 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x115100dc0>
+2025-06-28 16:39:19,316 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x110f4c0c0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 16:39:19,333 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x115100d00>
+2025-06-28 16:39:19,333 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:19,334 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 16:39:19,334 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 16:39:19,334 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 16:39:19,334 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:22,720 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 21:39:22 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3370'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 16:39:22,721 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 16:39:22,722 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 16:39:22,723 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 16:39:22,723 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 16:39:22,723 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 16:39:22,727 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 16:39:22,727 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 16:39:22,729 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:22,729 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 16:39:22,729 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 16:39:22,730 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 16:39:22,730 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:26,522 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 21:39:26 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3780'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 16:39:26,523 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 16:39:26,523 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 16:39:26,524 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 16:39:26,524 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 16:39:26,524 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 16:39:26,525 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 16:39:26,526 - root - ERROR - Policy categorization error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 16:39:26,526 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 16:39:26,527 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:26,528 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 16:39:26,528 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 16:39:26,528 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 16:39:26,529 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:28,980 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 21:39:28 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=2440'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 16:39:28,980 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 16:39:28,980 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 16:39:28,981 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 16:39:28,981 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 16:39:28,981 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 16:39:28,981 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 16:39:28,981 - root - ERROR - Stakeholder analysis error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 16:39:28,988 - __main__ - INFO - ✅ Successfully performed AI analysis for bill HR-1
+2025-06-28 16:39:28,989 - __main__ - INFO - Performing AI analysis on SJRES-60: A joint resolution providing for congressional disapproval under chapter 8 of title 5, United States Code, of the rule submitted by the Environmental Protection Agency relating to "Emissions Budget and Allowance Allocations for Indiana Under the Revised Cross-State Air Pollution Rule Update".
+2025-06-28 16:39:28,990 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 16:39:29,370 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60 HTTP/1.1" 200 None
+2025-06-28 16:39:32,784 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/text HTTP/1.1" 200 None
+2025-06-28 16:39:36,387 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/actions HTTP/1.1" 200 None
+2025-06-28 16:39:36,391 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 16:39:36,394 - httpcore.connection - DEBUG - close.started
+2025-06-28 16:39:36,395 - httpcore.connection - DEBUG - close.complete
+2025-06-28 16:39:36,395 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 16:39:36,409 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x1151005e0>
+2025-06-28 16:39:36,410 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x110f4c0c0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 16:39:36,431 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x115100dc0>
+2025-06-28 16:39:36,432 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:36,432 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 16:39:36,432 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 16:39:36,432 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 16:39:36,432 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:39,914 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 21:39:39 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3418'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 16:39:39,915 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 16:39:39,916 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 16:39:39,917 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 16:39:39,917 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 16:39:39,917 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 16:39:39,919 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 16:39:39,920 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 16:39:39,923 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:39,924 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 16:39:39,924 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 16:39:39,924 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 16:39:39,924 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:43,857 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 21:39:43 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3919'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 16:39:43,858 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 16:39:43,858 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 16:39:43,859 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 16:39:43,859 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 16:39:43,859 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 16:39:43,860 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 16:39:43,861 - root - ERROR - Policy categorization error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 16:39:43,861 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 16:39:43,862 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:43,863 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 16:39:43,863 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 16:39:43,863 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 16:39:43,863 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 16:39:48,006 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 21:39:48 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=4128'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 16:39:48,006 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 16:39:48,007 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 16:39:48,007 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 16:39:48,008 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 16:39:48,008 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 16:39:48,009 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 16:39:48,009 - root - ERROR - Stakeholder analysis error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 16:39:48,015 - __main__ - INFO - ✅ Successfully performed AI analysis for bill SJRES-60
+2025-06-28 16:39:48,015 - __main__ - INFO - AI analysis completed: 2 bills processed
+2025-06-28 16:39:48,016 - httpcore.connection - DEBUG - close.started
+2025-06-28 16:39:48,016 - httpcore.connection - DEBUG - close.complete
+2025-06-28 16:39:48,016 - __main__ - INFO - AI analysis process completed.
+2025-06-28 17:41:28,400 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:41:55,923 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:41:55,980 - flask_migrate - ERROR - Error: Directory migrations already exists and is not empty
+2025-06-28 17:41:59,956 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:42:03,991 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:42:08,031 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:42:22,611 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:42:38,683 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:44:10,698 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:44:14,712 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:44:14,799 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:44:15,484 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 17:44:18,633 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 17:44:18,639 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 17:44:19,110 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 17:44:22,670 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 17:44:22,674 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:44:22,678 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:44:22,715 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x113138af0>
+2025-06-28 17:44:22,715 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x10efb82c0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:44:22,733 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x113138b20>
+2025-06-28 17:44:22,734 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:22,734 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:44:22,734 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:44:22,734 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:44:22,734 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:26,147 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:44:26 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3396'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:44:26,148 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:44:26,148 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:44:26,149 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:44:26,149 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:44:26,149 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:44:26,151 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:44:26,151 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:44:26,152 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:26,153 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:44:26,153 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:44:26,153 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:44:26,153 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:30,605 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:44:30 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=4439'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:44:30,606 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:44:30,607 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:44:30,608 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:44:30,608 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:44:30,608 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:44:30,610 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:44:30,610 - root - ERROR - Policy categorization error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:44:30,611 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:44:30,613 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:30,614 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:44:30,614 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:44:30,614 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:44:30,614 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:33,510 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:44:33 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=2878'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:44:33,512 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:44:33,513 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:44:33,515 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:44:33,515 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:44:33,515 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:44:33,517 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:44:33,518 - root - ERROR - Stakeholder analysis error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:44:33,537 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:44:33,980 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60 HTTP/1.1" 200 None
+2025-06-28 17:44:37,341 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/text HTTP/1.1" 200 None
+2025-06-28 17:44:40,976 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/actions HTTP/1.1" 200 None
+2025-06-28 17:44:40,978 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:44:40,982 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:44:40,982 - httpcore.connection - DEBUG - close.complete
+2025-06-28 17:44:40,983 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:44:40,997 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x113167970>
+2025-06-28 17:44:40,997 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x10efb82c0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:44:41,018 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x11311f520>
+2025-06-28 17:44:41,019 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:41,019 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:44:41,019 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:44:41,020 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:44:41,020 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:44,269 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:44:44 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3234'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:44:44,271 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:44:44,272 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:44:44,273 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:44:44,274 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:44:44,274 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:44:44,276 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:44:44,276 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:44:44,278 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:44,278 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:44:44,279 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:44:44,279 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:44:44,279 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:47,376 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:44:47 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3085'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:44:47,377 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:44:47,377 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:44:47,378 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:44:47,378 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:44:47,378 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:44:47,379 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:44:47,380 - root - ERROR - Policy categorization error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:44:47,380 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:44:47,381 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:47,382 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:44:47,382 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:44:47,383 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:44:47,383 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:44:51,037 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:44:51 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3641'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:44:51,037 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:44:51,038 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:44:51,039 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:44:51,039 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:44:51,039 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:44:51,040 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:44:51,040 - root - ERROR - Stakeholder analysis error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:44:51,047 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:44:51,048 - httpcore.connection - DEBUG - close.complete
+2025-06-28 17:47:31,163 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:47:31,251 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:47:31,671 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 17:47:35,036 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 17:47:35,043 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 17:47:35,135 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 17:47:38,648 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 17:47:38,652 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:47:38,656 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:47:38,670 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10eb805b0>
+2025-06-28 17:47:38,670 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x10ea102c0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:47:38,690 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10eb805e0>
+2025-06-28 17:47:38,690 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:47:38,691 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:47:38,691 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:47:38,691 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:47:38,691 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:47:43,583 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:47:43 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=4854'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:47:43,584 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:47:43,584 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:47:43,585 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:47:43,585 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:47:43,585 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:47:43,587 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:47:43,587 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:47:43,588 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:47:43,588 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:47:43,589 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:47:43,589 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:47:43,589 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:47:48,003 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:47:48 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=4401'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:47:48,005 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:47:48,006 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:47:48,008 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:47:48,009 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:47:48,009 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:47:48,010 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:47:48,011 - root - ERROR - Policy categorization error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:47:48,011 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:47:48,013 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:47:48,014 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:47:48,015 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:47:48,015 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:47:48,015 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:47:50,516 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:47:50 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=2488'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:47:50,518 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:47:50,518 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:47:50,519 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:47:50,520 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:47:50,520 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:47:50,521 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:47:50,522 - root - ERROR - Stakeholder analysis error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:47:50,540 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:47:51,001 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60 HTTP/1.1" 200 None
+2025-06-28 17:47:54,332 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/text HTTP/1.1" 200 None
+2025-06-28 17:47:57,941 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/actions HTTP/1.1" 200 None
+2025-06-28 17:47:57,943 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:47:57,944 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:47:57,944 - httpcore.connection - DEBUG - close.complete
+2025-06-28 17:47:57,944 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:47:57,957 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10eb79100>
+2025-06-28 17:47:57,958 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x10ea102c0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:47:57,975 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10eb793a0>
+2025-06-28 17:47:57,975 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:47:57,975 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:47:57,975 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:47:57,975 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:47:57,975 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:48:01,194 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:48:01 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3204'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:48:01,195 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:48:01,195 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:48:01,196 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:48:01,196 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:48:01,196 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:48:01,197 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:48:01,198 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:48:01,199 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:48:01,200 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:48:01,200 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:48:01,200 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:48:01,201 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:48:05,059 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:48:05 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3846'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:48:05,060 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:48:05,061 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:48:05,063 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:48:05,063 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:48:05,063 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:48:05,064 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:48:05,065 - root - ERROR - Policy categorization error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:48:05,065 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:48:05,067 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:48:05,067 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:48:05,067 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:48:05,068 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:48:05,068 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:48:08,795 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:48:08 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3714'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:48:08,797 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:48:08,797 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:48:08,799 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:48:08,800 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:48:08,800 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:48:08,801 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:48:08,802 - root - ERROR - Stakeholder analysis error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:48:08,809 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:48:08,809 - httpcore.connection - DEBUG - close.complete
+2025-06-28 17:48:57,962 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:48:58,052 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:48:58,485 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 17:49:01,857 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 17:49:01,861 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 17:49:01,967 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 17:49:05,459 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 17:49:05,462 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:49:05,467 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:49:05,481 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10f2363a0>
+2025-06-28 17:49:05,482 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x10f0d1040> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:49:05,505 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10f2364c0>
+2025-06-28 17:49:05,505 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:49:05,506 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:49:05,506 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:49:05,507 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:49:05,507 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:49:09,711 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:49:09 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=4187'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:49:09,714 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:49:09,715 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:49:09,717 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:49:09,718 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:49:09,718 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:49:09,721 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:49:09,721 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:49:09,724 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:49:09,724 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:49:09,724 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:49:09,725 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:49:09,725 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:49:13,267 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:49:13 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3529'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:49:13,268 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:49:13,269 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:49:13,270 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:49:13,270 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:49:13,270 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:49:13,272 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:49:13,272 - root - ERROR - Policy categorization error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:49:13,272 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:49:13,274 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:49:13,275 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:49:13,275 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:49:13,275 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:49:13,275 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:49:16,766 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:49:16 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3458'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:49:16,767 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:49:16,767 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:49:16,768 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:49:16,768 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:49:16,768 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:49:16,769 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:49:16,769 - root - ERROR - Stakeholder analysis error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:49:16,782 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:49:16,782 - httpcore.connection - DEBUG - close.complete
+2025-06-28 17:49:50,992 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:49:51,079 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:49:51,470 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 17:49:54,885 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 17:49:54,892 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 17:49:54,983 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 17:49:58,473 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 17:49:58,477 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:49:58,481 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:49:58,498 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x115094130>
+2025-06-28 17:49:58,499 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x110f27240> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:49:58,520 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x115094070>
+2025-06-28 17:49:58,521 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:49:58,521 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:49:58,522 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:49:58,522 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:49:58,522 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:02,440 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:50:02 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3824'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:50:02,441 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:50:02,441 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:50:02,442 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:50:02,442 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:50:02,442 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:50:02,444 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:50:02,444 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:50:02,445 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:02,445 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:50:02,446 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:50:02,446 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:50:02,446 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:06,320 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:50:06 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3860'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:50:06,320 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:50:06,321 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:50:06,322 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:50:06,322 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:50:06,323 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:50:06,324 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:50:06,324 - root - INFO - Gemini response: ```json
+{
+    "primary_policy_area": "Agriculture and Food",
+    "secondary_areas": ["Social Services and Welfare", "Defense and National Security", "Economic Development", "Energy", "Government Operations"],
+    "categories": [
+        {
+            "area": "Agriculture and Food",
+            "impact_level": "high",
+            "description": "This bill significantly alters agricultural policy, particularly concerning nutrition programs (SNAP) through changes to work requirements, utility allow...
+2025-06-28 17:50:06,324 - root - ERROR - Policy categorization error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:50:06,324 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:50:06,326 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:06,326 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:50:06,326 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:50:06,327 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:50:06,327 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:09,075 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:50:09 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=2735'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:50:09,075 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:50:09,076 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:50:09,076 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:50:09,077 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:50:09,077 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:50:09,078 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:50:09,078 - root - INFO - Gemini stakeholder response: ```json
+{
+  "winners": [
+    "Military Personnel",
+    "Defense Industry",
+    "Rural Communities",
+    "Agricultural Businesses",
+    "Energy Sector",
+    "Horticulture Industry"
+  ],
+  "losers": [
+    "Unemployed Adults without Dependents (ABAWDs)",
+    "SNAP Recipients",
+    "Immigrants (specifically regarding SNAP eligibility)",
+    "Obesity Prevention Programs",
+    "Taxpayers (potentially, depending on funding mechanisms)"
+  ],
+  "neutral": [
+    "Government Agencies (USDA, DOD)"
+  ],
+  "i...
+2025-06-28 17:50:09,078 - root - ERROR - Stakeholder analysis error: Expecting value: line 1 column 1 (char 0)
+2025-06-28 17:50:09,093 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:50:09,094 - httpcore.connection - DEBUG - close.complete
+2025-06-28 17:50:35,794 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:50:35,882 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:50:36,317 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 17:50:39,672 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 17:50:39,674 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 17:50:39,775 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 17:50:43,266 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 17:50:43,270 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:50:43,274 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:50:43,301 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x112aa8b20>
+2025-06-28 17:50:43,301 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x1129742c0> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:50:43,321 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x112aa8b50>
+2025-06-28 17:50:43,322 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:43,322 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:50:43,323 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:50:43,323 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:50:43,323 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:47,512 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:50:47 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=4174'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:50:47,514 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:50:47,515 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:50:47,517 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:50:47,517 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:50:47,518 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:50:47,521 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:50:47,521 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:50:47,523 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:47,523 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:50:47,523 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:50:47,523 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:50:47,524 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:51,857 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:50:51 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=4319'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:50:51,858 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:50:51,859 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:50:51,861 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:50:51,861 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:50:51,861 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:50:51,862 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:50:51,863 - root - INFO - Gemini response: ```json
+{
+  "primary_policy_area": "Agriculture and Food",
+  "secondary_areas": [
+    "Social Services and Welfare",
+    "Defense and National Security",
+    "Economic Development",
+    "Energy",
+    "Government Operations"
+  ],
+  "categories": [
+    {
+      "area": "Agriculture and Food",
+      "impact_level": "high",
+      "description": "The bill includes numerous sections focused on agriculture and food-related programs, particularly concerning nutrition assistance programs like SNAP (Supple...
+2025-06-28 17:50:51,863 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:50:51,865 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:51,865 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:50:51,866 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:50:51,866 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:50:51,866 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:50:55,087 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:50:55 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3209'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:50:55,089 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:50:55,090 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:50:55,091 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:50:55,091 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:50:55,091 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:50:55,093 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:50:55,093 - root - INFO - Gemini stakeholder response: ```json
+{
+  "winners": [
+    "Military Personnel",
+    "Shipbuilding Industry",
+    "Integrated Air and Missile Defense Industry",
+    "Rural Communities",
+    "Agricultural Businesses",
+    "Energy Sector",
+    "Horticulture Industry"
+  ],
+  "losers": [
+    "Able Bodied Adults Without Dependents (ABAWDs) receiving SNAP benefits",
+    "Immigrants (non-citizens) seeking SNAP eligibility",
+    "Obesity Prevention Programs",
+    "Federal Taxpayers (potentially, depending on the bill's overall spend...
+2025-06-28 17:50:55,122 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:50:55,123 - httpcore.connection - DEBUG - close.complete
+2025-06-28 17:53:07,968 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-28 17:53:08,060 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:53:08,472 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1 HTTP/1.1" 200 None
+2025-06-28 17:53:11,857 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/text HTTP/1.1" 200 None
+2025-06-28 17:53:11,860 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): www.congress.gov:443
+2025-06-28 17:53:11,944 - urllib3.connectionpool - DEBUG - https://www.congress.gov:443 "GET /119/bills/hr1/BILLS-119hr1eh.htm HTTP/1.1" 200 None
+2025-06-28 17:53:15,455 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/hr/1/actions HTTP/1.1" 200 None
+2025-06-28 17:53:15,458 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:53:15,462 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:53:15,476 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10eb18670>
+2025-06-28 17:53:15,476 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x10e9a2040> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:53:15,495 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10eb186a0>
+2025-06-28 17:53:15,496 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:15,496 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:53:15,496 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:53:15,497 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:53:15,497 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:18,542 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:53:18 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=2946'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:53:18,545 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:53:18,545 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:53:18,547 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:53:18,547 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:53:18,547 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:53:18,550 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:53:18,550 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:53:18,552 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:18,552 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:53:18,552 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:53:18,553 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:53:18,553 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:22,205 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:53:22 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3639'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:53:22,206 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:53:22,206 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:53:22,206 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:53:22,206 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:53:22,206 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:53:22,207 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:53:22,207 - root - INFO - Gemini response: ```json
+{
+  "primary_policy_area": "Government Operations",
+  "secondary_areas": ["Agriculture and Food", "Defense and National Security"],
+  "categories": [
+    {
+      "area": "Agriculture and Food",
+      "impact_level": "high",
+      "description": "The bill contains multiple sections related to nutrition programs like SNAP, including changes to work requirements for able-bodied adults without dependents, utility allowances, and alien eligibility. These changes could significantly impact acc...
+2025-06-28 17:53:22,207 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:53:22,208 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:22,208 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:53:22,208 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:53:22,208 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:53:22,208 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:26,121 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:53:26 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3855'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:53:26,123 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:53:26,123 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:53:26,124 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:53:26,125 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:53:26,125 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:53:26,127 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:53:26,127 - root - INFO - Gemini stakeholder response: ```json
+{
+  "winners": [
+    "Military Personnel",
+    "Shipbuilding Industry",
+    "Integrated Air and Missile Defense Contractors",
+    "Rural Communities",
+    "Energy Sector Businesses",
+    "Horticulture Industry",
+    "Agricultural Trade Businesses",
+    "Research Institutions focused on Agriculture",
+    "State Agencies (implementing energy assistance programs)",
+    "Emergency Food Assistance Providers"
+  ],
+  "losers": [
+    "Able-Bodied Adults Without Dependents (ABAWDs) receiving SNAP...
+2025-06-28 17:53:26,158 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): api.congress.gov:443
+2025-06-28 17:53:26,551 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60 HTTP/1.1" 200 None
+2025-06-28 17:53:29,943 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/text HTTP/1.1" 200 None
+2025-06-28 17:53:33,558 - urllib3.connectionpool - DEBUG - https://api.congress.gov:443 "GET /v3/bill/119/sjres/60/actions HTTP/1.1" 200 None
+2025-06-28 17:53:33,561 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:53:33,563 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:53:33,564 - httpcore.connection - DEBUG - close.complete
+2025-06-28 17:53:33,564 - httpcore.connection - DEBUG - connect_tcp.started host='generativelanguage.googleapis.com' port=443 local_address=None timeout=None socket_options=None
+2025-06-28 17:53:33,578 - httpcore.connection - DEBUG - connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10eb9c9a0>
+2025-06-28 17:53:33,579 - httpcore.connection - DEBUG - start_tls.started ssl_context=<ssl.SSLContext object at 0x10e9a2040> server_hostname='generativelanguage.googleapis.com' timeout=None
+2025-06-28 17:53:33,601 - httpcore.connection - DEBUG - start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x10eb9c5e0>
+2025-06-28 17:53:33,601 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:33,602 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:53:33,602 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:53:33,602 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:53:33,602 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:36,668 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:53:36 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3050'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:53:36,669 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:53:36,669 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:53:36,671 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:53:36,671 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:53:36,671 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:53:36,673 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:53:36,673 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:53:36,675 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:36,676 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:53:36,676 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:53:36,676 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:53:36,676 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:40,845 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:53:40 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=4156'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:53:40,847 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:53:40,847 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:53:40,850 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:53:40,850 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:53:40,850 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:53:40,851 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:53:40,851 - root - INFO - Gemini response: ```json
+{
+  "primary_policy_area": "Environment and Natural Resources",
+  "secondary_areas": ["Energy", "Commerce and Trade", "Government Operations"],
+  "categories": [
+    {
+      "area": "Environment and Natural Resources",
+      "impact_level": "high",
+      "description": "The bill directly targets an EPA rule regarding air pollution emissions in Indiana. Disapproval would likely lead to increased emissions in Indiana and potentially affect air quality in downwind states, potentially impact...
+2025-06-28 17:53:40,852 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2025-06-28 17:53:40,858 - httpcore.http11 - DEBUG - send_request_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:40,859 - httpcore.http11 - DEBUG - send_request_headers.complete
+2025-06-28 17:53:40,859 - httpcore.http11 - DEBUG - send_request_body.started request=<Request [b'POST']>
+2025-06-28 17:53:40,859 - httpcore.http11 - DEBUG - send_request_body.complete
+2025-06-28 17:53:40,859 - httpcore.http11 - DEBUG - receive_response_headers.started request=<Request [b'POST']>
+2025-06-28 17:53:44,301 - httpcore.http11 - DEBUG - receive_response_headers.complete return_value=(b'HTTP/1.1', 200, b'OK', [(b'Content-Type', b'application/json; charset=UTF-8'), (b'Vary', b'Origin'), (b'Vary', b'X-Origin'), (b'Vary', b'Referer'), (b'Content-Encoding', b'gzip'), (b'Date', b'Sat, 28 Jun 2025 22:53:44 GMT'), (b'Server', b'scaffolding on HTTPServer2'), (b'X-XSS-Protection', b'0'), (b'X-Frame-Options', b'SAMEORIGIN'), (b'X-Content-Type-Options', b'nosniff'), (b'Server-Timing', b'gfet4t7; dur=3429'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'), (b'Transfer-Encoding', b'chunked')])
+2025-06-28 17:53:44,301 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent "HTTP/1.1 200 OK"
+2025-06-28 17:53:44,301 - httpcore.http11 - DEBUG - receive_response_body.started request=<Request [b'POST']>
+2025-06-28 17:53:44,302 - httpcore.http11 - DEBUG - receive_response_body.complete
+2025-06-28 17:53:44,302 - httpcore.http11 - DEBUG - response_closed.started
+2025-06-28 17:53:44,302 - httpcore.http11 - DEBUG - response_closed.complete
+2025-06-28 17:53:44,302 - google_genai.models - INFO - AFC remote call 1 is done.
+2025-06-28 17:53:44,302 - root - INFO - Gemini stakeholder response: ```json
+{
+  "winners": [
+    "Indiana Coal-Fired Power Plants",
+    "Indiana Businesses Reliant on Affordable Energy",
+    "Indiana Taxpayers (potentially, in the short-term)"
+  ],
+  "losers": [
+    "Downwind States and Communities",
+    "Public Health Organizations",
+    "Environmental Advocacy Groups",
+    "Individuals with Respiratory Illnesses in Affected Areas",
+    "Commercial Fishing and Tourism Industries in Affected Areas"
+  ],
+  "neutral": [
+    "Federal Taxpayers (impact is likely sma...
+2025-06-28 17:53:44,316 - httpcore.connection - DEBUG - close.started
+2025-06-28 17:53:44,317 - httpcore.connection - DEBUG - close.complete
+2025-06-29 11:00:46,245 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-29 11:00:46,349 - __main__ - INFO - Starting Workflow Orchestrator Tests
+2025-06-29 11:00:46,350 - __main__ - INFO - ==================================================
+2025-06-29 11:00:46,350 - __main__ - INFO - Testing Workflow Orchestrator
+2025-06-29 11:00:46,370 - __main__ - ERROR - Error creating test data: (sqlite3.IntegrityError) NOT NULL constraint failed: user.password_hash
+[SQL: INSERT INTO user (username, email, password_hash, created_at, first_name, last_name, organization, role, location, policy_preferences, alert_frequency, alert_enabled, is_active, email_verified, verification_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('workflow_test_user', 'workflow_test@example.com', None, '2025-06-29 16:00:46.370133', None, None, None, None, None, '{}', 'daily', 1, 1, 0, None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-06-29 11:00:46,371 - __main__ - ERROR - ❌ Workflow orchestrator test failed: (sqlite3.IntegrityError) NOT NULL constraint failed: user.password_hash
+[SQL: INSERT INTO user (username, email, password_hash, created_at, first_name, last_name, organization, role, location, policy_preferences, alert_frequency, alert_enabled, is_active, email_verified, verification_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('workflow_test_user', 'workflow_test@example.com', None, '2025-06-29 16:00:46.370133', None, None, None, None, None, '{}', 'daily', 1, 1, 0, None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-06-29 11:00:46,371 - __main__ - INFO - Testing workflow service functions...
+2025-06-29 11:00:46,371 - __main__ - ERROR - ❌ Workflow service functions test failed: name 'get_workflow_status' is not defined
+2025-06-29 11:00:46,375 - __main__ - INFO - ✅ Test data cleaned up successfully!
+2025-06-29 11:00:46,375 - __main__ - INFO - ==================================================
+2025-06-29 11:00:46,375 - __main__ - INFO - Test Results Summary:
+2025-06-29 11:00:46,375 - __main__ - INFO - Workflow Orchestrator Test: ❌ FAILED
+2025-06-29 11:00:46,376 - __main__ - INFO - Service Functions Test: ❌ FAILED
+2025-06-29 11:00:46,376 - __main__ - ERROR - ❌ Some tests failed. Please check the logs above.
+2025-06-29 11:04:28,329 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-29 11:04:28,426 - __main__ - INFO - Starting Workflow Orchestrator Tests
+2025-06-29 11:04:28,426 - __main__ - INFO - ==================================================
+2025-06-29 11:04:28,426 - __main__ - INFO - Testing Workflow Orchestrator
+2025-06-29 11:04:28,447 - __main__ - INFO - Using existing test user: migron
+2025-06-29 11:04:28,450 - __main__ - ERROR - Error creating test data: (sqlite3.IntegrityError) NOT NULL constraint failed: policy_category.display_name
+[SQL: INSERT INTO policy_category (name, display_name, description, color, icon, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('Environmental Protection', None, 'Environmental and climate change policies', '#007bff', None, 1, '2025-06-29 16:04:28.448651')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-06-29 11:04:28,450 - __main__ - ERROR - ❌ Workflow orchestrator test failed: (sqlite3.IntegrityError) NOT NULL constraint failed: policy_category.display_name
+[SQL: INSERT INTO policy_category (name, display_name, description, color, icon, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)]
+[parameters: ('Environmental Protection', None, 'Environmental and climate change policies', '#007bff', None, 1, '2025-06-29 16:04:28.448651')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-06-29 11:04:28,450 - __main__ - INFO - Testing workflow service functions...
+2025-06-29 11:04:28,450 - __main__ - INFO - Workflow status: {'is_running': False, 'queue_size': 0, 'statistics': {'bills_discovered': 0, 'bills_processed': 0, 'bills_analyzed': 0, 'alerts_generated': 0, 'errors': 0, 'last_run': None, 'rss_items_processed': 0, 'backfill_items_processed': 0}, 'last_run': None}
+2025-06-29 11:04:28,450 - __main__ - INFO - Testing workflow service start/stop functions...
+2025-06-29 11:04:28,450 - __main__ - INFO - ✅ Workflow service functions test completed successfully!
+2025-06-29 11:04:28,453 - __main__ - INFO - ✅ Test data cleaned up successfully!
+2025-06-29 11:04:28,453 - __main__ - INFO - ==================================================
+2025-06-29 11:04:28,453 - __main__ - INFO - Test Results Summary:
+2025-06-29 11:04:28,454 - __main__ - INFO - Workflow Orchestrator Test: ❌ FAILED
+2025-06-29 11:04:28,454 - __main__ - INFO - Service Functions Test: ✅ PASSED
+2025-06-29 11:04:28,455 - __main__ - ERROR - ❌ Some tests failed. Please check the logs above.
+2025-06-29 11:04:52,708 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-29 11:04:52,796 - __main__ - INFO - Starting Workflow Orchestrator Tests
+2025-06-29 11:04:52,796 - __main__ - INFO - ==================================================
+2025-06-29 11:04:52,796 - __main__ - INFO - Testing Workflow Orchestrator
+2025-06-29 11:04:52,818 - __main__ - INFO - Using existing test user: migron
+2025-06-29 11:04:52,825 - __main__ - INFO - Created test policy category: Environmental Protection
+2025-06-29 11:04:52,829 - __main__ - INFO - Created user subscription for Environmental Protection
+2025-06-29 11:04:52,834 - __main__ - INFO - Created test bill: HR-1234
+2025-06-29 11:04:52,857 - __main__ - INFO - Initial workflow status: {'is_running': False, 'queue_size': 0, 'statistics': {'bills_discovered': 0, 'bills_processed': 0, 'bills_analyzed': 0, 'alerts_generated': 0, 'errors': 0, 'last_run': None, 'rss_items_processed': 0, 'backfill_items_processed': 0}, 'last_run': None}
+2025-06-29 11:04:52,857 - __main__ - INFO - Testing backfill processing...
+2025-06-29 11:04:52,860 - __main__ - INFO - Found 1 bills without AI analysis
+2025-06-29 11:04:52,860 - __main__ - INFO - Bill without analysis: HR-1234 - Test Environmental Protection Bill
+2025-06-29 11:04:52,860 - __main__ - INFO - Created workflow item: HR-1234
+2025-06-29 11:04:52,860 - __main__ - INFO - Testing alert generation logic...
+2025-06-29 11:04:52,861 - __main__ - INFO - Found 1 users with alerts enabled
+2025-06-29 11:04:52,863 - __main__ - INFO - User migron has 6 active subscriptions
+2025-06-29 11:04:52,863 - __main__ - INFO - ✅ Workflow orchestrator test completed successfully!
+2025-06-29 11:04:52,865 - __main__ - INFO - Testing workflow service functions...
+2025-06-29 11:04:52,866 - __main__ - INFO - Workflow status: {'is_running': False, 'queue_size': 0, 'statistics': {'bills_discovered': 0, 'bills_processed': 0, 'bills_analyzed': 0, 'alerts_generated': 0, 'errors': 0, 'last_run': None, 'rss_items_processed': 0, 'backfill_items_processed': 0}, 'last_run': None}
+2025-06-29 11:04:52,866 - __main__ - INFO - Testing workflow service start/stop functions...
+2025-06-29 11:04:52,866 - __main__ - INFO - ✅ Workflow service functions test completed successfully!
+2025-06-29 11:04:52,870 - __main__ - INFO - ✅ Test data cleaned up successfully!
+2025-06-29 11:04:52,870 - __main__ - INFO - ==================================================
+2025-06-29 11:04:52,870 - __main__ - INFO - Test Results Summary:
+2025-06-29 11:04:52,870 - __main__ - INFO - Workflow Orchestrator Test: ✅ PASSED
+2025-06-29 11:04:52,870 - __main__ - INFO - Service Functions Test: ✅ PASSED
+2025-06-29 11:04:52,870 - __main__ - INFO - 🎉 All tests passed! The workflow orchestrator is ready to use.
+2025-06-29 11:12:08,315 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 11:12:08] "GET / HTTP/1.1" 200 -
+2025-06-29 11:12:08,336 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 11:12:08] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 11:12:08,336 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 11:12:08] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 11:12:13,568 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 11:12:13] "GET /bill/119/hr/1 HTTP/1.1" 200 -
+2025-06-29 11:12:13,579 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 11:12:13] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 11:12:13,584 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 11:12:13] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 15:59:58,965 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 15:59:58] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 15:59:58,980 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 15:59:58] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+2025-06-29 16:01:12,532 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:01:12] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+2025-06-29 16:07:50,534 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:50] "GET /bill/119/hr/1 HTTP/1.1" 200 -
+2025-06-29 16:07:50,545 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:50] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 16:07:50,546 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:50] "GET /static/css/style.css HTTP/1.1" 200 -
+2025-06-29 16:07:52,481 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:52] "GET /bill/119/hr/1 HTTP/1.1" 200 -
+2025-06-29 16:07:52,494 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:52] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 16:07:52,496 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:52] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 16:07:56,945 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:56] "GET /bill/119/hr/1 HTTP/1.1" 200 -
+2025-06-29 16:07:56,959 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:56] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 16:07:56,960 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:07:56] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 16:08:11,044 - asyncio - DEBUG - Using selector: KqueueSelector
+2025-06-29 16:08:11,097 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-06-29 16:08:11,097 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-06-29 16:08:16,491 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:08:16] "GET /bill/119/hr/1 HTTP/1.1" 200 -
+2025-06-29 16:08:16,511 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:08:16] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 16:08:16,512 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:08:16] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 16:48:21,017 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:21] "GET /bill_search HTTP/1.1" 200 -
+2025-06-29 16:48:21,046 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:21] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 16:48:21,046 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:21] "GET /static/css/style.css HTTP/1.1" 200 -
+2025-06-29 16:48:28,159 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:28] "GET /bill_search HTTP/1.1" 200 -
+2025-06-29 16:48:28,184 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:28] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 16:48:28,184 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:28] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 16:48:34,219 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:34] "GET / HTTP/1.1" 200 -
+2025-06-29 16:48:34,237 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:34] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 16:48:34,240 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:34] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2025-06-29 16:48:35,911 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:35] "GET /bill/119/hr/1 HTTP/1.1" 200 -
+2025-06-29 16:48:35,936 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:35] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+2025-06-29 16:48:35,936 - werkzeug - INFO - 127.0.0.1 - - [29/Jun/2025 16:48:35] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -

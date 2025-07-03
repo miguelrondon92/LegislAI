@@ -44,18 +44,18 @@ class EnhancedBillProcessor:
                 self.logger.warning(f"Could not fetch bill {congress}-{bill_type}-{bill_number}")
                 return None
             
-            # Get full bill text
+            # Get full bill text for analysis (but don't store it)
             bill_text = self.congress_api.get_bill_text(congress, bill_type, bill_number)
             if bill_text:
                 bill_data['full_text'] = bill_text
             
-            # Store bill in enhanced database
+            # Store bill in enhanced database (without full text)
             bill_id = self.cache.store_bill_with_analysis(bill_data)
             if not bill_id:
                 self.logger.error("Failed to store bill in database")
                 return bill_data
             
-            # Perform AI analysis with caching
+            # Perform AI analysis with caching (using the text we just fetched)
             if bill_data.get('full_text'):
                 analysis = self.ai_analyzer.analyze_bill_with_cache(
                     bill_id, bill_data['full_text'], bill_data.get('title', '')
@@ -207,11 +207,22 @@ class EnhancedBillProcessor:
         try:
             bill_id = cached_bill['id']
             
-            if cached_bill.get('full_text'):
-                analysis = self.ai_analyzer.analyze_bill_with_cache(
-                    bill_id, cached_bill['full_text'], cached_bill.get('title', '')
-                )
-                cached_bill['ai_analysis'] = analysis
+            # Fetch fresh text from API for analysis
+            if cached_bill.get('congress_api_url'):
+                # Parse congress, bill_type, bill_number from API URL
+                url_parts = cached_bill['congress_api_url'].split('/')
+                if len(url_parts) >= 6:
+                    congress = url_parts[-3]
+                    bill_type = url_parts[-2]
+                    bill_number = url_parts[-1]
+                    
+                    # Fetch full text from Congress API
+                    bill_text = self.congress_api.get_bill_text(int(congress), bill_type, int(bill_number))
+                    if bill_text:
+                        analysis = self.ai_analyzer.analyze_bill_with_cache(
+                            bill_id, bill_text, cached_bill.get('title', '')
+                        )
+                        cached_bill['ai_analysis'] = analysis
             
             return cached_bill
             
@@ -226,8 +237,8 @@ class EnhancedBillProcessor:
             from app import db
             
             query = text("""
-                SELECT congress_id, title, full_text, version_hash, status,
-                       sponsors, committees, last_updated
+                SELECT congress_id, title, version_hash, status,
+                       sponsors, committees, last_updated, congress_api_url
                 FROM bills_enhanced 
                 WHERE id = :bill_id
             """)
@@ -239,12 +250,12 @@ class EnhancedBillProcessor:
                     'id': bill_id,
                     'congress_id': result[0],
                     'title': result[1],
-                    'full_text': result[2],
-                    'version_hash': result[3],
-                    'status': result[4],
-                    'sponsors': result[5] or [],
-                    'committees': result[6] or [],
-                    'last_updated': result[7]
+                    'version_hash': result[2],
+                    'status': result[3],
+                    'sponsors': result[4] or [],
+                    'committees': result[5] or [],
+                    'last_updated': result[6],
+                    'congress_api_url': result[7]
                 }
             
             return None
@@ -256,20 +267,30 @@ class EnhancedBillProcessor:
     def _get_bill_analysis(self, bill_id: str, bill_data: Dict) -> Dict:
         """Get or generate comprehensive bill analysis"""
         try:
-            content_hash = self.cache.get_content_hash(
-                bill_data.get('full_text', '') + bill_data.get('title', '')
-            )
+            # Create content hash from title and summary (not full text)
+            content_for_hash = bill_data.get('title', '') + bill_data.get('summary', '')
+            content_hash = self.cache.get_content_hash(content_for_hash)
             
             # Check for cached comprehensive analysis
             cached = self.cache.get_analysis_cache(bill_id, 'comprehensive', content_hash)
             if cached:
                 return cached['analysis_data']
             
-            # Generate fresh analysis
-            if bill_data.get('full_text'):
-                return self.ai_analyzer.analyze_bill_with_cache(
-                    bill_id, bill_data['full_text'], bill_data.get('title', '')
-                )
+            # Generate fresh analysis by fetching text from API
+            if bill_data.get('congress_api_url'):
+                # Parse congress, bill_type, bill_number from API URL
+                url_parts = bill_data['congress_api_url'].split('/')
+                if len(url_parts) >= 6:
+                    congress = url_parts[-3]
+                    bill_type = url_parts[-2]
+                    bill_number = url_parts[-1]
+                    
+                    # Fetch full text from Congress API
+                    bill_text = self.congress_api.get_bill_text(int(congress), bill_type, int(bill_number))
+                    if bill_text:
+                        return self.ai_analyzer.analyze_bill_with_cache(
+                            bill_id, bill_text, bill_data.get('title', '')
+                        )
             
             return {}
             

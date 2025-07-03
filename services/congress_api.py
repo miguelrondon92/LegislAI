@@ -290,6 +290,141 @@ class CongressAPI:
         
         return recent_bills
 
+    def get_bills_by_date_range(self, start_date, end_date, max_bills=1000):
+        """
+        Get bills updated within a specific date range with pagination support.
+        
+        Args:
+            start_date (datetime): Start date for the range
+            end_date (datetime): End date for the range  
+            max_bills (int): Maximum number of bills to fetch
+            
+        Returns:
+            list: List of bill data dictionaries
+        """
+        bills = []
+        offset = 0
+        limit = min(250, max_bills)  # API maximum per request
+        
+        while len(bills) < max_bills:
+            params = {
+                'limit': limit,
+                'offset': offset,
+                'sort': 'updateDate+desc'
+            }
+            
+            # Add date filters if the API supports them
+            # Note: Congress API may not support direct date filtering in all endpoints
+            # We'll filter by date after fetching
+            
+            endpoint = "/bill"
+            data = self._make_request(endpoint, params)
+            
+            if not data or 'bills' not in data:
+                logging.warning(f"No bills data received at offset {offset}")
+                break
+            
+            bill_list = data['bills']
+            if not bill_list:
+                logging.info("No more bills to fetch")
+                break
+            
+            # Filter bills by date range
+            for bill_summary in bill_list:
+                update_date_str = bill_summary.get('updateDate')
+                if not update_date_str:
+                    continue
+                
+                try:
+                    update_date = datetime.fromisoformat(update_date_str.replace('Z', '+00:00'))
+                    if start_date <= update_date.replace(tzinfo=None) <= end_date:
+                        bills.append(bill_summary)
+                        
+                        if len(bills) >= max_bills:
+                            logging.info(f"Reached maximum number of bills ({max_bills})")
+                            break
+                except Exception as e:
+                    logging.error(f"Error parsing date {update_date_str}: {str(e)}")
+                    continue
+            
+            # If we got fewer bills than the limit, we've reached the end
+            if len(bill_list) < limit:
+                break
+            
+            # If we've reached our target, stop paginating
+            if len(bills) >= max_bills:
+                break
+            
+            offset += limit
+            
+            # Add delay to respect rate limits
+            time.sleep(self.min_request_interval)
+        
+        logging.info(f"Fetched {len(bills)} bills from {start_date} to {end_date}")
+        return bills
+
+    def get_bills_by_introduction_date(self, start_date, end_date, max_bills=1000):
+        """
+        Get bills introduced within a specific date range.
+        This method focuses on introduction dates rather than update dates.
+        """
+        bills = []
+        offset = 0
+        limit = min(250, max_bills)
+        
+        while len(bills) < max_bills:
+            params = {
+                'limit': limit,
+                'offset': offset,
+                'sort': 'introducedDate+desc'
+            }
+            
+            endpoint = "/bill"
+            data = self._make_request(endpoint, params)
+            
+            if not data or 'bills' not in data:
+                logging.warning(f"No bills data received at offset {offset}")
+                break
+            
+            bill_list = data['bills']
+            if not bill_list:
+                logging.info("No more bills to fetch")
+                break
+            
+            # Filter bills by introduction date
+            for bill_summary in bill_list:
+                introduced_date_str = bill_summary.get('introducedDate')
+                if not introduced_date_str:
+                    continue
+                
+                try:
+                    introduced_date = datetime.fromisoformat(introduced_date_str.replace('Z', '+00:00'))
+                    if start_date <= introduced_date.replace(tzinfo=None) <= end_date:
+                        bills.append(bill_summary)
+                        
+                        if len(bills) >= max_bills:
+                            logging.info(f"Reached maximum number of bills ({max_bills})")
+                            break
+                except Exception as e:
+                    logging.error(f"Error parsing introduction date {introduced_date_str}: {str(e)}")
+                    continue
+            
+            # If we got fewer bills than the limit, we've reached the end
+            if len(bill_list) < limit:
+                break
+            
+            # If we've reached our target, stop paginating
+            if len(bills) >= max_bills:
+                break
+            
+            offset += limit
+            
+            # Add delay to respect rate limits
+            time.sleep(self.min_request_interval)
+        
+        logging.info(f"Fetched {len(bills)} bills introduced from {start_date} to {end_date}")
+        return bills
+
 if __name__ == "__main__":
     c = CongressAPI()
     bill = c.get_bill_by_number("H.J.Res.87")
