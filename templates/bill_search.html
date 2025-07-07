@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Bill Search - Legislative Analysis Platform{% endblock %}
+{% block title %}Bill Search - Legislative Analysis Platform (Updated 119th Congress){% endblock %}
 
 {% block content %}
 <div class="row">
@@ -18,18 +18,29 @@
                         <div class="col-md-3 mb-3">
                             <label for="search_type" class="form-label">Search Type</label>
                             <select class="form-select" id="search_type" name="search_type" required>
-                                <option value="bill_number">Bill Number</option>
-                                <option value="keyword">Keyword Search</option>
-                                <option value="sponsor">Sponsor Name</option>
+                                <option value="bill_number" {% if search_type == 'bill_number' %}selected{% endif %}>Bill Number</option>
+                                <option value="keyword" {% if search_type == 'keyword' %}selected{% endif %}>Keyword Search</option>
+                                <option value="sponsor" {% if search_type == 'sponsor' %}selected{% endif %}>Sponsor Name</option>
                             </select>
                         </div>
-                        <div class="col-md-7 mb-3">
+                        <div class="col-md-5 mb-3">
                             <label for="search_query" class="form-label">Search Query</label>
                             <input type="text" class="form-control" id="search_query" name="search_query" 
-                                   placeholder="Enter bill number, keywords, or sponsor name..." required>
+                                   value="{{ search_query }}" placeholder="Enter bill number, keywords, or sponsor name..." 
+                                   autocomplete="off">
                             <div class="form-text">
                                 <span id="search_help">Examples: HR-1234, S-567, HJRES-45</span>
                             </div>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="congress" class="form-label">Congress</label>
+                            <select class="form-select" id="congress" name="congress">
+                                <option value="119" {% if congress == 119 %}selected{% endif %}>119th (Current)</option>
+                                <option value="118" {% if congress == 118 %}selected{% endif %}>118th</option>
+                                <option value="117" {% if congress == 117 %}selected{% endif %}>117th</option>
+                                <option value="116" {% if congress == 116 %}selected{% endif %}>116th</option>
+                                <option value="115" {% if congress == 115 %}selected{% endif %}>115th</option>
+                            </select>
                         </div>
                         <div class="col-md-2 mb-3 d-flex align-items-end">
                             <button type="submit" class="btn btn-primary w-100">
@@ -272,8 +283,8 @@ document.getElementById('search_type').addEventListener('change', function() {
     
     switch (this.value) {
         case 'bill_number':
-            helpText.textContent = 'Examples: HR-1234, S-567, HJRES-45';
-            searchInput.placeholder = 'Enter bill number (e.g., HR-1234)...';
+            helpText.textContent = 'Examples: HR-1234, HR 1, H.R.1, S-567, HJRES-45';
+            searchInput.placeholder = 'Enter bill number (e.g., HR 1, HR-1, H.R.1)...';
             break;
         case 'keyword':
             helpText.textContent = 'Examples: healthcare, climate change, tax reform';
@@ -285,6 +296,25 @@ document.getElementById('search_type').addEventListener('change', function() {
             break;
     }
 });
+
+// Form validation - only block truly empty submissions
+document.querySelector('form').addEventListener('submit', function(e) {
+    const searchInput = document.getElementById('search_query');
+    const searchValue = searchInput.value.trim();
+    
+    // Only prevent submission if completely empty
+    if (!searchValue) {
+        e.preventDefault();
+        alert('Please enter a search term');
+        searchInput.focus();
+        return false;
+    }
+    
+    // Allow all non-empty submissions
+    return true;
+});
+
+console.log('Bill search page loaded with improved validation');
 
 // Toggle between list and grid view
 function toggleView(viewType) {

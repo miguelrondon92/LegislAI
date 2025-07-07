@@ -1,0 +1,30 @@
+2025-07-05 16:38:11,626 - services.workflow_orchestrator - INFO - Added RSS bill to workflow: H.R.1
+2025-07-05 16:38:11,627 - services.workflow_orchestrator - INFO - Added RSS bill to workflow: H.R.2215
+2025-07-05 16:38:11,627 - services.workflow_orchestrator - INFO - [DEBUG] Entered _process_workflow_item for: H.R.1
+2025-07-05 16:38:11,627 - services.workflow_orchestrator - INFO - Processing workflow item: H.R.1 (source: rss)
+2025-07-05 16:38:11,627 - services.workflow_orchestrator - INFO - [DEBUG] Entered _fetch_and_store_bill for: H.R.1
+2025-07-05 16:38:19,057 - root - ERROR - Error processing bill data: Working outside of application context.
+
+This typically means that you attempted to use functionality that needed
+the current application. To solve this, set up an application context
+with app.app_context(). See the documentation for more information.
+2025-07-05 16:38:19,057 - services.workflow_orchestrator - ERROR - Error fetching/storing bill H.R.1: Working outside of application context.
+
+This typically means that you attempted to use functionality that needed
+the current application. To solve this, set up an application context
+with app.app_context(). See the documentation for more information.
+2025-07-05 16:38:19,057 - services.workflow_orchestrator - INFO - [DEBUG] _fetch_and_store_bill returned None for: H.R.1
+2025-07-05 16:38:19,057 - services.workflow_orchestrator - INFO - [DEBUG] Entered _process_workflow_item for: H.R.2215
+2025-07-05 16:38:19,057 - services.workflow_orchestrator - INFO - Processing workflow item: H.R.2215 (source: rss)
+2025-07-05 16:38:19,057 - services.workflow_orchestrator - INFO - [DEBUG] Entered _fetch_and_store_bill for: H.R.2215
+2025-07-05 16:38:30,214 - root - ERROR - Error processing bill data: Working outside of application context.
+
+This typically means that you attempted to use functionality that needed
+the current application. To solve this, set up an application context
+with app.app_context(). See the documentation for more information.
+2025-07-05 16:38:30,214 - services.workflow_orchestrator - ERROR - Error fetching/storing bill H.R.2215: Working outside of application context.
+
+This typically means that you attempted to use functionality that needed
+the current application. To solve this, set up an application context
+with app.app_context(). See the documentation for more information.
+2025-07-05 16:38:30,214 - services.workflow_orchestrator - INFO - [DEBUG] _fetch_and_store_bill returned None for: H.R.2215

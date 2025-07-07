@@ -1,5 +1,5 @@
 from app import app, db, mail
-from models import User, Bill, Alert
+from db_models import User, Bill, Alert
 from services.notification_service import NotificationService
 from services.notification_scheduler import NotificationScheduler
 from datetime import datetime

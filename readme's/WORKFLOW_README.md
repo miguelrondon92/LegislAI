@@ -265,33 +265,52 @@ Default keywords for RSS filtering:
 
 ## AI Analysis Features
 
-### Comprehensive Bill Analysis
-The AI analyzer performs multiple types of analysis:
+### Chunked Bill Analysis (Enhanced)
+The AI analyzer now uses a sophisticated chunked analysis approach that eliminates truncation limits and provides comprehensive analysis of entire bills:
 
-1. **Policy Categorization**:
-   - Primary and secondary policy areas
+1. **Bill Chunking System**:
+   - Automatically splits bills into manageable sections
+   - Identifies structured sections (SECTION, TITLE, PART, etc.)
+   - Calculates importance scores for each chunk
+   - Combines related chunks intelligently
+   - Maintains context across chunk boundaries
+
+2. **Policy Categorization**:
+   - Analyzes multiple chunks to identify policy areas
+   - Primary and secondary policy areas with confidence scores
    - Impact levels (low/medium/high)
    - Bipartisan potential assessment
    - Controversial aspects identification
 
-2. **Stakeholder Analysis**:
+3. **Stakeholder Analysis**:
+   - Comprehensive stakeholder identification across all bill sections
    - Affected groups and organizations
    - Economic impact assessment
    - Geographic distribution of effects
+   - Winners/losers analysis
 
-3. **Complexity Assessment**:
+4. **Complexity Assessment**:
+   - Full-text complexity analysis (no truncation)
    - Reading level analysis
    - Implementation difficulty
    - Regulatory burden assessment
    - Cost impact estimation
 
-4. **Summary Generation**:
-   - Plain language explanations
-   - Key provisions extraction
+5. **Summary Generation**:
+   - Plain language explanations based on key chunks
+   - Key provisions extraction from entire bill
    - Main themes identification
+   - Funding and timeline analysis
+
+### Chunked Analysis Benefits
+- **No Truncation**: Processes entire bills regardless of length
+- **Intelligent Sectioning**: Respects bill structure and hierarchy
+- **Importance Scoring**: Prioritizes most relevant sections
+- **Context Preservation**: Maintains relationships between sections
+- **Scalable**: Handles bills of any size efficiently
 
 ### Analysis Storage
-All analysis results are stored in structured format:
+All analysis results are stored in structured format with chunked analysis metadata:
 
 ```json
 {
@@ -313,7 +332,9 @@ All analysis results are stored in structured format:
     "complexity_score": 0.75,
     "reading_level": "..."
   },
-  "generated_at": "2024-01-01T12:00:00"
+  "generated_at": "2024-01-01T12:00:00",
+  "analysis_method": "chunked",
+  "chunks_analyzed": 15
 }
 ```
 

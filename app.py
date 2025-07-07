@@ -57,12 +57,12 @@ login_manager.login_message_category = 'info'
 
 @login_manager.user_loader
 def load_user(user_id):
-    from models import User
+    from db_models import User
     return User.query.get(int(user_id))
 
 with app.app_context():
-    # Import models to ensure tables are created
-    import models  # noqa: F401
+    # Import db_models to ensure tables are created
+    import db_models  # noqa: F401
     
     # Import and register blueprints
     from auth import auth

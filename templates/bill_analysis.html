@@ -320,47 +320,119 @@
         {% endif %}
 
         <!-- Bill Actions Timeline -->
-        {% if bill_actions %}
         <div class="card mb-4">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     <i data-feather="clock" class="me-2"></i>
                     Legislative History
                 </h5>
+                {% if bill_actions %}
+                <small class="text-muted">{{ bill_actions|length }} actions</small>
+                {% else %}
+                <span class="badge bg-info">Loading...</span>
+                {% endif %}
             </div>
             <div class="card-body">
-                <div class="timeline">
-                    {% for action in bill_actions %}
-                    <div class="timeline-item mb-4">
-                        <div class="d-flex">
-                            <div class="flex-shrink-0">
-                                <div class="timeline-marker bg-{{ 'success' if action.action_type == 'enacted' else 'primary' if action.action_type == 'passed' else 'warning' if action.action_type == 'referred' else 'info' }}"></div>
-                            </div>
-                            <div class="flex-grow-1 ms-3">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <h6 class="mb-0">{{ action.action_type.title() }}</h6>
-                                    <small class="text-muted">{{ action.get_formatted_date() }}</small>
+                {% if bill_actions %}
+                    <!-- Bill Progress Indicator -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-3">Legislative Progress</h6>
+                            <div class="bill-progress">
+                                {% set progress_stages = [
+                                    ('Introduced', 'file-plus'),
+                                    ('Committee', 'users'),
+                                    ('Floor Vote', 'vote'),
+                                    ('Passed', 'check-circle'),
+                                    ('Enacted', 'award')
+                                ] %}
+                                
+                                {% set completed_stages = [] %}
+                                {% for action in bill_actions %}
+                                    {% if 'introduced' in action.action_type.lower() %}
+                                        {% set _ = completed_stages.append('Introduced') %}
+                                    {% elif 'committee' in action.action_type.lower() or 'referred' in action.action_type.lower() %}
+                                        {% set _ = completed_stages.append('Committee') %}
+                                    {% elif 'floor' in action.action_type.lower() or 'vote' in action.action_type.lower() %}
+                                        {% set _ = completed_stages.append('Floor Vote') %}
+                                    {% elif 'passed' in action.action_type.lower() %}
+                                        {% set _ = completed_stages.append('Passed') %}
+                                    {% elif 'enacted' in action.action_type.lower() or 'signed' in action.action_type.lower() %}
+                                        {% set _ = completed_stages.append('Enacted') %}
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    {% for stage, icon in progress_stages %}
+                                    <div class="text-center">
+                                        <div class="progress-circle mb-2 {{ 'completed' if stage in completed_stages else 'pending' }}">
+                                            <i data-feather="{{ icon }}" style="width: 20px; height: 20px;"></i>
+                                        </div>
+                                        <small class="d-block {{ 'text-success fw-bold' if stage in completed_stages else 'text-muted' }}">
+                                            {{ stage }}
+                                        </small>
+                                    </div>
+                                    {% if not loop.last %}
+                                    <div class="progress-line {{ 'completed' if stage in completed_stages and progress_stages[loop.index][0] in completed_stages else 'pending' }}"></div>
+                                    {% endif %}
+                                    {% endfor %}
                                 </div>
-                                <p class="mb-1">{{ action.action_text }}</p>
-                                {% if action.action_description %}
-                                <small class="text-muted">{{ action.action_description }}</small>
-                                {% endif %}
-                                {% if action.source_system_name %}
-                                <div class="mt-1">
-                                    <small class="text-muted">
-                                        <i data-feather="database" class="me-1" style="width: 14px; height: 14px;"></i>
-                                        Source: {{ action.source_system_name }}
-                                    </small>
-                                </div>
-                                {% endif %}
                             </div>
                         </div>
                     </div>
-                    {% endfor %}
-                </div>
+                    
+                    <!-- Timeline -->
+                    <div class="timeline">
+                        {% for action in bill_actions %}
+                        <div class="timeline-item mb-4">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0">
+                                    <div class="timeline-marker bg-{{ action.get_action_color() }} d-flex align-items-center justify-content-center">
+                                        <i data-feather="{{ action.get_action_icon() }}" style="width: 16px; height: 16px; color: white;"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <div class="timeline-card">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="mb-0">
+                                                <span class="badge bg-{{ action.get_action_color() }} me-2">{{ action.action_type.title() }}</span>
+                                            </h6>
+                                            <small class="text-muted">
+                                                <i data-feather="calendar" class="me-1" style="width: 14px; height: 14px;"></i>
+                                                {{ action.get_formatted_date() }}
+                                            </small>
+                                        </div>
+                                        <p class="mb-2">{{ action.action_text }}</p>
+                                        {% if action.action_description %}
+                                        <div class="alert alert-light py-2 mb-2">
+                                            <small>{{ action.action_description }}</small>
+                                        </div>
+                                        {% endif %}
+                                        {% if action.source_system_name %}
+                                        <div class="mt-2">
+                                            <small class="text-muted">
+                                                <i data-feather="database" class="me-1" style="width: 12px; height: 12px;"></i>
+                                                Source: {{ action.source_system_name }}
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mb-2">Loading legislative history...</p>
+                        <small class="text-muted">Fetching actions from Congress.gov API</small>
+                    </div>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
     </div>
 
     <!-- Sidebar -->

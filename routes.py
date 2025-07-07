@@ -1,8 +1,9 @@
-from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_required, current_user
 from app import app, db
-from models import User, Bill, Alert, WatchlistItem
+from db_models import Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction
 import logging
+from datetime import datetime
 from services.congress_api import CongressAPI
 from services.ai_analysis import AIAnalyzer
 from services.bill_processor import BillProcessor
@@ -28,46 +29,240 @@ def index():
 
 @app.route('/bill_search', methods=['GET', 'POST'])
 def bill_search():
-    """Search for bills using various criteria"""
+    """Search for bills using various criteria with enhanced search types"""
     bills = []
     error_message = None
-    query = ""
-    congress = 118
-    bill_type = ""
+    search_query = ""
+    search_type = "bill_number"
+    congress = 119  # Default to current congress (119th)
     
-    # Handle both GET and POST requests
-    if request.method == 'GET':
-        query = request.args.get('q', '').strip()
-        congress = int(request.args.get('congress', 118))
-        bill_type = request.args.get('type', '')
-    else:  # POST
-        query = request.form.get('q', '').strip()
-        congress = int(request.form.get('congress', 118))
-        bill_type = request.form.get('type', '')
-    
-    if query:
-        try:
-            # Search for bills using the Congress API
-            bills_data = congress_api.search_bills(query, limit=20)
-            
-            if bills_data:
-                bills = []
-                for bill_data in bills_data[:20]:  # Limit to 20 results
-                    bill = bill_processor.process_bill_data(bill_data)
+    if request.method == 'POST':
+        search_query = request.form.get('search_query', '').strip()
+        search_type = request.form.get('search_type', 'bill_number')
+        congress = int(request.form.get('congress', 119))
+        
+        if search_query:
+            try:
+                if search_type == 'bill_number':
+                    # Search by specific bill number - check database first
+                    bill = _get_or_fetch_bill_by_number(search_query, congress)
                     if bill:
-                        bills.append(bill)
+                        bills = [bill]
+                    else:
+                        error_message = f"Bill '{search_query}' not found"
                         
-                if not bills:
-                    error_message = "No bills found matching your search criteria"
-            else:
-                error_message = "No bills found matching your search criteria"
-                
-        except Exception as e:
-            logging.error(f"Error in bill search: {str(e)}")
-            error_message = "An error occurred while searching for bills. Please try again."
+                elif search_type == 'keyword':
+                    # Search by keywords - hybrid approach
+                    bills = _search_bills_hybrid(search_query, 'keyword', limit=20)
+                    if not bills:
+                        error_message = f"No bills found matching keywords '{search_query}'"
+                        
+                elif search_type == 'sponsor':
+                    # Search by sponsor name - hybrid approach
+                    bills = _search_bills_hybrid(search_query, 'sponsor', limit=20)
+                    if not bills:
+                        error_message = f"No bills found with sponsor '{search_query}'"
+                        
+            except Exception as e:
+                logging.error(f"Error in bill search ({search_type}): {str(e)}")
+                error_message = "An error occurred while searching for bills. Please try again."
     
-    return render_template('search.html', bills=bills, error_message=error_message, 
-                         query=query, congress=congress, bill_type=bill_type)
+    return render_template('bill_search.html', bills=bills, error_message=error_message, 
+                         search_query=search_query, search_type=search_type, congress=congress)
+
+def _get_or_fetch_bill_by_number(search_query, congress):
+    """Get bill by number - check database first, fetch from API if needed"""
+    try:
+        # Parse the bill identifier to get congress, type, and number
+        bill_parts = _parse_bill_identifier(search_query)
+        if not bill_parts:
+            return None
+            
+        bill_congress, bill_type, bill_number = bill_parts
+        
+        # Check if bill exists in database
+        existing_bill = Bill.query.filter_by(
+            congress=bill_congress,
+            bill_type=bill_type, 
+            bill_number=bill_number
+        ).first()
+        
+        if existing_bill:
+            logging.info(f"Found existing bill in database: {existing_bill.get_bill_identifier()}")
+            
+            # Check if we need to update actions (simple check - could be enhanced)
+            if not existing_bill.actions:
+                logging.info("No actions found, fetching from API...")
+                fetch_bill_actions_from_api(existing_bill)
+            
+            # If no AI analysis, trigger it
+            if not existing_bill.ai_analysis:
+                logging.info("No AI analysis found, performing analysis...")
+                _perform_analysis_if_needed(existing_bill)
+            
+            return existing_bill
+        else:
+            # Bill not in database, fetch from Congress API
+            logging.info(f"Bill not in database, fetching from Congress API: {search_query}")
+            bill_data = congress_api.get_bill_by_number(search_query)
+            if bill_data:
+                bill = bill_processor.process_bill_data(bill_data)
+                if bill:
+                    # Perform analysis on new bill
+                    _perform_analysis_if_needed(bill)
+                return bill
+            return None
+            
+    except Exception as e:
+        logging.error(f"Error in _get_or_fetch_bill_by_number: {e}")
+        return None
+
+def _search_bills_hybrid(search_query, search_type, limit=20):
+    """Hybrid search - use database when possible, fetch from API when needed"""
+    bills = []
+    
+    try:
+        # First, search our database for existing bills
+        if search_type == 'keyword':
+            # Search database bills by title/summary
+            db_bills = Bill.query.filter(
+                Bill.title.contains(search_query) | 
+                Bill.summary.contains(search_query)
+            ).limit(limit//2).all()  # Get half from database
+        else:  # sponsor search
+            # Search database bills by sponsor
+            db_bills = Bill.query.filter(
+                Bill.sponsor_name.contains(search_query)
+            ).limit(limit//2).all()
+        
+        logging.info(f"Found {len(db_bills)} bills in database for {search_type} search: '{search_query}'")
+        bills.extend(db_bills)
+        
+        # If we don't have enough results, supplement with API search
+        if len(bills) < limit:
+            remaining_limit = limit - len(bills)
+            logging.info(f"Fetching {remaining_limit} additional bills from Congress API")
+            
+            if search_type == 'keyword':
+                api_bills_data = congress_api.search_bills(search_query, limit=remaining_limit)
+            else:  # sponsor
+                api_bills_data = congress_api.search_bills_by_sponsor(search_query, limit=remaining_limit)
+            
+            if api_bills_data:
+                # Get identifiers of bills we already have to avoid duplicates
+                existing_identifiers = set(bill.get_bill_identifier() for bill in bills)
+                
+                for bill_data in api_bills_data:
+                    # Check if we already have this bill
+                    bill_id = f"{bill_data.get('congress', '')}-{bill_data.get('type', '').upper()}{bill_data.get('number', '')}"
+                    
+                    if bill_id not in existing_identifiers:
+                        # Check database first before processing
+                        existing_bill = _check_bill_in_database(bill_data)
+                        if existing_bill:
+                            bills.append(existing_bill)
+                        else:
+                            # Process new bill from API
+                            bill = bill_processor.process_bill_data(bill_data)
+                            if bill:
+                                _perform_analysis_if_needed(bill)
+                                bills.append(bill)
+                    
+                    if len(bills) >= limit:
+                        break
+        
+        logging.info(f"Returning {len(bills)} total bills for {search_type} search")
+        return bills[:limit]  # Ensure we don't exceed limit
+        
+    except Exception as e:
+        logging.error(f"Error in _search_bills_hybrid: {e}")
+        return bills  # Return what we have so far
+
+def _parse_bill_identifier(search_query):
+    """Parse bill identifier to extract congress, type, and number"""
+    try:
+        # Use the same logic as Congress API
+        parts = search_query.upper().replace('-', '').replace(' ', '').replace('.', '')
+        
+        if parts.startswith('HR') and not parts.startswith('HRES'):
+            bill_type = 'hr'
+            bill_number = int(parts[2:])
+        elif parts.startswith('S') and not parts.startswith('SJRES') and not parts.startswith('SRES'):
+            bill_type = 's'
+            bill_number = int(parts[1:])
+        else:
+            # Handle other bill types if needed
+            return None
+        
+        # Default to current congress if not specified
+        return 119, bill_type, bill_number
+        
+    except (ValueError, IndexError):
+        return None
+
+def _check_bill_in_database(bill_data):
+    """Check if a bill from API data already exists in database"""
+    try:
+        congress = bill_data.get('congress')
+        bill_type = bill_data.get('type', '').lower()
+        bill_number = bill_data.get('number')
+        
+        if congress and bill_type and bill_number:
+            return Bill.query.filter_by(
+                congress=congress,
+                bill_type=bill_type,
+                bill_number=bill_number
+            ).first()
+    except Exception:
+        pass
+    return None
+
+def _perform_analysis_if_needed(bill):
+    """Perform AI analysis on bill if not already done"""
+    try:
+        if not bill.ai_analysis:
+            logging.info(f"Performing AI analysis for {bill.get_bill_identifier()}")
+            # Get full text for analysis
+            full_text = bill.get_full_text()
+            if full_text:
+                analysis = ai_analyzer.analyze_bill(full_text, bill.title)
+                if analysis:
+                    bill.set_ai_analysis(analysis)
+                    db.session.commit()
+                    logging.info(f"AI analysis completed for {bill.get_bill_identifier()}")
+    except Exception as e:
+        logging.error(f"Error performing analysis for {bill.get_bill_identifier()}: {e}")
+
+def fetch_bill_actions_from_api(bill):
+    """Fetch and store bill actions from Congress API"""
+    try:
+        if not bill.actions:  # Only fetch if no actions exist
+            actions_data = congress_api.get_bill_actions(bill.congress, bill.bill_type, bill.bill_number)
+            if actions_data and 'actions' in actions_data:
+                for action_info in actions_data['actions']:
+                    # Parse action data
+                    action_date = None
+                    if action_info.get('actionDate'):
+                        try:
+                            action_date = datetime.strptime(action_info['actionDate'], '%Y-%m-%d')
+                        except:
+                            pass
+                    
+                    action = BillAction(
+                        bill_id=bill.id,
+                        action_date=action_date or datetime.utcnow(),
+                        action_type=action_info.get('type', 'Unknown'),
+                        action_text=action_info.get('text', ''),
+                        action_description=action_info.get('description', ''),
+                        source_system=action_info.get('sourceSystem', {}).get('code', ''),
+                        source_system_name=action_info.get('sourceSystem', {}).get('name', '')
+                    )
+                    db.session.add(action)
+                
+                db.session.commit()
+                logging.info(f"Fetched {len(actions_data['actions'])} actions for bill {bill.get_bill_identifier()}")
+    except Exception as e:
+        logging.error(f"Error fetching bill actions: {str(e)}")
 
 @app.route('/bill/<int:congress>/<bill_type>/<int:bill_number>')
 def bill_analysis(congress, bill_type, bill_number):
@@ -92,6 +287,9 @@ def bill_analysis(congress, bill_type, bill_number):
             logging.error(f"Error fetching bill: {str(e)}")
             flash('Error loading bill details', 'error')
             return redirect(url_for('bill_search'))
+    
+    # Fetch bill actions if not already present
+    fetch_bill_actions_from_api(bill)
     
     # Perform AI analysis if not already done
     analysis = bill.get_ai_analysis()
@@ -125,8 +323,8 @@ def bill_analysis(congress, bill_type, bill_number):
             except Exception as e:
                 logging.error(f"Error calculating alignment: {str(e)}")
     
-    # Get bill actions (they're already loaded via the relationship)
-    bill_actions = bill.actions if bill else []
+    # Get bill actions (refresh from database after potential fetch)
+    bill_actions = bill.actions
     
     return render_template('bill_analysis.html', 
                          bill=bill, 

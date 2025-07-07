@@ -1,0 +1,12 @@
+2025-07-05 16:27:59,129 - services.enhanced_ai_analyzer - INFO - [AI] Starting analysis for bill: Providing congressional disapproval under chapter 8 of title 5, United States Code, of the rule submitted by the Environmental Protection Agency relating to "California State Motor Vehicle and Engine Pollution Control Standards; Heavy-Duty Vehicle and Engine Emission Warranty and Maintenance Provisions; Advanced Clean Trucks; Zero Emission Airport Shuttle; Zero-Emission Power Train Certification; Waiver of Preemption; Notice of Decision".
+2025-07-05 16:27:59,130 - services.enhanced_ai_analyzer - INFO - 📏 Text length: 1,800 chars
+2025-07-05 16:27:59,130 - services.enhanced_ai_analyzer - INFO - 🎯 Optimal chunk size: 1,000 chars
+2025-07-05 16:27:59,130 - services.enhanced_ai_analyzer - INFO - 📊 Estimated chunks: 1
+2025-07-05 16:27:59,135 - utils.bill_chunker - INFO - Created 3 chunks from bill text
+2025-07-05 16:27:59,135 - services.enhanced_ai_analyzer - INFO - Created 3 chunks for enhanced analysis
+2025-07-05 16:27:59,135 - services.enhanced_ai_analyzer - INFO - 📊 Total estimated tokens: 729
+2025-07-05 16:27:59,135 - services.enhanced_ai_analyzer - INFO - 📊 Estimated API requests for analysis: 19
+2025-07-05 16:27:59,135 - services.enhanced_ai_analyzer - WARNING - ⚠️ Analysis requires 19 requests but only 13 available
+2025-07-05 16:27:59,136 - services.enhanced_ai_analyzer - WARNING -    Current usage: 0/15
+2025-07-05 16:27:59,136 - services.enhanced_ai_analyzer - WARNING -    Rate limit resets in 0.0 seconds
+2025-07-05 16:27:59,136 - services.enhanced_ai_analyzer - ERROR - 🚫 Insufficient API quota for analysis: need 19 requests, have 15 remaining

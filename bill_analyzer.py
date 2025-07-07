@@ -2,42 +2,68 @@ import os
 import json
 import logging
 from typing import Dict, List, Optional, Tuple
-from openai import OpenAI
+from google import genai
 import re
 from datetime import datetime
+from utils.bill_chunker import BillChunker, BillChunk
 
 logger = logging.getLogger(__name__)
 
 class BillAnalyzer:
-    """AI-powered bill analysis using OpenAI"""
+    """AI-powered legislative analysis using Gemini with chunked analysis"""
     
     def __init__(self):
-        self.openai_api_key = os.environ.get("OPENAI_API_KEY")
-        if not self.openai_api_key:
-            logger.warning("OPENAI_API_KEY not found in environment variables")
+        self.api_key = os.environ.get('GEMINI_API_KEY')
+        if not self.api_key:
+            logging.warning("GEMINI_API_KEY not found. AI analysis will be disabled.")
             self.client = None
         else:
-            self.client = OpenAI(api_key=self.openai_api_key)
+            self.client = genai.Client(api_key=self.api_key)
+        
+        # Initialize bill chunker
+        self.bill_chunker = BillChunker(max_chunk_size=8000, overlap_size=500)
         
         # Policy categories for classification
         self.policy_categories = [
-            "Healthcare", "Environment", "Economy", "Education", "Defense",
-            "Immigration", "Technology", "Civil Rights", "Agriculture", "Energy",
-            "Transportation", "Housing", "Tax Policy", "Social Security", "Labor",
-            "Trade", "Foreign Relations", "Criminal Justice", "Veterans Affairs", "Budget"
+            'healthcare', 'education', 'environment', 'economy', 'immigration',
+            'defense', 'transportation', 'energy', 'agriculture', 'technology',
+            'civil_rights', 'government_reform', 'taxation', 'housing', 'labor'
         ]
     
+    def _clean_json_response(self, response_text: str) -> str:
+        """Clean and extract JSON from AI response"""
+        response_text = re.sub(r'```json\s*', '', response_text)
+        response_text = re.sub(r'```\s*$', '', response_text)
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            return json_match.group()
+        return response_text.strip()
+    
     def categorize_bill(self, bill_text: str, bill_title: str) -> Dict:
-        """Categorize a bill into policy domains using AI"""
+        """Categorize a bill into policy domains using chunked analysis"""
         if not self.client:
-            return {"categories": [], "confidence": 0.0, "reasoning": "OpenAI API not available"}
+            return {"categories": [], "confidence": 0.0, "reasoning": "Gemini API not available"}
         
         try:
+            # Create chunks for analysis
+            chunks = self.bill_chunker.chunk_bill(bill_text, bill_title)
+            
+            # Use the most important chunks for categorization
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:5]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:1500]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
             prompt = f"""
             Analyze the following congressional bill and categorize it into relevant policy domains.
             
             Bill Title: {bill_title}
-            Bill Text: {bill_text[:8000]}...  # Truncate for token limits
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
             
             Available categories: {', '.join(self.policy_categories)}
             
@@ -51,15 +77,16 @@ class BillAnalyzer:
             }}
             """
             
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-            # do not change this unless explicitly requested by the user
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"}
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
             )
             
-            result = json.loads(response.choices[0].message.content)
+            if not response or not response.text:
+                return {"categories": [], "confidence": 0.0, "reasoning": "Empty response from Gemini"}
+            
+            cleaned_response = self._clean_json_response(response.text)
+            result = json.loads(cleaned_response)
             return result
             
         except Exception as e:
@@ -67,16 +94,30 @@ class BillAnalyzer:
             return {"categories": [], "confidence": 0.0, "reasoning": f"Analysis failed: {str(e)}"}
     
     def analyze_stakeholder_impact(self, bill_text: str, bill_title: str) -> Dict:
-        """Analyze which stakeholders are affected by the bill"""
+        """Analyze which stakeholders are affected by the bill using chunked analysis"""
         if not self.client:
-            return {"stakeholders": {}, "reasoning": "OpenAI API not available"}
+            return {"stakeholders": {}, "reasoning": "Gemini API not available"}
         
         try:
+            # Create chunks for analysis
+            chunks = self.bill_chunker.chunk_bill(bill_text, bill_title)
+            
+            # Use the most important chunks for stakeholder analysis
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:5]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:1500]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
             prompt = f"""
-            Analyze the stakeholder impact of this congressional bill.
+            Analyze the stakeholder impact of this congressional bill based on the following chunks.
             
             Bill Title: {bill_title}
-            Bill Text: {bill_text[:8000]}...
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
             
             Identify key stakeholder groups and how they would be affected (positively or negatively).
             
@@ -93,15 +134,16 @@ class BillAnalyzer:
             }}
             """
             
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-            # do not change this unless explicitly requested by the user
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"}
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
             )
             
-            result = json.loads(response.choices[0].message.content)
+            if not response or not response.text:
+                return {"stakeholders": {}, "reasoning": "Empty response from Gemini"}
+            
+            cleaned_response = self._clean_json_response(response.text)
+            result = json.loads(cleaned_response)
             return result
             
         except Exception as e:
@@ -109,11 +151,23 @@ class BillAnalyzer:
             return {"stakeholders": {}, "reasoning": f"Analysis failed: {str(e)}"}
     
     def score_policy_alignment(self, bill_text: str, bill_title: str, user_preferences: Dict) -> Dict:
-        """Score how well a bill aligns with user policy preferences"""
+        """Score how well a bill aligns with user policy preferences using chunked analysis"""
         if not self.client or not user_preferences:
             return {"alignment_score": 0, "section_scores": {}, "reasoning": "Insufficient data for analysis"}
         
         try:
+            # Create chunks for analysis
+            chunks = self.bill_chunker.chunk_bill(bill_text, bill_title)
+            
+            # Use the most important chunks for alignment analysis
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:5]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:1500]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
             # Convert user preferences to readable format
             prefs_text = []
             for category, score in user_preferences.items():
@@ -127,10 +181,12 @@ class BillAnalyzer:
                     prefs_text.append(f"Moderately opposes {category}")
             
             prompt = f"""
-            Analyze how well this congressional bill aligns with the user's policy preferences.
+            Analyze how well this congressional bill aligns with the user's policy preferences based on the following chunks.
             
             Bill Title: {bill_title}
-            Bill Text: {bill_text[:8000]}...
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
             
             User Policy Preferences:
             {chr(10).join(prefs_text)}
@@ -155,15 +211,16 @@ class BillAnalyzer:
             }}
             """
             
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-            # do not change this unless explicitly requested by the user
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"}
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
             )
             
-            result = json.loads(response.choices[0].message.content)
+            if not response or not response.text:
+                return {"alignment_score": 0, "section_scores": {}, "reasoning": "Empty response from Gemini"}
+            
+            cleaned_response = self._clean_json_response(response.text)
+            result = json.loads(cleaned_response)
             return result
             
         except Exception as e:
@@ -171,15 +228,28 @@ class BillAnalyzer:
             return {"alignment_score": 0, "section_scores": {}, "reasoning": f"Analysis failed: {str(e)}"}
     
     def extract_key_sections(self, bill_text: str) -> List[Dict]:
-        """Extract and summarize key sections of a bill"""
+        """Extract and summarize key sections of a bill using chunked analysis"""
         if not self.client:
             return []
         
         try:
-            prompt = f"""
-            Analyze this congressional bill text and extract the key sections with plain-language summaries.
+            # Create chunks for analysis
+            chunks = self.bill_chunker.chunk_bill(bill_text, "")
             
-            Bill Text: {bill_text[:10000]}...
+            # Use the most important chunks for section extraction
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:8]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:1200]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
+            prompt = f"""
+            Analyze this congressional bill text and extract the key sections with plain-language summaries based on the following chunks.
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
             
             Please respond with JSON in this format:
             {{
@@ -194,32 +264,47 @@ class BillAnalyzer:
             }}
             """
             
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-            # do not change this unless explicitly requested by the user
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"}
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
             )
             
-            result = json.loads(response.choices[0].message.content)
+            if not response or not response.text:
+                return []
+            
+            cleaned_response = self._clean_json_response(response.text)
+            result = json.loads(cleaned_response)
             return result.get("sections", [])
             
         except Exception as e:
-            logger.error(f"Section extraction failed: {e}")
+            logger.error(f"Key section extraction failed: {e}")
             return []
     
     def generate_plain_language_summary(self, bill_text: str, bill_title: str) -> str:
-        """Generate a plain language summary of the bill"""
+        """Generate a plain language summary of the bill using chunked analysis"""
         if not self.client:
-            return "AI analysis not available. Please check OpenAI API configuration."
+            return "AI analysis not available. Please check Gemini API configuration."
         
         try:
+            # Create chunks for summary generation
+            chunks = self.bill_chunker.chunk_bill(bill_text, bill_title)
+            
+            # Use the most important chunks for summary
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:3]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:2000]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
             prompt = f"""
-            Create a clear, plain-language summary of this congressional bill that a typical citizen can understand.
+            Create a clear, plain-language summary of this congressional bill based on the following chunks.
             
             Bill Title: {bill_title}
-            Bill Text: {bill_text[:8000]}...
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
             
             Write a summary that:
             1. Explains what the bill does in simple terms
@@ -230,14 +315,15 @@ class BillAnalyzer:
             Keep it concise but comprehensive, suitable for someone without legal expertise.
             """
             
-            # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-            # do not change this unless explicitly requested by the user
-            response = self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}]
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
             )
             
-            return response.choices[0].message.content
+            if not response or not response.text:
+                return "Unable to generate summary: Empty response from Gemini"
+            
+            return response.text.strip()
             
         except Exception as e:
             logger.error(f"Summary generation failed: {e}")

@@ -4,7 +4,7 @@ Script to create policy categories in the database
 """
 
 from app import app, db
-from models import PolicyCategory
+from db_models import PolicyCategory
 from utils.constants import FEDERAL_POLICY_CATEGORIES
 
 def create_policy_categories():

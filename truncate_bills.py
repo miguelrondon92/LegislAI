@@ -12,7 +12,7 @@ import logging
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db
-from models import Bill, BillAction, Alert, UserBillAlignment, WatchlistItem
+from db_models import Bill, BillAction, Alert, UserBillAlignment, WatchlistItem
 
 # Configure logging
 logging.basicConfig(
@@ -41,11 +41,16 @@ def truncate_bills_and_related():
             logger.info(f"  - User Bill Alignments: {alignment_count}")
             logger.info(f"  - Watchlist Items: {watchlist_count}")
             
-            # Confirm with user
-            response = input(f"\nThis will delete {bill_count} bills and all related data. Continue? (y/N): ")
-            if response.lower() != 'y':
-                logger.info("Truncation cancelled by user.")
-                return
+            # Check if running non-interactively
+            import sys
+            if not sys.stdin.isatty():
+                logger.info("Running non-interactively, proceeding with truncation...")
+            else:
+                # Confirm with user
+                response = input(f"\nThis will delete {bill_count} bills and all related data. Continue? (y/N): ")
+                if response.lower() != 'y':
+                    logger.info("Truncation cancelled by user.")
+                    return
             
             # Truncate in order (child tables first, then parent)
             logger.info("Truncating child tables...")

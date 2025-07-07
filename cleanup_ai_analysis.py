@@ -12,7 +12,7 @@ import logging
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db
-from models import Bill
+from db_models import Bill
 
 # Configure logging
 logging.basicConfig(

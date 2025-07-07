@@ -14,7 +14,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db
-from models import User, Bill, PolicyCategory, UserPolicySubscription
+from db_models import User, Bill, PolicyCategory, UserPolicySubscription
 from services.workflow_orchestrator import WorkflowOrchestrator, start_workflow_service, stop_workflow_service, get_workflow_status
 
 # Configure logging

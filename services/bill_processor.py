@@ -3,7 +3,6 @@ import json
 import os
 from datetime import datetime
 from app import db
-from models import Bill, User, Alert, BillAction
 from services.ai_analyzer import AIAnalyzer
 from services.congress_api import CongressAPI
 from utils.text_processing import clean_bill_text, extract_sections
@@ -110,150 +109,146 @@ class BillProcessor:
             bill_type = bill_data.get('type', '').lower()
             bill_number = bill_data.get('number')
             title = bill_data.get('title', '')
-            
+            summary = bill_data.get('summary', '')
+            full_text = bill_data.get('full_text', '')
+
             if not all([congress, bill_type, bill_number]):
                 logging.error("Missing required bill data fields")
                 return None
-            
-            # Check if bill already exists
-            existing_bill = Bill.query.filter_by(
+
+            # Fetch all versions of this bill
+            from db_models import Bill
+            bill_versions = Bill.query.filter_by(
                 congress=congress,
                 bill_type=bill_type,
                 bill_number=bill_number
-            ).first()
-            
-            if existing_bill:
-                # Update existing bill
-                bill = existing_bill
+            ).order_by(Bill.version.desc()).all()
+
+            latest_bill = bill_versions[0] if bill_versions else None
+            is_new_version = False
+
+            # Define a function to compare bill content (title + summary + full_text)
+            def bill_content_hash(title, summary, full_text):
+                import hashlib
+                content = (title or '') + (summary or '') + (full_text or '')
+                return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+            new_content_hash = bill_content_hash(title, summary, full_text)
+            latest_content_hash = bill_content_hash(latest_bill.title, latest_bill.summary, latest_bill.get_full_text()) if latest_bill else None
+
+            if latest_bill:
+                if new_content_hash != latest_content_hash:
+                    # New version needed
+                    is_new_version = True
+                    # Deactivate all previous versions
+                    for b in bill_versions:
+                        b.active = False
+                    db.session.commit()  # Commit deactivation before adding new version
+                    new_version = latest_bill.version + 1
+                else:
+                    # No change, update timestamp and return latest
+                    latest_bill.last_updated = datetime.utcnow()
+                    db.session.commit()
+                    return latest_bill
             else:
-                # Create new bill
+                # First version
+                is_new_version = True
+                new_version = 1
+
+            if is_new_version:
+                # Create new bill version
                 bill = Bill(
                     congress=congress,
                     bill_type=bill_type,
-                    bill_number=bill_number
+                    bill_number=bill_number,
+                    title=title,
+                    summary=summary,
+                    version=new_version,
+                    active=True,
+                    last_updated=datetime.utcnow()
                 )
+                # Set sponsor info
+                sponsors = bill_data.get('sponsors', [])
+                if sponsors:
+                    sponsor = sponsors[0]
+                    bill.sponsor_name = f"{sponsor.get('firstName', '')} {sponsor.get('lastName', '')}".strip()
+                    bill.sponsor_party = sponsor.get('party')
+                    bill.sponsor_state = sponsor.get('state')
+                # Set dates
+                introduced_date = bill_data.get('introducedDate')
+                if introduced_date:
+                    try:
+                        bill.introduced_date = datetime.fromisoformat(introduced_date.replace('Z', '+00:00')).replace(tzinfo=None)
+                    except:
+                        pass
+                # Set actions
+                actions = bill_data.get('actions', {})
+                if actions and 'actions' in actions:
+                    action_list = actions['actions']
+                    if action_list:
+                        latest_action = action_list[0]
+                        bill.status = latest_action.get('text', '')
+                        action_date = latest_action.get('actionDate')
+                        if action_date:
+                            try:
+                                bill.last_action_date = datetime.fromisoformat(action_date + 'T00:00:00')
+                            except:
+                                pass
+                        self._process_bill_actions(bill, action_list)
+                # Set Congress API URL
+                bill.congress_api_url = f"https://api.congress.gov/v3/bill/{congress}/{bill_type}/{bill_number}"
+                # Set summary if not present
+                if not bill.summary:
+                    if full_text:
+                        cleaned_text = clean_bill_text(full_text)
+                        sections = extract_sections(cleaned_text)
+                        if sections:
+                            bill.summary = sections[0][:500] + "..." if len(sections[0]) > 500 else sections[0]
                 db.session.add(bill)
-                
-                # Add to seen items for new bills
-                bill_identifier = f"{bill_type.upper()}.{bill_number}"
-                self.add_to_seen_items(bill_identifier)
-            
-            # Update bill fields
-            bill.title = title
-            bill.last_updated = datetime.utcnow()
-            
-            # Extract sponsor information
-            sponsors = bill_data.get('sponsors', [])
-            if sponsors:
-                sponsor = sponsors[0]  # Primary sponsor
-                bill.sponsor_name = f"{sponsor.get('firstName', '')} {sponsor.get('lastName', '')}".strip()
-                bill.sponsor_party = sponsor.get('party')
-                bill.sponsor_state = sponsor.get('state')
-            
-            # Extract dates
-            introduced_date = bill_data.get('introducedDate')
-            if introduced_date:
-                try:
-                    bill.introduced_date = datetime.fromisoformat(introduced_date.replace('Z', '+00:00')).replace(tzinfo=None)
-                except:
-                    pass
-            
-            # Extract latest action
-            actions = bill_data.get('actions', {})
-            if actions and 'actions' in actions:
-                action_list = actions['actions']
-                if action_list:
-                    latest_action = action_list[0]
-                    bill.status = latest_action.get('text', '')
-                    action_date = latest_action.get('actionDate')
-                    if action_date:
-                        try:
-                            bill.last_action_date = datetime.fromisoformat(action_date + 'T00:00:00')
-                        except:
-                            pass
-                    
-                    # Process and store all actions
-                    self._process_bill_actions(bill, action_list)
-            
-            # Set Congress API URL
-            bill.congress_api_url = f"https://api.congress.gov/v3/bill/{congress}/{bill_type}/{bill_number}"
-            
-            # Extract summary from first section if not already present and full text is available
-            if not bill.summary:
-                full_text = bill_data.get('full_text')
+                db.session.commit()
+                # Perform AI analysis if full text is available
                 if full_text:
-                    # Clean and process the text
-                    cleaned_text = clean_bill_text(full_text)
-                    sections = extract_sections(cleaned_text)
-                    if sections:
-                        # Use first section as summary, limited to 500 chars
-                        bill.summary = sections[0][:500] + "..." if len(sections[0]) > 500 else sections[0]
-            
-            # Commit to database
-            db.session.commit()
-            
-            # Perform AI analysis if full text is available and not already analyzed
-            full_text = bill_data.get('full_text')
-            if full_text and not bill.get_ai_analysis():
-                try:
-                    # Clean and process the text for analysis
-                    cleaned_text = clean_bill_text(full_text)
-                    
-                    # Check if AI analyzer is available
-                    if not self.ai_analyzer.client:
-                        logging.warning(f"AI analyzer not available for bill {bill.get_bill_identifier()}. Skipping AI analysis.")
-                        return bill
-                    
-                    # Pass the bill object to the analyzer
-                    analysis = self.ai_analyzer.analyze_bill(bill)
-                    
-                    # Only save analysis if it's valid and not empty
-                    if analysis and isinstance(analysis, dict) and len(analysis) > 0:
-                        # Check if analysis contains actual data (not just error messages)
-                        has_valid_data = False
-                        for key, value in analysis.items():
-                            if value and value != "Unknown" and value != "Unable to generate summary due to technical error":
-                                if isinstance(value, list) and len(value) > 0:
-                                    has_valid_data = True
-                                    break
-                                elif isinstance(value, dict) and len(value) > 0:
-                                    has_valid_data = True
-                                    break
-                                elif isinstance(value, str) and len(value) > 10:
-                                    has_valid_data = True
-                                    break
-                                elif isinstance(value, (int, float)) and value != 0:
-                                    has_valid_data = True
-                                    break
-                        
-                        if has_valid_data:
-                            bill.set_ai_analysis(analysis)
-                            
-                            # Extract complexity score
-                            complexity_assessment = analysis.get('complexity_assessment', {})
-                            if isinstance(complexity_assessment, dict):
-                                complexity_score = complexity_assessment.get('complexity_score', 0)
-                                if isinstance(complexity_score, (int, float)):
-                                    bill.complexity_score = float(complexity_score)
-                            
-                            # Store policy categories
-                            policy_implications = analysis.get('policy_implications', {})
-                            if policy_implications and isinstance(policy_implications, dict):
-                                bill.set_policy_categories(policy_implications)
-                            
-                            db.session.commit()
-                            logging.info(f"Successfully performed AI analysis for bill {bill.get_bill_identifier()}")
+                    try:
+                        cleaned_text = clean_bill_text(full_text)
+                        if not self.ai_analyzer.client:
+                            logging.warning(f"AI analyzer not available for bill {bill.get_bill_identifier()}. Skipping AI analysis.")
+                            return bill
+                        analysis = self.ai_analyzer.analyze_bill(bill)
+                        if analysis and isinstance(analysis, dict) and len(analysis) > 0:
+                            has_valid_data = False
+                            for key, value in analysis.items():
+                                if value and value != "Unknown" and value != "Unable to generate summary due to technical error":
+                                    if isinstance(value, list) and len(value) > 0:
+                                        has_valid_data = True
+                                        break
+                                    elif isinstance(value, dict) and len(value) > 0:
+                                        has_valid_data = True
+                                        break
+                                    elif isinstance(value, str) and len(value) > 10:
+                                        has_valid_data = True
+                                        break
+                                    elif isinstance(value, (int, float)) and value != 0:
+                                        has_valid_data = True
+                                        break
+                            if has_valid_data:
+                                bill.set_ai_analysis(analysis)
+                                complexity_assessment = analysis.get('complexity_assessment', {})
+                                if isinstance(complexity_assessment, dict):
+                                    complexity_score = complexity_assessment.get('complexity_score', 0)
+                                    if isinstance(complexity_score, (int, float)):
+                                        bill.complexity_score = float(complexity_score)
+                                policy_implications = analysis.get('policy_implications', {})
+                                if policy_implications and isinstance(policy_implications, dict):
+                                    bill.set_policy_categories(policy_implications)
+                                db.session.commit()
+                                logging.info(f"Successfully performed AI analysis for bill {bill.get_bill_identifier()}")
+                            else:
+                                logging.warning(f"AI analysis returned empty or error data for bill {bill.get_bill_identifier()}. Not saving to database.")
                         else:
-                            logging.warning(f"AI analysis returned empty or error data for bill {bill.get_bill_identifier()}. Not saving to database.")
-                    else:
-                        logging.warning(f"No valid AI analysis returned for bill {bill.get_bill_identifier()}")
-                        
-                except Exception as e:
-                    logging.error(f"Error in AI analysis for bill {bill.get_bill_identifier()}: {str(e)}")
-                    # Don't save error data to database
-            
-            return bill
-            
+                            logging.warning(f"No valid AI analysis returned for bill {bill.get_bill_identifier()}")
+                    except Exception as e:
+                        logging.error(f"Error in AI analysis for bill {bill.get_bill_identifier()}: {str(e)}")
+                return bill
         except Exception as e:
             logging.error(f"Error processing bill data: {str(e)}")
             db.session.rollback()
@@ -266,6 +261,7 @@ class BillProcessor:
         """
         try:
             # Get all users with alert preferences enabled
+            from db_models import User
             users = User.query.filter_by(alert_enabled=True).all()
             users_with_alerts = []
             
@@ -283,6 +279,7 @@ class BillProcessor:
                 
                 for bill in recent_bills:
                     # Skip if we already have an alert for this user/bill combination
+                    from db_models import Alert
                     existing_alert = Alert.query.filter_by(
                         user_id=user.id,
                         bill_id=bill.id
@@ -350,6 +347,7 @@ class BillProcessor:
         """Create a specific alert for a user about a bill"""
         try:
             # Check if alert already exists
+            from db_models import Alert
             existing_alert = Alert.query.filter_by(
                 user_id=user_id,
                 bill_id=bill_id,
@@ -392,6 +390,7 @@ class BillProcessor:
     def update_bill_status(self, bill_id):
         """Update a bill's status by fetching latest data from Congress API"""
         try:
+            from db_models import Bill
             bill = Bill.query.get(bill_id)
             if not bill:
                 return None
@@ -442,6 +441,7 @@ class BillProcessor:
                     continue
                 
                 # Check if this action already exists
+                from db_models import BillAction
                 existing_action = BillAction.query.filter_by(
                     bill_id=bill.id,
                     action_date=parsed_date,

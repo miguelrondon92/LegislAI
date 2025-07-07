@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db
-from models import Bill, BillAction
+from db_models import Bill, BillAction
 from services.congress_api import CongressAPI
 from services.bill_processor import BillProcessor
 

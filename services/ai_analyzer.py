@@ -3,16 +3,17 @@ import os
 import logging
 from typing import Dict, List, Optional, Tuple
 from google import genai
-from openai import OpenAI
+# from openai import OpenAI  # Removed - using Gemini only
 import re
 from datetime import datetime
 from utils.constants import FEDERAL_POLICY_CATEGORIES
+from utils.bill_chunker import BillChunker, BillChunk
 #from .notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
 
 class AIAnalyzer:
-    """AI-powered legislative analysis using Gemini"""
+    """AI-powered legislative analysis using Gemini with chunked analysis"""
     
     def __init__(self):
         self.api_key = os.environ.get('GEMINI_API_KEY')
@@ -23,11 +24,14 @@ class AIAnalyzer:
             self.client = genai.Client(api_key=self.api_key)
         #self.notification_service = NotificationService()
         
+        # Initialize bill chunker
+        self.bill_chunker = BillChunker(max_chunk_size=8000, overlap_size=500)
+        
         # Use the standardized federal policy categories
         self.policy_categories = FEDERAL_POLICY_CATEGORIES
     
     def analyze_bill(self, bill_or_text, title=None) -> Dict:
-        """Perform comprehensive AI analysis of a bill"""
+        """Perform comprehensive AI analysis of a bill using chunked approach"""
         if not self.client:
             logging.warning("Gemini client not available")
             return {}
@@ -39,20 +43,26 @@ class AIAnalyzer:
                 bill = bill_or_text
                 text_to_analyze = self._prepare_bill_text(bill)
                 title = bill.title
+                summary = bill.summary
             else:
                 # It's text input
                 text_to_analyze = str(bill_or_text)
                 title = title or "Unknown Bill"
+                summary = ""
             
             if not text_to_analyze:
                 logging.warning(f"No text available for analysis")
                 return {}
             
-            # Perform different types of analysis
+            # Chunk the bill text for analysis
+            chunks = self.bill_chunker.chunk_bill(text_to_analyze, title, summary)
+            logger.info(f"Created {len(chunks)} chunks for analysis")
+            
+            # Perform different types of analysis using chunks
             analysis_results = {}
             
             # 1. Generate summary first (most important)
-            summary = self.generate_bill_summary(text_to_analyze, title)
+            summary = self._generate_bill_summary_chunked(chunks, title)
             if summary and "Unable to generate summary due to technical error" not in summary:
                 analysis_results['summary'] = {
                     'main_summary': summary,
@@ -62,17 +72,17 @@ class AIAnalyzer:
                     'plain_language_explanation': summary
                 }
             
-            # 2. Policy categorization
-            categories = self._categorize_bill(text_to_analyze, title)
+            # 2. Policy categorization using chunks
+            categories = self._categorize_bill_chunked(chunks, title)
             if categories and isinstance(categories, dict):
                 analysis_results['policy_implications'] = categories
             
-            # 3. Stakeholder analysis
-            stakeholders = self._analyze_stakeholders(text_to_analyze, title)
+            # 3. Stakeholder analysis using chunks
+            stakeholders = self._analyze_stakeholders_chunked(chunks, title)
             if stakeholders and isinstance(stakeholders, dict):
                 analysis_results['stakeholders'] = stakeholders
             
-            # 4. Complexity scoring
+            # 4. Complexity scoring (can use full text)
             complexity = self._assess_complexity(text_to_analyze)
             if complexity is not None:
                 analysis_results['complexity_assessment'] = {
@@ -86,13 +96,15 @@ class AIAnalyzer:
                     'complexity_factors': []
                 }
             
-            # 5. Controversy detection
+            # 5. Controversy detection (can use full text)
             controversy = self._detect_controversy(text_to_analyze, title)
             if controversy is not None:
                 analysis_results['controversy_score'] = controversy
             
-            # Add timestamp
+            # Add timestamp and chunk information
             analysis_results['generated_at'] = datetime.now().isoformat()
+            analysis_results['analysis_method'] = 'chunked'
+            analysis_results['chunks_analyzed'] = len(chunks)
             
             # If we have a bill object, store the analysis
             if hasattr(bill_or_text, 'set_ai_analysis'):
@@ -105,7 +117,7 @@ class AIAnalyzer:
             return {}
     
     def _prepare_bill_text(self, bill) -> str:
-        """Prepare bill text for analysis"""
+        """Prepare bill text for analysis - no longer truncating"""
         text_parts = []
         
         if bill.title:
@@ -114,43 +126,84 @@ class AIAnalyzer:
         if bill.summary:
             text_parts.append(f"Summary: {bill.summary}")
         
-        # Fetch full text from API when needed
+        # Fetch full text from API when needed - NO TRUNCATION
         full_text = bill.get_full_text()
         if full_text:
-            # Limit text length for API efficiency
-            full_text = full_text[:10000]  # Limit to first 10k characters
             text_parts.append(f"Full Text: {full_text}")
         
         return "\n\n".join(text_parts)
     
-    def _clean_json_response(self, response_text: str) -> str:
-        """Clean JSON response by removing markdown code blocks if present"""
-        if not response_text:
-            return ""
-        
-        # Remove markdown code blocks if present
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]  # Remove ```json
-        elif response_text.startswith("```"):
-            response_text = response_text[3:]  # Remove ```
-        
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]  # Remove trailing ```
-        
-        return response_text.strip()
-
-    def _categorize_bill(self, bill_text: str, title: str) -> Optional[Dict]:
-        """Categorize bill into policy domains with confidence scores"""
+    def _generate_bill_summary_chunked(self, chunks: List[BillChunk], title: str) -> Optional[str]:
+        """Generate bill summary using chunked analysis"""
+        try:
+            if not self.client:
+                return None
+            
+            # Use the most important chunks for summary
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:3]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:2000]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
+            prompt = f"""
+            Create a comprehensive summary of this congressional bill based on the following chunks.
+            
+            Bill Title: {title}
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
+            
+            Please provide a clear, comprehensive summary that:
+            1. Explains what the bill does in simple terms
+            2. Highlights the main changes it would make
+            3. Mentions who would be affected
+            4. Notes any significant funding or timeline requirements
+            
+            Keep it concise but comprehensive, suitable for someone without legal expertise.
+            """
+            
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
+            )
+            
+            if not response or not response.text:
+                logging.warning("Empty response from Gemini for summary")
+                return None
+            
+            return response.text.strip()
+            
+        except Exception as e:
+            logging.error(f"Chunked summary generation error: {str(e)}")
+            return None
+    
+    def _categorize_bill_chunked(self, chunks: List[BillChunk], title: str) -> Optional[Dict]:
+        """Categorize bill into policy domains using chunked analysis"""
         try:
             if not self.client:
                 return None
                 
             categories_list = ', '.join(self.policy_categories)
+            
+            # Use the most important chunks for categorization
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:5]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:1500]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
             prompt = f"""
-            Analyze the policy implications of this congressional bill.
+            Analyze the policy implications of this congressional bill based on the following chunks.
             
             Bill Title: {title}
-            Bill Text: {bill_text[:3000]}
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
             
             Categorize this bill and analyze its policy implications. Use ONLY the following categories for all policy area fields:
             {categories_list}
@@ -194,20 +247,31 @@ class AIAnalyzer:
             return result
             
         except Exception as e:
-            logging.error(f"Policy categorization error: {str(e)}")
+            logging.error(f"Chunked policy categorization error: {str(e)}")
             return None
     
-    def _analyze_stakeholders(self, bill_text: str, title: str) -> Optional[Dict]:
-        """Identify stakeholders affected by the bill"""
+    def _analyze_stakeholders_chunked(self, chunks: List[BillChunk], title: str) -> Optional[Dict]:
+        """Identify stakeholders affected by the bill using chunked analysis"""
         try:
             if not self.client:
                 return None
                 
+            # Use the most important chunks for stakeholder analysis
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:5]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:1500]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
             prompt = f"""
-            You are an expert policy analyst. Identify stakeholder groups affected by this bill and assess the impact.
+            You are an expert policy analyst. Identify stakeholder groups affected by this bill based on the following chunks.
 
             Bill Title: {title}
-            Bill Text: {bill_text[:3000]}
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
 
             Return JSON with this structure:
             {{
@@ -245,11 +309,27 @@ class AIAnalyzer:
             return result
             
         except Exception as e:
-            logging.error(f"Stakeholder analysis error: {str(e)}")
+            logging.error(f"Chunked stakeholder analysis error: {str(e)}")
             return None
-    
+
+    def _clean_json_response(self, response_text: str) -> str:
+        """Clean JSON response by removing markdown code blocks if present"""
+        if not response_text:
+            return ""
+        
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]  # Remove ```json
+        elif response_text.startswith("```"):
+            response_text = response_text[3:]  # Remove ```
+        
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]  # Remove trailing ```
+        
+        return response_text.strip()
+
     def _assess_complexity(self, bill_text: str) -> Optional[float]:
-        """Assess bill complexity on a 0-1 scale"""
+        """Assess bill complexity on a 0-1 scale - uses full text"""
         try:
             # Simple heuristics for complexity
             text_length = len(bill_text)
@@ -278,7 +358,7 @@ class AIAnalyzer:
             return None
     
     def _detect_controversy(self, bill_text: str, title: str) -> Optional[float]:
-        """Detect potentially controversial provisions"""
+        """Detect potentially controversial provisions - uses full text"""
         try:
             # Keywords that often indicate controversial content
             controversial_terms = [
@@ -340,22 +420,38 @@ class AIAnalyzer:
             return 0.0
     
     def generate_bill_summary(self, bill_text: str, title: str) -> Optional[str]:
-        """Generate a plain-language summary of the bill"""
+        """Generate a plain language summary of the bill - now uses chunked approach"""
         try:
             if not self.client:
                 return None
-                
+            
+            # Create chunks for summary generation
+            chunks = self.bill_chunker.chunk_bill(bill_text, title)
+            
+            # Use the most important chunks
+            important_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)[:3]
+            
+            chunk_texts = []
+            for i, chunk in enumerate(important_chunks):
+                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:2000]}")
+            
+            combined_text = "\n\n---\n\n".join(chunk_texts)
+            
             prompt = f"""
-            You are an expert at explaining complex legislation in plain language.
-            Create a clear, concise summary that explains:
-            1. What the bill does
-            2. Who it affects
-            3. Key provisions
-            4. Potential impacts
-            Write for a general audience without legal jargon.
+            Create a clear, plain-language summary of this congressional bill based on the following chunks.
             
             Bill Title: {title}
-            Bill Text: {bill_text[:4000]}
+            
+            Bill Content (from {len(important_chunks)} key chunks):
+            {combined_text}
+            
+            Write a summary that:
+            1. Explains what the bill does in simple terms
+            2. Highlights the main changes it would make
+            3. Mentions who would be affected
+            4. Notes any significant funding or timeline requirements
+            
+            Keep it concise but comprehensive, suitable for someone without legal expertise.
             """
             
             response = self.client.models.generate_content(
@@ -365,17 +461,11 @@ class AIAnalyzer:
             
             if not response or not response.text:
                 return None
-                
-            summary = response.text.strip()
             
-            # Check if the response contains error indicators
-            if "Unable to generate summary due to technical error" in summary:
-                return None
-                
-            return summary
+            return response.text.strip()
             
         except Exception as e:
-            logging.error(f"Summary generation error: {str(e)}")
+            logging.error(f"Chunked summary generation error: {str(e)}")
             return None
 if __name__ == "__main__": 
     with open('test_data.json', 'r') as file:

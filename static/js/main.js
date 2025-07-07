@@ -154,9 +154,10 @@ function hideSearchSuggestions() {
  * Validate search form
  */
 function validateSearchForm(form) {
-    const searchInput = form.querySelector('input[name="q"]');
+    // Support both search forms - old search.html (name="q") and new bill_search.html (name="search_query")
+    const searchInput = form.querySelector('input[name="q"]') || form.querySelector('input[name="search_query"]');
     const searchQuery = searchInput ? searchInput.value.trim() : '';
-    const searchTypeEl = form.querySelector('select[name="type"]');
+    const searchTypeEl = form.querySelector('select[name="type"]') || form.querySelector('select[name="search_type"]');
     const searchType = searchTypeEl ? searchTypeEl.value : '';
     
     if (!searchQuery) {
@@ -164,11 +165,12 @@ function validateSearchForm(form) {
         return false;
     }
     
-    // Validate bill number format
+    // Validate bill number format - allow flexible formats
     if (searchType === 'bill_number') {
-        const billRegex = /^(HR|S|HJRES|SJRES)-?\s*\d+$/i;
+        // More flexible regex to allow "HR 1", "HR-1", "H.R.1", etc.
+        const billRegex = /^(H\.?R\.?|S\.?|H\.?J\.?R?E?S\.?|S\.?J\.?R?E?S\.?)[-\s]*\d+$/i;
         if (!billRegex.test(searchQuery)) {
-            showNotification('Please enter a valid bill number (e.g., HR-1234, S-567)', 'warning');
+            showNotification('Please enter a valid bill number (e.g., HR 1, HR-1234, S-567)', 'warning');
             return false;
         }
     }

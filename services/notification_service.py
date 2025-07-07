@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from sqlalchemy import and_
-from models import User, Bill, Alert, WatchlistItem
 from app import db, mail, app
 from flask_mail import Message
 from flask import current_app
@@ -17,6 +16,7 @@ class NotificationService:
         """Process a newly analyzed bill and create notifications for relevant users."""
         try:
             with app.app_context():
+                from db_models import Bill
                 bill = Bill.query.get(bill_id)
                 if not bill:
                     self.logger.error(f"Bill {bill_id} not found")
@@ -38,6 +38,7 @@ class NotificationService:
     def _get_users_to_notify(self, bill):
         """Get users who should be notified about this bill based on their preferences."""
         # Get users with active alerts
+        from db_models import User
         active_users = User.query.filter_by(alert_enabled=True).all()
         
         users_to_notify = []
@@ -50,6 +51,7 @@ class NotificationService:
     def _should_notify_user(self, user, bill):
         """Determine if a user should be notified about this bill."""
         # Check if user has this bill in their watchlist
+        from db_models import WatchlistItem
         watchlist_match = WatchlistItem.query.filter_by(
             user_id=user.id,
             bill_id=bill.id
@@ -82,6 +84,7 @@ class NotificationService:
         message = self._generate_notification_message(bill, analysis)
         
         # Create alert
+        from db_models import Alert
         alert = Alert(
             user_id=user.id,
             bill_id=bill.id,
@@ -122,6 +125,7 @@ class NotificationService:
         try:
             with app.app_context():
                 # Get all unread alerts
+                from db_models import Alert
                 unread_alerts = Alert.query.filter_by(is_read=False).all()
                 
                 # Group alerts by user
@@ -133,6 +137,7 @@ class NotificationService:
                 
                 # Process alerts for each user based on their frequency preference
                 for user_id, alerts in user_alerts.items():
+                    from db_models import User
                     user = User.query.get(user_id)
                     if not user or not user.alert_enabled:
                         continue
@@ -149,6 +154,7 @@ class NotificationService:
 
     def _should_send_alerts(self, user):
         """Determine if it's time to send alerts based on user's frequency preference."""
+        from db_models import Alert
         last_alert = Alert.query.filter_by(user_id=user.id).order_by(Alert.created_at.desc()).first()
         
         if not last_alert:
