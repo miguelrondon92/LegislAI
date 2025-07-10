@@ -128,7 +128,7 @@ def analyze_hr1_with_full_text(full_text):
     try:
         from app import app, db
         from db_models import Bill, BillCategoryMapping
-        from services.ai_analysis import AIAnalyzer
+        from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
         from services.backfill_orchestrator import BackfillOrchestrator, BackfillConfig
         
         logger.info(f"Full text length: {len(full_text):,} characters")
@@ -156,7 +156,7 @@ def analyze_hr1_with_full_text(full_text):
             
             # Perform new AI analysis with full text
             logger.info("Performing AI analysis with full text...")
-            ai_analyzer = AIAnalyzer()
+            ai_analyzer = EnhancedAIAnalyzer()
             
             # Truncate text if it's too long for initial analysis
             analysis_text = full_text

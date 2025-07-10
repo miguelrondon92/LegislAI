@@ -35,12 +35,12 @@ def backfill_hr1_method1_direct_api():
         from db_models import Bill, BillAction
         from services.congress_api import CongressAPI
         from services.bill_processor import BillProcessor
-        from services.ai_analysis import AIAnalyzer
+        from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
         from routes import fetch_bill_actions_from_api
         
         congress_api = CongressAPI()
         bill_processor = BillProcessor()
-        ai_analyzer = AIAnalyzer()
+        ai_analyzer = EnhancedAIAnalyzer()
         
         with app.app_context():
             # Check if HR 1 already exists

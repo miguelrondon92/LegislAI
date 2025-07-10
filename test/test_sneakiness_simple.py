@@ -129,7 +129,7 @@ def test_new_bill_analysis_with_sneakiness():
     logger.info("Testing new bill analysis with sneakiness...")
     
     try:
-        from services.ai_analysis import AIAnalyzer
+        from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
         
         # Simple test bill text
         test_bill_text = """
@@ -145,7 +145,7 @@ def test_new_bill_analysis_with_sneakiness():
         test_title = "Test Transportation Funding Act"
         
         logger.info("Analyzing test bill with AIAnalyzer...")
-        analyzer = AIAnalyzer()
+        analyzer = EnhancedAIAnalyzer()
         
         analysis = analyzer.analyze_bill(test_bill_text, test_title)
         

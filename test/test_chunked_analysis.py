@@ -14,8 +14,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db
 from models import Bill
-from services.ai_analyzer import AIAnalyzer
-from services.ai_analysis import AIAnalyzer as AIAnalyzer2
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer as AIAnalyzer2
 from bill_analyzer import BillAnalyzer
 from utils.bill_chunker import BillChunker
 
@@ -211,7 +211,7 @@ def test_full_bill_analysis():
         logger.info(f"Bill text length: {len(full_text)} characters")
         
         # Test with AI analyzer
-        analyzer = AIAnalyzer()
+        analyzer = EnhancedAIAnalyzer()
         try:
             start_time = datetime.now()
             analysis = analyzer.analyze_bill(full_text, bill.title)

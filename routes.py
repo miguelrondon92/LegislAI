@@ -5,12 +5,12 @@ from db_models import Bill, User, Alert, PolicyCategory, UserPolicySubscription,
 import logging
 from datetime import datetime
 from services.congress_api import CongressAPI
-from services.ai_analysis import AIAnalyzer
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
 from services.bill_processor import BillProcessor
 
 # Initialize services
 congress_api = CongressAPI()
-ai_analyzer = AIAnalyzer()
+ai_analyzer = EnhancedAIAnalyzer()
 bill_processor = BillProcessor()
 
 @app.route('/')

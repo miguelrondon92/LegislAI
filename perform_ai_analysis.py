@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app import app, db
 from models import Bill
-from services.ai_analyzer import AIAnalyzer
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
 from services.congress_api import CongressAPI
 
 # Configure logging
@@ -26,7 +26,7 @@ def perform_ai_analysis_on_existing_bills():
     """Perform AI analysis on bills that don't have it yet"""
     with app.app_context():
         try:
-            ai_analyzer = AIAnalyzer()
+            ai_analyzer = EnhancedAIAnalyzer()
             congress_api = CongressAPI()
             
             # Get bills without AI analysis

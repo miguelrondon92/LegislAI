@@ -29,14 +29,14 @@ def reanalyze_bills_with_sneakiness():
     try:
         from app import app, db
         from db_models import Bill, BillCategoryMapping
-        from services.ai_analysis import AIAnalyzer
+        from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
         from services.backfill_orchestrator import BackfillOrchestrator, BackfillConfig
         
         with app.app_context():
             bills = Bill.query.all()
             logger.info(f"Found {len(bills)} bills to re-analyze")
             
-            analyzer = AIAnalyzer()
+            analyzer = EnhancedAIAnalyzer()
             config = BackfillConfig()
             orchestrator = BackfillOrchestrator(config)
             

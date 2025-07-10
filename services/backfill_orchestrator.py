@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from app import app, db
 from db_models import Bill, BillCategoryMapping, PolicyCategory
 from services.congress_api import CongressAPI
-from services.ai_analysis import AIAnalyzer
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
 from services.bill_processor import BillProcessor
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,7 @@ class BackfillOrchestrator:
         
         # Initialize services
         self.congress_api = CongressAPI()
-        self.ai_analyzer = AIAnalyzer()
+        self.ai_analyzer = EnhancedAIAnalyzer()
         self.bill_processor = BillProcessor()
         
         # Load or initialize state

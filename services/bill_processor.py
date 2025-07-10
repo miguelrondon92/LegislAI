@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 from app import db
-from services.ai_analyzer import AIAnalyzer
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
 from services.congress_api import CongressAPI
 from utils.text_processing import clean_bill_text, extract_sections
 
@@ -11,7 +11,7 @@ class BillProcessor:
     """Service for processing bill data and generating user alerts"""
     
     def __init__(self):
-        self.ai_analyzer = AIAnalyzer()
+        self.ai_analyzer = EnhancedAIAnalyzer()
         self.congress_api = CongressAPI()
         self.seen_items_file = "seen_items.json"
     
