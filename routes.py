@@ -218,64 +218,200 @@ def _check_bill_in_database(bill_data):
     return None
 
 def _perform_analysis_if_needed(bill):
-    """Perform AI analysis on bill if not already done"""
+    """Perform comprehensive AI analysis on bill if not already done - equivalent to workflow orchestrator"""
+    import time
     try:
         # Check both old and new database structure for existing analysis
         has_old_analysis = bool(bill.ai_analysis)
         has_new_analysis = bool(bill.get_active_ai_analysis())
         
         if not has_old_analysis and not has_new_analysis:
-            logging.info(f"Performing AI analysis for {bill.get_bill_identifier()}")
+            logging.info(f"Performing comprehensive AI analysis for {bill.get_bill_identifier()}")
+            
             # Get full text for analysis
             full_text = bill.get_full_text()
-            if full_text:
-                analysis = ai_analyzer.analyze_bill(full_text, bill.title)
-                if analysis:
-                    # Use the enhanced AI analyzer to create new database structure
-                    # The EnhancedAIAnalyzer should handle this automatically
-                    logging.info(f"AI analysis completed for {bill.get_bill_identifier()}")
+            if not full_text:
+                logging.warning(f"No full text available for analysis: {bill.get_bill_identifier()}")
+                return
+                
+            text_length = len(full_text)
+            start_time = time.time()
+            
+            logging.info(f"Starting enhanced AI analysis for {bill.get_bill_identifier()} "
+                        f"(text length: {text_length:,} characters)")
+            
+            # Perform comprehensive analysis using EnhancedAIAnalyzer
+            # This includes: summary, policy implications, stakeholders, complexity, controversy,
+            # hidden provisions, anomalies, suspicious language, cross-references, risk scoring
+            analysis = ai_analyzer.analyze_bill(bill, bill.title)
+            
+            processing_time = time.time() - start_time
+            
+            if analysis:
+                # The EnhancedAIAnalyzer automatically handles new database structure creation
+                logging.info(f"✅ Enhanced AI analysis completed for: {bill.get_bill_identifier()}")
+                
+                # Store policy categories with sneakiness scoring (equivalent to workflow orchestrator)
+                if 'policy_implications' in analysis:
+                    policy_data = analysis['policy_implications']
+                    # Check for legacy categories format or new category_breakdown format
+                    categories = policy_data.get('categories', [])
+                    if not categories and 'category_breakdown' in policy_data:
+                        # Convert new format to legacy format for category storage
+                        categories = []
+                        for cat_name, cat_data in policy_data['category_breakdown'].items():
+                            categories.append({
+                                'area': cat_name,
+                                'impact_level': 'high' if cat_data.get('relevance_score', 0) >= 0.7 else 'medium',
+                                'analysis': cat_data.get('reasoning', '')
+                            })
                     
-                    # Also set old field for backward compatibility
-                    bill.set_ai_analysis(analysis)
-                    db.session.commit()
-                    
-                    # If the bill object has the new methods, create new structure records
-                    if hasattr(bill, 'create_new_analysis_version'):
-                        try:
-                            # Extract key metrics for new table structure
-                            complexity_score = analysis.get('complexity_assessment', {}).get('complexity_score', 0.5)
-                            if isinstance(complexity_score, str):
-                                try:
-                                    complexity_score = float(complexity_score.split('/')[0]) / 100.0
-                                except:
-                                    complexity_score = 0.5
-                            
-                            # Create new analysis version
-                            bill.create_new_analysis_version(
-                                analysis_data=analysis,
-                                complexity_score=complexity_score,
-                                analysis_method='enhanced_search'
-                            )
-                            
-                            # Create summary record if summary exists in analysis
-                            if 'summary' in analysis and hasattr(bill, 'create_new_summary_version'):
-                                summary_data = analysis['summary']
-                                bill.create_new_summary_version(
-                                    summary_text=summary_data.get('main_summary', ''),
-                                    plain_language_summary=summary_data.get('plain_language_explanation', ''),
-                                    key_provisions=summary_data.get('key_provisions', []),
-                                    funding_amounts=summary_data.get('funding_amounts', ''),
-                                    implementation_timeline=summary_data.get('implementation_timeline', ''),
-                                    summary_type='ai_generated'
-                                )
-                            
-                            db.session.commit()
-                            logging.info(f"New database structure created for {bill.get_bill_identifier()}")
-                        except Exception as e:
-                            logging.error(f"Error creating new database structure for {bill.get_bill_identifier()}: {e}")
-                            # Continue with old structure only
+                    if categories:
+                        _store_policy_categories_with_sneakiness(bill, categories, analysis)
+                
+                # Log comprehensive analysis information (same as workflow orchestrator)
+                chunks_analyzed = analysis.get('chunks_analyzed', 0)
+                analysis_method = analysis.get('analysis_method', 'enhanced_search')
+                
+                logging.info(f"  📊 Method: {analysis_method}")
+                logging.info(f"  🔧 Chunks analyzed: {chunks_analyzed}")
+                logging.info(f"  📝 Text processed: {text_length:,} characters")
+                logging.info(f"  ⏱️ Processing time: {processing_time:.2f} seconds")
+                if processing_time > 0:
+                    logging.info(f"  🚀 Processing speed: {text_length/processing_time:,.0f} chars/sec")
+                
+                # Log analysis components
+                if 'summary' in analysis:
+                    logging.info(f"  📝 Summary generated")
+                if 'policy_implications' in analysis:
+                    policy_data = analysis['policy_implications']
+                    primary_area = policy_data.get('primary_category') or policy_data.get('primary_policy_area', 'Unknown')
+                    logging.info(f"  🎯 Primary policy area: {primary_area}")
+                if 'stakeholders' in analysis:
+                    logging.info(f"  👥 Stakeholder analysis completed")
+                if 'hidden_provisions' in analysis:
+                    hidden_data = analysis['hidden_provisions']
+                    if isinstance(hidden_data, dict):
+                        provisions_count = len(hidden_data.get('detected_provisions', []))
+                        risk_score = hidden_data.get('overall_hidden_risk_score', 0)
+                        logging.info(f"  🕵️ Hidden provisions: {provisions_count} detected, risk: {risk_score:.2f}")
+                if 'complexity_assessment' in analysis:
+                    complexity_data = analysis['complexity_assessment']
+                    if isinstance(complexity_data, dict):
+                        complexity_score = complexity_data.get('complexity_score', 0)
+                        logging.info(f"  🧮 Complexity score: {complexity_score:.2f}")
+                if 'controversy_score' in analysis:
+                    controversy_score = analysis.get('controversy_score', 0)
+                    logging.info(f"  ⚡ Controversy score: {controversy_score:.2f}")
+                if 'overall_risk_score' in analysis:
+                    risk_score = analysis.get('overall_risk_score', 0)
+                    logging.info(f"  🚨 Overall risk score: {risk_score:.2f}")
+                
+                # Also set old field for backward compatibility
+                bill.set_ai_analysis(analysis)
+                db.session.commit()
+                
+                logging.info(f"Complete analysis pipeline finished for {bill.get_bill_identifier()}")
+            else:
+                logging.warning(f"No analysis results returned for {bill.get_bill_identifier()}")
+                
     except Exception as e:
-        logging.error(f"Error performing analysis for {bill.get_bill_identifier()}: {e}")
+        logging.error(f"Error performing comprehensive analysis for {bill.get_bill_identifier()}: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+
+def _store_policy_categories_with_sneakiness(bill, categories, analysis=None):
+    """Store policy category mappings for the bill, including sneakiness score per category"""
+    try:
+        from db_models import BillCategoryMapping, PolicyCategory
+        import re
+        import json
+        categories_stored = 0
+
+        # Prepare sneakiness mapping if analysis is provided
+        sneakiness_by_category = {}
+        if analysis and 'hidden_provisions' in analysis:
+            hidden_provisions = analysis['hidden_provisions'].get('detected_provisions', [])
+            # Build a mapping: category_name -> max sneakiness score
+            for provision in hidden_provisions:
+                provision_text = (provision.get('text') or '') + ' ' + (provision.get('type') or '')
+                risk_level = provision.get('risk_level', 'low')
+                confidence = provision.get('confidence_score', 0.5)
+                risk_value = {'low': 0.2, 'medium': 0.5, 'high': 0.8}.get(risk_level, 0.2)
+                sneakiness_score = risk_value * confidence
+                for cat in categories:
+                    area = cat.get('area', '')
+                    if area and re.search(re.escape(area), provision_text, re.IGNORECASE):
+                        prev = sneakiness_by_category.get(area, 0.0)
+                        sneakiness_by_category[area] = max(prev, sneakiness_score)
+        
+        for category_data in categories:
+            area = category_data.get('area')
+            if not area:
+                continue
+            try:
+                # Find or create policy category
+                policy_category = PolicyCategory.query.filter_by(name=area).first()
+                if not policy_category:
+                    policy_category = PolicyCategory(
+                        name=area,
+                        display_name=area.title(),
+                        description=f"Policy area: {area}",
+                        color='#007bff',
+                        icon='policy',
+                        is_active=True
+                    )
+                    db.session.add(policy_category)
+                    db.session.flush()
+                    logging.info(f"Created new policy category: {area}")
+                
+                mapping = BillCategoryMapping.query.filter_by(
+                    bill_id=bill.id,
+                    policy_category_id=policy_category.id
+                ).first()
+                
+                # Extract relevance score from category data or use default
+                relevance_score = category_data.get('impact_level', 'medium')
+                if relevance_score == 'high':
+                    score = 0.9
+                elif relevance_score == 'medium':
+                    score = 0.7
+                elif relevance_score == 'low':
+                    score = 0.5
+                else:
+                    score = 0.8
+                
+                sneakiness_score = sneakiness_by_category.get(area, 0.0)
+                
+                if not mapping:
+                    mapping = BillCategoryMapping(
+                        bill_id=bill.id,
+                        policy_category_id=policy_category.id,
+                        relevance_score=score,
+                        category_specific_analysis=json.dumps(category_data),
+                        sneakiness_score=sneakiness_score
+                    )
+                    db.session.add(mapping)
+                    categories_stored += 1
+                    logging.info(f"Created category mapping: {bill.get_bill_identifier()} -> {area} (score: {score}, sneakiness: {sneakiness_score})")
+                else:
+                    mapping.category_specific_analysis = json.dumps(category_data)
+                    mapping.sneakiness_score = sneakiness_score
+                    logging.info(f"Updated existing category mapping: {bill.get_bill_identifier()} -> {area} (sneakiness: {sneakiness_score})")
+                    
+            except Exception as category_error:
+                logging.error(f"Error processing category '{area}': {category_error}")
+                continue
+        
+        if categories_stored > 0:
+            db.session.commit()
+            logging.info(f"Successfully stored {categories_stored} policy category mappings for {bill.get_bill_identifier()}")
+        else:
+            logging.warning(f"No new policy category mappings were stored for {bill.get_bill_identifier()}")
+            
+    except Exception as e:
+        logging.error(f"Error storing policy categories for {bill.get_bill_identifier()}: {e}")
+        db.session.rollback()
 
 def _get_unique_recent_bills(limit=10):
     """Get recent bills, using first record found for each unique bill (same logic as bill detail page)"""
