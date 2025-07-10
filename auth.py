@@ -86,7 +86,7 @@ def signup():
             
             # Log in the user
             login_user(user)
-            flash('Account created successfully! Welcome to LegisLAI.', 'success')
+            flash('Account created successfully! Welcome to LegislAI.', 'success')
             return redirect(url_for('policy_interests'))
             
         except Exception as e:

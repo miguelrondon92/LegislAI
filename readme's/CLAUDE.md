@@ -11,9 +11,12 @@ LegislAI is a Python-based Flask web application that analyzes U.S. legislative 
 ### Application Structure
 - **Flask Application** (`app.py`): Main web application with extensions (SQLAlchemy, Flask-Login, Flask-Mail, Flask-Migrate)
 - **Database Models** (`db_models.py`): SQLAlchemy models for bills, users, alerts, policy categories, and relationships
-- **Authentication** (`auth.py`): User authentication and registration system
+- **Authentication** (`auth.py`): User authentication and registration system with Flask-Login
 - **Routes** (`routes.py`): Web routes for bill search, analysis, profile management, and workflow API endpoints
-- **Services Layer** (`services/`): Core business logic modules
+- **Services Layer** (`services/`): Core business logic modules (17 service files)
+- **Utils** (`utils/`): Utility functions for text processing, bill chunking, and constants
+- **Templates** (`templates/`): Jinja2 HTML templates for the web interface
+- **Static Assets** (`static/`): CSS and JavaScript files
 
 ### Key Services
 - **WorkflowOrchestrator** (`services/workflow_orchestrator.py`): Main processing pipeline that coordinates RSS monitoring, bill fetching, AI analysis, and alert generation
@@ -21,14 +24,42 @@ LegislAI is a Python-based Flask web application that analyzes U.S. legislative 
 - **CongressAPI** (`services/congress_api.py`): Interface to Congress.gov API for fetching bill data
 - **BillProcessor** (`services/bill_processor.py`): Processes and stores bill data in the database
 - **NotificationService** (`services/notification_service.py`): Manages email notifications and alerts
+- **RSSMonitoring** (`services/rss_monitoring.py`): Monitors Congress RSS feeds for new bills
+- **BackfillOrchestrator** (`services/backfill_orchestrator.py`): Handles bulk processing of historical bills
 
 ### Data Models
-- **Bill**: Legislative bills with full text, metadata, and AI analysis
-- **User**: User accounts with policy preferences and notification settings
-- **Alert**: User-specific notifications about relevant bills
-- **PolicyCategory**: Categorization system for policy areas
-- **UserPolicySubscription**: User preferences for policy areas and notification settings
+- **Bill**: Legislative bills with metadata, AI analysis, complexity scores, and versioning
+- **User**: User accounts with policy preferences, notification settings, and authentication
+- **Alert**: User-specific notifications about relevant bills with alignment scores
+- **PolicyCategory**: 36 standardized federal policy categories (see `utils/constants.py`)
+- **UserPolicySubscription**: User preferences for policy areas with interest levels and notification settings
 - **BillCategoryMapping**: Links bills to policy categories with relevance scores
+- **BillAction**: Congressional actions and timeline events for bills
+- **UserBillAlignment**: User-specific alignment scores and analysis details for bills
+- **WatchlistItem**: User-created watchlists for tracking specific bills
+
+## Web Routes and API Endpoints
+
+### Main Web Routes
+- `/` - Homepage dashboard showing recent bills and user alerts
+- `/bill_search` - Bill search interface with multiple search types
+- `/bill/<congress>/<bill_type>/<bill_number>` - Individual bill analysis page
+- `/profile` - User profile and policy preference management  
+- `/alerts` - User alerts dashboard
+- `/workflow` - Administrative workflow monitoring dashboard
+
+### API Endpoints
+- `/api/generate_alerts` - Generate user alerts based on preferences
+- `/api/bill/<congress>/<bill_type>/<bill_number>/text` - Fetch bill full text
+- `/api/workflow/start` - Start the workflow orchestrator
+- `/api/workflow/stop` - Stop the workflow orchestrator  
+- `/api/workflow/status` - Get workflow status and statistics
+- `/api/workflow/recent` - Get recent workflow activity
+
+### Authentication Routes (Blueprint: `/auth`)
+- `/auth/signin` - User login
+- `/auth/signup` - User registration
+- `/auth/profile` - User profile setup
 
 ## Common Development Tasks
 
@@ -46,10 +77,14 @@ python app.py
 
 ### Testing
 ```bash
-# Run various test scripts
-python test_workflow.py
-python test_chunked_analysis.py
-python test_notifications.py
+# Run comprehensive test suite
+python test/run_all_tests.py
+
+# Run specific test categories
+python test/test_workflow.py
+python test/test_chunked_analysis.py
+python test/test_notifications.py
+python test/test_hr1_analysis.py
 ```
 
 ### Database Operations
@@ -62,57 +97,87 @@ flask db upgrade
 
 # Downgrade migration
 flask db downgrade
+
+# Direct SQLite access
+sqlite3 instance/legislative_analysis.db
 ```
 
 ## Environment Variables
 
 Required environment variables (set in `.env`):
-- `DATABASE_URL`: Database connection string
-- `SESSION_SECRET`: Flask session secret key
+- `DATABASE_URL`: Database connection string (default: sqlite:///legislative_analysis.db)
+- `SESSION_SECRET`: Flask session secret key  
 - `GEMINI_API_KEY`: Google Gemini API key for AI analysis
-- `CONGRESS_API_KEY`: Congress.gov API key
-- `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: Email settings
+- `CONGRESS_API_KEY`: Congress.gov API key (optional for most operations)
+- `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: Email settings for notifications
 
 ## Key Features
 
 ### AI Analysis Pipeline
-The system uses a chunked analysis approach for large bills:
-1. Bills are fetched from Congress API
-2. Full text is divided into chunks for processing
-3. Each chunk is analyzed by Google Gemini AI
+The system uses a sophisticated chunked analysis approach for large bills:
+1. Bills are fetched from Congress API using `CongressAPI` service
+2. Full text is divided into intelligent chunks using `BillChunker` (max 6000 chars, 800 char overlap)
+3. Each chunk is analyzed by Google Gemini AI via `EnhancedAIAnalyzer`
 4. Results are combined into comprehensive analysis including:
-   - Policy implications and categories
-   - Stakeholder impact analysis
-   - Hidden provision detection
-   - Overall risk scoring
+   - Policy implications categorized into 36 federal policy areas
+   - Stakeholder impact analysis with winners/losers
+   - Hidden provision detection using pattern matching
+   - Complexity scoring (0-1 scale, displayed as 0-100)
+   - Controversy assessment and risk scoring
 
 ### User Notification System
-- Users subscribe to policy categories with interest levels
-- System generates alerts when new bills match user preferences
+- Users subscribe to policy categories with granular interest levels (0.0-1.0)
+- System generates alerts when new bills match user preferences via alignment scoring
 - Alignment scores calculated based on user preferences vs bill content
-- Email notifications sent based on user frequency preferences
+- Email notifications sent based on user frequency preferences (daily/weekly/monthly)
+- In-app alert dashboard with read/unread status tracking
+
+### Bill Management and Versioning
+- Bills support versioning system with `active` flag for latest versions
+- Homepage displays only active bills to avoid duplicates
+- Bill detail pages use `.first()` query pattern for consistency
+- Complexity scores displayed consistently across homepage (AI analysis) and detail pages
+- Bill actions timeline shows congressional progress and history
 
 ### Workflow Management
 The `WorkflowOrchestrator` coordinates:
-- RSS monitoring for new bills
-- Bill data fetching and storage
-- AI analysis processing
-- Alert generation and delivery
-- Rate limiting and error handling
+- RSS monitoring for new bills via `PersistentRSSMonitor`
+- Bill data fetching and storage with duplicate detection
+- AI analysis processing with rate limiting and chunking
+- Alert generation and delivery to subscribed users
+- Comprehensive error handling and retry logic
+- Statistical tracking and monitoring
 
-## Important Notes
+## Important Technical Notes
 
-- The system includes sophisticated rate limiting for the Gemini API to prevent quota exhaustion
-- Large bills are processed using intelligent chunking to handle the 1M character limit
-- The workflow can be started/stopped via API endpoints at `/api/workflow/start` and `/api/workflow/stop`
-- Database uses SQLite by default but can be configured for PostgreSQL via `DATABASE_URL`
-- All AI analysis is cached in the database to avoid reprocessing
+### Rate Limiting and Performance
+- Gemini API limited to 15 requests/minute (free tier)
+- Maximum 15 chunks analyzed per bill to prevent quota exhaustion
+- Intelligent chunking with overlap to maintain context
+- All AI analysis cached in database to avoid reprocessing
+- Workflow can be started/stopped via API endpoints
+
+### Database and Data Consistency
+- SQLite by default, PostgreSQL support via `DATABASE_URL`
+- Bill complexity scores stored as 0-1 scale in AI analysis JSON
+- Both homepage and bill detail pages display as X/100 scale for consistency
+- Bill queries use consistent `.first()` pattern to ensure same records across pages
+- Comprehensive migration system with Alembic
+
+### Complexity Score Display (Recently Fixed)
+- AI analysis stores complexity as 0-1 scale in JSON format
+- Homepage: Uses `analysis.complexity_assessment.complexity_score` formatted as X/100
+- Bill detail: Uses `analysis.complexity_assessment.complexity_score` formatted as X/100  
+- Both pages now use same data source (AI analysis JSON) and calculation method
+- Fixed issue where homepage showed 0-5 scale while detail showed 0-100 scale
 
 ## File Structure Notes
 
-- `services/` contains the core business logic
-- `templates/` contains Jinja2 HTML templates
-- `static/` contains CSS and JavaScript assets
-- `migrations/` contains database migration files
-- `utils/` contains utility functions for text processing and bill chunking
-- Test files are in root directory with `test_` prefix
+- `services/` - 17 core business logic modules
+- `templates/` - Jinja2 HTML templates with responsive Bootstrap design
+- `static/` - CSS and JavaScript assets (style.css, main.js, policy_slider.js)
+- `migrations/` - Database migration files with version control
+- `utils/` - Utility functions (bill_chunker.py, constants.py, text_processing.py)
+- `test/` - Comprehensive test suite (40+ test files)
+- `logs/` - Application logs and monitoring data
+- `readme's/` - Additional documentation and implementation summaries

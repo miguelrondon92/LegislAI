@@ -16,8 +16,8 @@ bill_processor = BillProcessor()
 @app.route('/')
 def index():
     """Main dashboard showing recent bills and user alerts"""
-    # Get recent bills
-    recent_bills = Bill.query.order_by(Bill.last_updated.desc()).limit(10).all()
+    # Get recent bills - only show latest version of each unique bill
+    recent_bills = _get_unique_recent_bills(limit=10)
     
     # Get user alerts if user is authenticated
     alerts = []
@@ -95,8 +95,8 @@ def _get_or_fetch_bill_by_number(search_query, congress):
                 logging.info("No actions found, fetching from API...")
                 fetch_bill_actions_from_api(existing_bill)
             
-            # If no AI analysis, trigger it
-            if not existing_bill.ai_analysis:
+            # If no AI analysis, trigger it (check new table structure)
+            if not existing_bill.get_active_ai_analysis() and not existing_bill.ai_analysis:
                 logging.info("No AI analysis found, performing analysis...")
                 _perform_analysis_if_needed(existing_bill)
             
@@ -233,6 +233,47 @@ def _perform_analysis_if_needed(bill):
     except Exception as e:
         logging.error(f"Error performing analysis for {bill.get_bill_identifier()}: {e}")
 
+def _get_unique_recent_bills(limit=10):
+    """Get recent bills, using first record found for each unique bill (same logic as bill detail page)"""
+    try:
+        # Get all bills ordered by last_updated desc
+        all_bills = Bill.query.order_by(Bill.last_updated.desc()).limit(limit*3).all()
+        
+        # Use a dictionary to keep track of unique bills (first version found)
+        unique_bills = {}
+        bill_keys_seen = set()
+        
+        for bill in all_bills:
+            # Create unique key based on congress, type, and number
+            bill_key = f"{bill.congress}-{bill.bill_type}-{bill.bill_number}"
+            
+            # Only keep the first version of each unique bill (same as .first() logic)
+            if bill_key not in bill_keys_seen:
+                # Use the same logic as bill detail page: get first record for this bill
+                first_bill = Bill.query.filter_by(
+                    congress=bill.congress,
+                    bill_type=bill.bill_type,
+                    bill_number=bill.bill_number
+                ).first()
+                unique_bills[bill_key] = first_bill
+                bill_keys_seen.add(bill_key)
+            
+            # Stop once we have enough unique bills
+            if len(unique_bills) >= limit:
+                break
+        
+        # Return the unique bills sorted by last_updated desc
+        result_bills = list(unique_bills.values())
+        result_bills.sort(key=lambda b: b.last_updated, reverse=True)
+        
+        logging.info(f"Returning {len(result_bills)} unique recent bills (first record for each bill)")
+        return result_bills[:limit]
+        
+    except Exception as e:
+        logging.error(f"Error getting unique recent bills: {e}")
+        # Fallback to active bills only
+        return Bill.query.filter_by(active=True).order_by(Bill.last_updated.desc()).limit(limit).all()
+
 def fetch_bill_actions_from_api(bill):
     """Fetch and store bill actions from Congress API"""
     try:
@@ -291,8 +332,8 @@ def bill_analysis(congress, bill_type, bill_number):
     # Fetch bill actions if not already present
     fetch_bill_actions_from_api(bill)
     
-    # Perform AI analysis if not already done
-    analysis = bill.get_ai_analysis()
+    # Perform AI analysis if not already done (check new table structure)
+    analysis = bill.get_ai_analysis_new() or bill.get_ai_analysis()
     if not analysis:
         try:
             # Fetch full text from API for analysis

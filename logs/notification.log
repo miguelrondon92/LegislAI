@@ -113,17 +113,17 @@
 2025-06-19 12:05:13,537 - werkzeug - INFO - 127.0.0.1 - - [19/Jun/2025 12:05:13] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
 2025-06-19 12:05:15,205 - app - ERROR - Exception on /profile [GET]
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
     response = self.full_dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
     rv = self.handle_user_exception(e)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
     rv = self.dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/Users/miguelrondon/Desktop/code/legislai/routes.py", line 135, in profile
+  File "/Users/miguelrondon/Desktop/code/LegislAI/routes.py", line 135, in profile
     session['user_id'] = 1
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/sessions.py", line 104, in _fail
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/sessions.py", line 104, in _fail
     raise RuntimeError(
 RuntimeError: The session is unavailable because no secret key was set.  Set the secret_key on the application to something unique and secret.
 2025-06-19 12:05:15,211 - werkzeug - INFO - 127.0.0.1 - - [19/Jun/2025 12:05:15] "[35m[1mGET /profile HTTP/1.1[0m" 500 -
@@ -140,19 +140,19 @@ RuntimeError: The session is unavailable because no secret key was set.  Set the
 2025-06-19 12:05:18,254 - werkzeug - INFO - 127.0.0.1 - - [19/Jun/2025 12:05:18] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
 2025-06-19 12:05:25,291 - app - ERROR - Exception on /alerts [GET]
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
     response = self.full_dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
     rv = self.handle_user_exception(e)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
     rv = self.dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/Users/miguelrondon/Desktop/code/legislai/routes.py", line 186, in alerts
+  File "/Users/miguelrondon/Desktop/code/LegislAI/routes.py", line 186, in alerts
     flash('Please set up your profile first', 'info')
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/helpers.py", line 335, in flash
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/helpers.py", line 335, in flash
     session["_flashes"] = flashes
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/sessions.py", line 104, in _fail
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/sessions.py", line 104, in _fail
     raise RuntimeError(
 RuntimeError: The session is unavailable because no secret key was set.  Set the secret_key on the application to something unique and secret.
 2025-06-19 12:05:25,294 - werkzeug - INFO - 127.0.0.1 - - [19/Jun/2025 12:05:25] "[35m[1mGET /alerts HTTP/1.1[0m" 500 -
@@ -285,9 +285,9 @@ RuntimeError: The session is unavailable because no secret key was set.  Set the
 2025-06-27 16:51:38,974 - openai._base_client - DEBUG - request_id: req_9557b0cbe5a27460f8dd31c7b662bf0b
 2025-06-27 16:51:38,974 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -311,9 +311,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:40,448 - openai._base_client - DEBUG - request_id: req_e3b216e709210a454fca3ff92c0a6c42
 2025-06-27 16:51:40,448 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -337,9 +337,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:41,318 - openai._base_client - DEBUG - request_id: req_b56569fe0892aca676adb283d9ed6e55
 2025-06-27 16:51:41,318 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -362,9 +362,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:41,419 - openai._base_client - DEBUG - request_id: req_b50c39d82e21ced31f96de56d0ca5df2
 2025-06-27 16:51:41,419 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -388,9 +388,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:42,419 - openai._base_client - DEBUG - request_id: req_7b69683a08a4da5a55fcb9094a9bb406
 2025-06-27 16:51:42,419 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -414,9 +414,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:44,966 - openai._base_client - DEBUG - request_id: req_1445c0957cbc7dc4365203c5abf30555
 2025-06-27 16:51:44,966 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -439,9 +439,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:46,173 - openai._base_client - DEBUG - request_id: req_be24ef8b7737ab99cad6dfe91bdd161a
 2025-06-27 16:51:46,173 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -465,9 +465,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:46,718 - openai._base_client - DEBUG - request_id: req_8728d5da6fa121608c61f9736bd2213f
 2025-06-27 16:51:46,718 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -491,9 +491,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:47,546 - openai._base_client - DEBUG - request_id: req_1ee6c4196f8b0dd1a3cb325527364e07
 2025-06-27 16:51:47,546 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -516,9 +516,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:47,618 - openai._base_client - DEBUG - request_id: req_d2f96299ec625cff2d2ac869af8c3550
 2025-06-27 16:51:47,618 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -542,9 +542,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:48,620 - openai._base_client - DEBUG - request_id: req_43c3eb0873099e03690a54a2021cdae3
 2025-06-27 16:51:48,620 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -568,9 +568,9 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-27 16:51:51,225 - openai._base_client - DEBUG - request_id: req_8b44b5bf86984d746abb3603a1cf26f6
 2025-06-27 16:51:51,226 - openai._base_client - DEBUG - Encountered httpx.HTTPStatusError
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/openai/_base_client.py", line 1017, in request
     response.raise_for_status()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/httpx/_models.py", line 829, in raise_for_status
     raise HTTPStatusError(message, request=request, response=self)
 httpx.HTTPStatusError: Client error '429 Too Many Requests' for url 'https://api.openai.com/v1/chat/completions'
 For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429
@@ -789,50 +789,50 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2025-06-28 16:00:50,168 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:00:50] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
 2025-06-28 16:01:29,387 - app - ERROR - Exception on /auth/signup [POST]
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
     self.dialect.do_execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
     cursor.execute(statement, parameters)
 sqlite3.OperationalError: no such column: user.password_hash
 
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
     response = self.full_dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
     rv = self.handle_user_exception(e)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
     rv = self.dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/Users/miguelrondon/Desktop/code/legislai/auth.py", line 49, in signup
+  File "/Users/miguelrondon/Desktop/code/LegislAI/auth.py", line 49, in signup
     elif User.query.filter_by(username=username).first():
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
     return self.limit(1)._iter().first()  # type: ignore
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
     result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
     return self._execute_internal(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
     result: Result[Any] = compile_state_cls.orm_execute_statement(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
     result = conn.execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
     return meth(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
     return connection._execute_clauseelement(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
     ret = self._execute_context(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
     return self._exec_single_context(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
     self._handle_dbapi_exception(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
     self.dialect.do_execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
     cursor.execute(statement, parameters)
 sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: user.password_hash
 [SQL: SELECT user.id AS user_id, user.username AS user_username, user.email AS user_email, user.password_hash AS user_password_hash, user.created_at AS user_created_at, user.first_name AS user_first_name, user.last_name AS user_last_name, user.organization AS user_organization, user.role AS user_role, user.location AS user_location, user.policy_preferences AS user_policy_preferences, user.alert_frequency AS user_alert_frequency, user.alert_enabled AS user_alert_enabled, user.is_active AS user_is_active, user.email_verified AS user_email_verified, user.verification_token AS user_verification_token 
@@ -848,50 +848,50 @@ WHERE user.username = ?
 2025-06-28 16:03:02,799 - asyncio - DEBUG - Using selector: KqueueSelector
 2025-06-28 16:03:12,414 - app - ERROR - Exception on /auth/signup [POST]
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
     self.dialect.do_execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
     cursor.execute(statement, parameters)
 sqlite3.OperationalError: no such column: user.password_hash
 
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
     response = self.full_dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
     rv = self.handle_user_exception(e)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
     rv = self.dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/Users/miguelrondon/Desktop/code/legislai/auth.py", line 49, in signup
+  File "/Users/miguelrondon/Desktop/code/LegislAI/auth.py", line 49, in signup
     elif User.query.filter_by(username=username).first():
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
     return self.limit(1)._iter().first()  # type: ignore
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
     result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
     return self._execute_internal(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
     result: Result[Any] = compile_state_cls.orm_execute_statement(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
     result = conn.execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
     return meth(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
     return connection._execute_clauseelement(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
     ret = self._execute_context(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
     return self._exec_single_context(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
     self._handle_dbapi_exception(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
     self.dialect.do_execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
     cursor.execute(statement, parameters)
 sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: user.password_hash
 [SQL: SELECT user.id AS user_id, user.username AS user_username, user.email AS user_email, user.password_hash AS user_password_hash, user.created_at AS user_created_at, user.first_name AS user_first_name, user.last_name AS user_last_name, user.organization AS user_organization, user.role AS user_role, user.location AS user_location, user.policy_preferences AS user_policy_preferences, user.alert_frequency AS user_alert_frequency, user.alert_enabled AS user_alert_enabled, user.is_active AS user_is_active, user.email_verified AS user_email_verified, user.verification_token AS user_verification_token 
@@ -908,50 +908,50 @@ WHERE user.username = ?
 2025-06-28 16:03:15,147 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:03:15] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
 2025-06-28 16:03:32,691 - app - ERROR - Exception on /auth/signin [POST]
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
     self.dialect.do_execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
     cursor.execute(statement, parameters)
 sqlite3.OperationalError: no such column: user.password_hash
 
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
     response = self.full_dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
     rv = self.handle_user_exception(e)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
     rv = self.dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/Users/miguelrondon/Desktop/code/legislai/auth.py", line 115, in signin
+  File "/Users/miguelrondon/Desktop/code/LegislAI/auth.py", line 115, in signin
     user = User.query.filter(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2759, in first
     return self.limit(1)._iter().first()  # type: ignore
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
     result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
     return self._execute_internal(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
     result: Result[Any] = compile_state_cls.orm_execute_statement(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
     result = conn.execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1415, in execute
     return meth(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
     return connection._execute_clauseelement(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
     ret = self._execute_context(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
     return self._exec_single_context(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
     self._handle_dbapi_exception(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
     self.dialect.do_execute(
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/sqlalchemy/engine/default.py", line 943, in do_execute
     cursor.execute(statement, parameters)
 sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: user.password_hash
 [SQL: SELECT user.id AS user_id, user.username AS user_username, user.email AS user_email, user.password_hash AS user_password_hash, user.created_at AS user_created_at, user.first_name AS user_first_name, user.last_name AS user_last_name, user.organization AS user_organization, user.role AS user_role, user.location AS user_location, user.policy_preferences AS user_policy_preferences, user.alert_frequency AS user_alert_frequency, user.alert_enabled AS user_alert_enabled, user.is_active AS user_is_active, user.email_verified AS user_email_verified, user.verification_token AS user_verification_token 
@@ -985,19 +985,19 @@ WHERE user.username = ? OR user.email = ?
 2025-06-28 16:06:19,380 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:19] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
 2025-06-28 16:06:43,581 - app - ERROR - Exception on /auth/signup [POST]
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
     response = self.full_dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
     rv = self.handle_user_exception(e)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
     rv = self.dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/Users/miguelrondon/Desktop/code/legislai/auth.py", line 71, in signup
+  File "/Users/miguelrondon/Desktop/code/LegislAI/auth.py", line 71, in signup
     flash(error, 'error')
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/helpers.py", line 335, in flash
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/helpers.py", line 335, in flash
     session["_flashes"] = flashes
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/sessions.py", line 104, in _fail
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/sessions.py", line 104, in _fail
     raise RuntimeError(
 RuntimeError: The session is unavailable because no secret key was set.  Set the secret_key on the application to something unique and secret.
 2025-06-28 16:06:43,587 - werkzeug - INFO - 127.0.0.1 - - [28/Jun/2025 16:06:43] "[35m[1mPOST /auth/signup HTTP/1.1[0m" 500 -
@@ -4675,35 +4675,35 @@ Processing bill: 119-s-93
 2025-07-03 01:15:44,815 - root - INFO - Successfully performed AI analysis for bill HR-1
 2025-07-03 01:15:44,818 - app - ERROR - Exception on /bill/119/hr/1 [GET]
 Traceback (most recent call last):
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1511, in wsgi_app
     response = self.full_dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 919, in full_dispatch_request
     rv = self.handle_user_exception(e)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 917, in full_dispatch_request
     rv = self.dispatch_request()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 902, in dispatch_request
     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/Users/miguelrondon/Desktop/code/legislai/routes.py", line 131, in bill_analysis
+  File "/Users/miguelrondon/Desktop/code/LegislAI/routes.py", line 131, in bill_analysis
     bill=bill,
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/templating.py", line 150, in render_template
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/templating.py", line 150, in render_template
     return _render(app, template, context)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/templating.py", line 131, in _render
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/templating.py", line 131, in _render
     rv = template.render(context)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/jinja2/environment.py", line 1295, in render
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/jinja2/environment.py", line 1295, in render
     self.environment.handle_exception()
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/jinja2/environment.py", line 942, in handle_exception
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/jinja2/environment.py", line 942, in handle_exception
     raise rewrite_traceback_stack(source=source)
-  File "/Users/miguelrondon/Desktop/code/legislai/templates/bill_analysis.html", line 1, in top-level template code
+  File "/Users/miguelrondon/Desktop/code/LegislAI/templates/bill_analysis.html", line 1, in top-level template code
     {% extends "base.html" %}
-  File "/Users/miguelrondon/Desktop/code/legislai/templates/base.html", line 116, in top-level template code
+  File "/Users/miguelrondon/Desktop/code/LegislAI/templates/base.html", line 116, in top-level template code
     {% block content %}
-  File "/Users/miguelrondon/Desktop/code/legislai/templates/bill_analysis.html", line 43, in block 'content'
+  File "/Users/miguelrondon/Desktop/code/LegislAI/templates/bill_analysis.html", line 43, in block 'content'
     <a href="{{ url_for('add_to_watchlist', bill_id=bill.id) }}" class="btn btn-light btn-lg">
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1121, in url_for
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1121, in url_for
     return self.handle_url_build_error(error, endpoint, values)
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/flask/app.py", line 1110, in url_for
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/flask/app.py", line 1110, in url_for
     rv = url_adapter.build(  # type: ignore[union-attr]
-  File "/Users/miguelrondon/Desktop/code/legislai/.venv/lib/python3.9/site-packages/werkzeug/routing/map.py", line 924, in build
+  File "/Users/miguelrondon/Desktop/code/LegislAI/.venv/lib/python3.9/site-packages/werkzeug/routing/map.py", line 924, in build
     raise BuildError(endpoint, values, method, self)
 werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'add_to_watchlist'. Did you forget to specify values ['bill_id']?
 2025-07-03 01:15:44,827 - werkzeug - INFO - 127.0.0.1 - - [03/Jul/2025 01:15:44] "[35m[1mGET /bill/119/hr/1 HTTP/1.1[0m" 500 -

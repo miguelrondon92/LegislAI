@@ -217,7 +217,7 @@ def test_workflow_item_creation():
     try:
         # Import the workflow classes without the full orchestrator
         import sys
-        sys.path.append('/Users/miguelrondon/Desktop/code/legislai')
+        sys.path.append('/Users/miguelrondon/Desktop/code/LegislAI')
         
         from services.workflow_orchestrator import WorkflowItem, WorkflowStatus
         from datetime import datetime

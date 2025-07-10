@@ -133,18 +133,20 @@
                     </div>
                     <div class="card-body">
                         <div class="row text-center">
-                            {% if bill.complexity_score %}
+                            {% set complexity = bill.get_complexity_score_new() %}
+                            {% if complexity is not none %}
                                 <div class="col-6 mb-3">
                                     <div class="border rounded p-2">
-                                        <div class="h4 mb-1 text-info">{{ "%.1f"|format(bill.complexity_score) }}/5</div>
+                                        <div class="h4 mb-1 text-info">{{ "%.1f"|format(complexity * 100) }}/100</div>
                                         <small class="text-muted">Complexity</small>
                                     </div>
                                 </div>
                             {% endif %}
-                            {% if bill.controversy_score %}
+                            {% set controversy = bill.get_controversy_score_new() %}
+                            {% if controversy is not none %}
                                 <div class="col-6 mb-3">
                                     <div class="border rounded p-2">
-                                        <div class="h4 mb-1 text-warning">{{ "%.1f"|format(bill.controversy_score) }}/5</div>
+                                        <div class="h4 mb-1 text-warning">{{ "%.1f"|format(controversy * 100) }}/100</div>
                                         <small class="text-muted">Controversy</small>
                                     </div>
                                 </div>

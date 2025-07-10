@@ -201,9 +201,11 @@ class WorkflowOrchestrator:
         
         while self.is_running:
             try:
-                # Find bills without AI analysis
-                bills_without_analysis = session.query(Bill).filter(
-                    (Bill.ai_analysis.is_(None)) | (Bill.ai_analysis == '')
+                # Find bills without AI analysis (check both old and new tables)
+                from db_models import AIAnalysis
+                bills_without_analysis = session.query(Bill).outerjoin(AIAnalysis).filter(
+                    ((Bill.ai_analysis.is_(None)) | (Bill.ai_analysis == '')) &
+                    (AIAnalysis.id.is_(None))
                 ).limit(10).all()  # Process 10 at a time
                 
                 for bill in bills_without_analysis:
@@ -434,8 +436,8 @@ class WorkflowOrchestrator:
         print(f"[DEBUG] Entered _perform_ai_analysis for bill: {bill.get_bill_identifier()}")
         self.logger.info(f"[DEBUG] Entered _perform_ai_analysis for bill: {bill.get_bill_identifier()}")
         try:
-            # Check if analysis already exists
-            if bill.get_ai_analysis():
+            # Check if analysis already exists (use new table structure)
+            if bill.get_active_ai_analysis() or bill.get_ai_analysis():
                 print(f"[DEBUG] Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
                 self.logger.info(f"[DEBUG] Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
                 return True, None
@@ -484,8 +486,8 @@ class WorkflowOrchestrator:
             processing_time = time.time() - start_time
             
             if analysis:
-                # Store analysis in database
-                bill.set_ai_analysis(analysis)
+                # Analysis is now stored by the AI analyzer using new table structure
+                # bill.set_ai_analysis(analysis)  # Legacy method - now handled by analyzer
                 
                 # Store policy categories if available
                 if 'policy_implications' in analysis:

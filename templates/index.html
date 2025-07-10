@@ -86,9 +86,10 @@
                                     {% endif %}
                                 </div>
                                 <div class="ms-3">
-                                    {% if bill.complexity_score %}
+                                    {% set complexity = bill.get_complexity_score_new() %}
+                                    {% if complexity is not none %}
                                     <span class="badge bg-info">
-                                        Complexity: {{ "%.0f"|format(bill.complexity_score) }}
+                                        Complexity: {{ "%.0f"|format(complexity * 100) }}/100
                                     </span>
                                     {% endif %}
                                 </div>

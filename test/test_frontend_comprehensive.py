@@ -84,7 +84,7 @@ def test_user_account_creation():
         
         with app.app_context():
             # Clean up any existing test user
-            test_email = "test_frontend@legislai.test"
+            test_email = "test_frontend@LegislAI.test"
             existing_user = User.query.filter_by(email=test_email).first()
             if existing_user:
                 db.session.delete(existing_user)
@@ -159,7 +159,7 @@ def test_bill_category_interest_selection():
         from db_models import User, PolicyCategory, UserPolicySubscription
         
         # Create a test user for this test
-        test_email = "category_test@legislai.test"
+        test_email = "category_test@LegislAI.test"
         
         with app.app_context():
             # Clean up existing test user
@@ -357,7 +357,7 @@ def test_user_workflow_integration():
         from db_models import User, PolicyCategory, Bill, BillCategoryMapping
         
         # Create a complete test workflow
-        test_email = "workflow_test@legislai.test"
+        test_email = "workflow_test@LegislAI.test"
         
         with app.app_context():
             # Clean up existing test user

@@ -198,7 +198,7 @@ class NotificationService:
                 # Add footer
                 body_parts.extend([
                     "\nYou can view more details and manage your preferences at:",
-                    f"{current_app.config.get('BASE_URL', 'https://legislai.com')}/dashboard",
+                    f"{current_app.config.get('BASE_URL', 'https://LegislAI.com')}/dashboard",
                     "\nBest regards,",
                     "The LegislAI Team"
                 ])
@@ -208,7 +208,7 @@ class NotificationService:
                     subject=subject,
                     recipients=[user.email],
                     body="\n".join(body_parts),
-                    sender=os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@legislai.com')
+                    sender=os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@LegislAI.com')
                 )
                 
                 mail.send(msg)

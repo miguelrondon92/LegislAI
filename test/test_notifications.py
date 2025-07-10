@@ -148,7 +148,7 @@ def send_simple_test_email():
             subject="LegislAI Test Email: AI Summary",
             recipients=[test_recipient],
             body=summary_text,
-            sender=os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@legislai.com')
+            sender=os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@LegislAI.com')
         )
         logger.info(f"Sending simple test email to: {test_recipient}")
         try:

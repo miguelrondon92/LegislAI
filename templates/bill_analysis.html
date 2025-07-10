@@ -490,19 +490,20 @@
                 </h6>
             </div>
             <div class="card-body">
-                {% set complexity = analysis.complexity_assessment %}
+                {% set complexity = bill.get_complexity_score_new() %}
                 
-                {% if complexity.complexity_score %}
+                {% if complexity is not none %}
+                {% set complexity_100 = (complexity * 100)|round %}
                 <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <span>Complexity Score</span>
-                        <span class="badge bg-{{ 'danger' if complexity.complexity_score > 80 else 'warning' if complexity.complexity_score > 60 else 'info' }}">
-                            {{ complexity.complexity_score }}/100
+                        <span class="badge bg-{{ 'danger' if complexity_100 > 80 else 'warning' if complexity_100 > 60 else 'info' }}">
+                            {{ complexity_100 }}/100
                         </span>
                     </div>
                     <div class="progress">
-                        <div class="progress-bar bg-{{ 'danger' if complexity.complexity_score > 80 else 'warning' if complexity.complexity_score > 60 else 'info' }}" 
-                             style="width: {{ complexity.complexity_score }}%"></div>
+                        <div class="progress-bar bg-{{ 'danger' if complexity_100 > 80 else 'warning' if complexity_100 > 60 else 'info' }}" 
+                             style="width: {{ complexity_100 }}%"></div>
                     </div>
                 </div>
                 {% endif %}

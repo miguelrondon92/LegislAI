@@ -164,8 +164,9 @@ class EnhancedAIAnalyzer:
     
     def analyze_bill(self, bill_or_text, title=None) -> Dict:
         """Perform comprehensive AI analysis with hidden provision detection"""
+        start_time = time.time()  # Track processing time
         logger.info(f"[AI] Starting analysis for bill: {title}")
-        logger.debug(f"[AI] Full text length: {len(bill_or_text)}")
+        
         if not self.client:
             logging.warning("Gemini client not available")
             return {}
@@ -181,6 +182,8 @@ class EnhancedAIAnalyzer:
                 text_to_analyze = str(bill_or_text)
                 title = title or "Unknown Bill"
                 summary = ""
+            
+            logger.debug(f"[AI] Full text length: {len(text_to_analyze)}")
             
             if not text_to_analyze:
                 logging.warning(f"No text available for analysis")
@@ -297,8 +300,39 @@ class EnhancedAIAnalyzer:
             risk_score = self._calculate_overall_risk_score(analysis_results)
             analysis_results['overall_risk_score'] = risk_score
             
-            # If we have a bill object, store the analysis
-            if hasattr(bill_or_text, 'set_ai_analysis'):
+            # If we have a bill object, store the analysis using new table structure
+            if hasattr(bill_or_text, 'create_new_analysis_version'):
+                # Extract complexity and controversy scores
+                complexity_score = analysis_results.get('complexity_assessment', {}).get('complexity_score')
+                controversy_score = analysis_results.get('controversy_score', 0.0)
+                
+                # Get processing metadata
+                chunks_analyzed = len(chunks) if chunks else 0
+                processing_time = time.time() - start_time
+                
+                # Create new analysis version
+                bill_or_text.create_new_analysis_version(
+                    analysis_data=analysis_results,
+                    complexity_score=complexity_score,
+                    controversy_score=controversy_score,
+                    analysis_method='chunked',
+                    chunks_analyzed=chunks_analyzed,
+                    processing_time=processing_time
+                )
+                
+                # Extract and store summary data separately
+                summary_data = analysis_results.get('summary', {})
+                if summary_data:
+                    bill_or_text.create_new_summary_version(
+                        summary_text=summary_data.get('main_summary'),
+                        plain_language_summary=summary_data.get('plain_language_explanation'),
+                        key_provisions=summary_data.get('key_provisions', []),
+                        funding_amounts=summary_data.get('funding_amounts'),
+                        implementation_timeline=summary_data.get('implementation_timeline'),
+                        summary_type='ai_generated'
+                    )
+            elif hasattr(bill_or_text, 'set_ai_analysis'):
+                # Fallback to old method for backward compatibility
                 bill_or_text.set_ai_analysis(analysis_results)
             
             logger.info("[AI] Analysis completed successfully.")
