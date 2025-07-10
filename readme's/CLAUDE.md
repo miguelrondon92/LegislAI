@@ -232,4 +232,26 @@ class Summary(db.Model):
 - `utils/` - Utility functions (bill_chunker.py, constants.py, text_processing.py)
 - `test/` - Comprehensive test suite (40+ test files)
 - `logs/` - Application logs and monitoring data
-- `readme's/` - Additional documentation and implementation summaries
+- `readme's/` - Additional documentation and implementation summaries (see below for complete list)
+
+## Documentation Index (readme's/ folder)
+
+### Core System Documentation
+- **`CLAUDE.md`** - This file: Comprehensive system overview and developer guide
+- **`WORKFLOW_README.md`** - Workflow orchestrator system documentation
+- **`DATABASE_POPULATION_GUIDE.md`** - Complete guide for populating database with congressional data
+
+### Implementation Summaries  
+- **`DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`** - Comprehensive log of database structure optimization (AI analysis → separate tables)
+- **`DATABASE_OPTIMIZATION_SUMMARY.md`** - Technical summary of database optimization with schema definitions
+- **`FULL_TEXT_ANALYSIS_IMPLEMENTATION_SUMMARY.md`** - Full text analysis enhancement implementation
+- **`BILL_SEARCH_ENHANCEMENT_SUMMARY.md`** - Bill search functionality improvements
+- **`HOMEPAGE_DUPLICATE_FIX_SUMMARY.md`** - Homepage duplicate bill display fixes
+
+### System Configuration  
+- **`BACKOFF_IMPLEMENTATION.md`** - Rate limiting and backoff implementation details
+- **`LIMIT_ENFORCEMENT_SUMMARY.md`** - Rate limit enforcement and monitoring
+
+### Recent Updates
+- **`RECENT_UPDATES.md`** - Summary of recent major system changes and enhancements
+- **`continued_ideas.md`** - Future enhancement ideas and development roadmap
