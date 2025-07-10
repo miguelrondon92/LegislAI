@@ -220,16 +220,60 @@ def _check_bill_in_database(bill_data):
 def _perform_analysis_if_needed(bill):
     """Perform AI analysis on bill if not already done"""
     try:
-        if not bill.ai_analysis:
+        # Check both old and new database structure for existing analysis
+        has_old_analysis = bool(bill.ai_analysis)
+        has_new_analysis = bool(bill.get_active_ai_analysis())
+        
+        if not has_old_analysis and not has_new_analysis:
             logging.info(f"Performing AI analysis for {bill.get_bill_identifier()}")
             # Get full text for analysis
             full_text = bill.get_full_text()
             if full_text:
                 analysis = ai_analyzer.analyze_bill(full_text, bill.title)
                 if analysis:
+                    # Use the enhanced AI analyzer to create new database structure
+                    # The EnhancedAIAnalyzer should handle this automatically
+                    logging.info(f"AI analysis completed for {bill.get_bill_identifier()}")
+                    
+                    # Also set old field for backward compatibility
                     bill.set_ai_analysis(analysis)
                     db.session.commit()
-                    logging.info(f"AI analysis completed for {bill.get_bill_identifier()}")
+                    
+                    # If the bill object has the new methods, create new structure records
+                    if hasattr(bill, 'create_new_analysis_version'):
+                        try:
+                            # Extract key metrics for new table structure
+                            complexity_score = analysis.get('complexity_assessment', {}).get('complexity_score', 0.5)
+                            if isinstance(complexity_score, str):
+                                try:
+                                    complexity_score = float(complexity_score.split('/')[0]) / 100.0
+                                except:
+                                    complexity_score = 0.5
+                            
+                            # Create new analysis version
+                            bill.create_new_analysis_version(
+                                analysis_data=analysis,
+                                complexity_score=complexity_score,
+                                analysis_method='enhanced_search'
+                            )
+                            
+                            # Create summary record if summary exists in analysis
+                            if 'summary' in analysis and hasattr(bill, 'create_new_summary_version'):
+                                summary_data = analysis['summary']
+                                bill.create_new_summary_version(
+                                    summary_text=summary_data.get('main_summary', ''),
+                                    plain_language_summary=summary_data.get('plain_language_explanation', ''),
+                                    key_provisions=summary_data.get('key_provisions', []),
+                                    funding_amounts=summary_data.get('funding_amounts', ''),
+                                    implementation_timeline=summary_data.get('implementation_timeline', ''),
+                                    summary_type='ai_generated'
+                                )
+                            
+                            db.session.commit()
+                            logging.info(f"New database structure created for {bill.get_bill_identifier()}")
+                        except Exception as e:
+                            logging.error(f"Error creating new database structure for {bill.get_bill_identifier()}: {e}")
+                            # Continue with old structure only
     except Exception as e:
         logging.error(f"Error performing analysis for {bill.get_bill_identifier()}: {e}")
 

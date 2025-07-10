@@ -54,6 +54,22 @@
     </div>
 </div>
 
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h4 id="loading-title">Processing your search...</h4>
+        <p id="loading-message" class="text-muted">Searching for bill in our database...</p>
+        <div class="progress mt-3" style="height: 6px;">
+            <div id="loading-progress" class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" style="width: 10%"></div>
+        </div>
+        <small id="loading-detail" class="text-muted mt-2 d-block">This may take up to 30 seconds for new bills</small>
+    </div>
+</div>
+
 {% if error_message %}
 <div class="row">
     <div class="col-12 mb-4">
@@ -275,6 +291,50 @@
 </div>
 {% endif %}
 
+<style>
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.loading-overlay .progress {
+    background-color: #e9ecef;
+}
+
+.loading-overlay .progress-bar {
+    transition: width 0.5s ease;
+}
+
+@media (max-width: 768px) {
+    .loading-content {
+        padding: 1.5rem;
+        max-width: 350px;
+    }
+    
+    .loading-content h4 {
+        font-size: 1.2rem;
+    }
+}
+</style>
+
 <script>
 // Update search help text based on search type
 document.getElementById('search_type').addEventListener('change', function() {
@@ -297,7 +357,7 @@ document.getElementById('search_type').addEventListener('change', function() {
     }
 });
 
-// Form validation - only block truly empty submissions
+// Form validation and progressive loading
 document.querySelector('form').addEventListener('submit', function(e) {
     const searchInput = document.getElementById('search_query');
     const searchValue = searchInput.value.trim();
@@ -310,9 +370,83 @@ document.querySelector('form').addEventListener('submit', function(e) {
         return false;
     }
     
-    // Allow all non-empty submissions
+    // Show loading overlay with progressive updates
+    showProgressiveLoading();
+    
+    // Allow form to submit normally
     return true;
 });
+
+function showProgressiveLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    const title = document.getElementById('loading-title');
+    const message = document.getElementById('loading-message');
+    const progress = document.getElementById('loading-progress');
+    const detail = document.getElementById('loading-detail');
+    
+    // Show overlay
+    overlay.style.display = 'flex';
+    
+    // Progressive status updates
+    const stages = [
+        {
+            time: 0,
+            title: 'Processing your search...',
+            message: 'Searching for bill in our database...',
+            progress: 10,
+            detail: 'Checking existing records'
+        },
+        {
+            time: 3000,
+            title: 'Fetching bill data...',
+            message: 'Bill not in our records, searching Congress.gov...',
+            progress: 30,
+            detail: 'Retrieving official bill information'
+        },
+        {
+            time: 8000,
+            title: 'Processing bill data...',
+            message: 'Bill found! Processing legislative information...',
+            progress: 50,
+            detail: 'Parsing bill text and metadata'
+        },
+        {
+            time: 12000,
+            title: 'Running AI analysis...',
+            message: 'Analyzing bill content and policy implications...',
+            progress: 70,
+            detail: 'This may take a moment for complex bills'
+        },
+        {
+            time: 20000,
+            title: 'Finalizing analysis...',
+            message: 'Generating summary and complexity assessment...',
+            progress: 90,
+            detail: 'Almost done!'
+        },
+        {
+            time: 25000,
+            title: 'Completing search...',
+            message: 'Preparing results for display...',
+            progress: 95,
+            detail: 'Just a few more seconds'
+        }
+    ];
+    
+    stages.forEach(stage => {
+        setTimeout(() => {
+            title.textContent = stage.title;
+            message.textContent = stage.message;
+            progress.style.width = stage.progress + '%';
+            detail.textContent = stage.detail;
+        }, stage.time);
+    });
+    
+    // Safety timeout - hide overlay after 35 seconds in case something goes wrong
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 35000);
+}
 
 console.log('Bill search page loaded with improved validation');
 

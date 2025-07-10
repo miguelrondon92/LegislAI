@@ -254,41 +254,56 @@ class EnhancedAIAnalyzer:
             if impact_assessment:
                 analysis_results['hidden_impact_assessment'] = impact_assessment
             
-            # 6. Standard analyses (enhanced)
-            summary = self._generate_bill_summary_chunked(chunks, title)
-            if summary:
-                analysis_results['summary'] = {
-                    'main_summary': summary,
-                    'key_provisions': [],
-                    'funding_amounts': 'Unknown',
-                    'implementation_timeline': 'Unknown',
-                    'plain_language_explanation': summary
-                }
+            # 6. Standard analyses (enhanced) with null safety
+            try:
+                summary = self._generate_bill_summary_chunked(chunks, title)
+                if summary and isinstance(summary, str):
+                    analysis_results['summary'] = {
+                        'main_summary': summary,
+                        'key_provisions': [],
+                        'funding_amounts': 'Unknown',
+                        'implementation_timeline': 'Unknown',
+                        'plain_language_explanation': summary
+                    }
+            except Exception as e:
+                logger.error(f"Summary generation failed: {e}")
             
-            categories = self._categorize_bill_chunked(chunks, title)
-            if categories:
-                analysis_results['policy_implications'] = categories
+            try:
+                categories = self._categorize_bill_chunked(chunks, title)
+                if categories and isinstance(categories, dict):
+                    analysis_results['policy_implications'] = categories
+            except Exception as e:
+                logger.error(f"Categorization failed: {e}")
             
-            stakeholders = self._analyze_stakeholders_chunked(chunks, title)
-            if stakeholders:
-                analysis_results['stakeholders'] = stakeholders
+            try:
+                stakeholders = self._analyze_stakeholders_chunked(chunks, title)
+                if stakeholders and isinstance(stakeholders, dict):
+                    analysis_results['stakeholders'] = stakeholders
+            except Exception as e:
+                logger.error(f"Stakeholder analysis failed: {e}")
             
-            complexity = self._assess_complexity(text_to_analyze)
-            if complexity is not None:
-                analysis_results['complexity_assessment'] = {
-                    'complexity_score': complexity,
-                    'reading_level': 'Unknown',
-                    'implementation_difficulty': 'Unknown',
-                    'scope_of_impact': 'Unknown',
-                    'estimated_cost_impact': 'Unknown',
-                    'regulatory_burden': 'Unknown',
-                    'urgency_level': 'Unknown',
-                    'complexity_factors': []
-                }
+            try:
+                complexity = self._assess_complexity(text_to_analyze)
+                if complexity is not None and isinstance(complexity, (int, float)):
+                    analysis_results['complexity_assessment'] = {
+                        'complexity_score': complexity,
+                        'reading_level': 'Unknown',
+                        'implementation_difficulty': 'Unknown',
+                        'scope_of_impact': 'Unknown',
+                        'estimated_cost_impact': 'Unknown',
+                        'regulatory_burden': 'Unknown',
+                        'urgency_level': 'Unknown',
+                        'complexity_factors': []
+                    }
+            except Exception as e:
+                logger.error(f"Complexity assessment failed: {e}")
             
-            controversy = self._detect_controversy(text_to_analyze, title)
-            if controversy is not None:
-                analysis_results['controversy_score'] = controversy
+            try:
+                controversy = self._detect_controversy(text_to_analyze, title)
+                if controversy is not None and isinstance(controversy, (int, float)):
+                    analysis_results['controversy_score'] = controversy
+            except Exception as e:
+                logger.error(f"Controversy detection failed: {e}")
             
             # Add enhanced metadata
             analysis_results['generated_at'] = datetime.now().isoformat()
@@ -301,36 +316,45 @@ class EnhancedAIAnalyzer:
             analysis_results['overall_risk_score'] = risk_score
             
             # If we have a bill object, store the analysis using new table structure
-            if hasattr(bill_or_text, 'create_new_analysis_version'):
-                # Extract complexity and controversy scores
-                complexity_score = analysis_results.get('complexity_assessment', {}).get('complexity_score')
-                controversy_score = analysis_results.get('controversy_score', 0.0)
-                
-                # Get processing metadata
-                chunks_analyzed = len(chunks) if chunks else 0
-                processing_time = time.time() - start_time
-                
-                # Create new analysis version
-                bill_or_text.create_new_analysis_version(
-                    analysis_data=analysis_results,
-                    complexity_score=complexity_score,
-                    controversy_score=controversy_score,
-                    analysis_method='chunked',
-                    chunks_analyzed=chunks_analyzed,
-                    processing_time=processing_time
-                )
-                
-                # Extract and store summary data separately
-                summary_data = analysis_results.get('summary', {})
-                if summary_data:
-                    bill_or_text.create_new_summary_version(
-                        summary_text=summary_data.get('main_summary'),
-                        plain_language_summary=summary_data.get('plain_language_explanation'),
-                        key_provisions=summary_data.get('key_provisions', []),
-                        funding_amounts=summary_data.get('funding_amounts'),
-                        implementation_timeline=summary_data.get('implementation_timeline'),
-                        summary_type='ai_generated'
+            if hasattr(bill_or_text, 'create_new_analysis_version') and analysis_results:
+                try:
+                    # Extract complexity and controversy scores with safe navigation
+                    complexity_assessment = analysis_results.get('complexity_assessment', {})
+                    complexity_score = None
+                    if complexity_assessment and isinstance(complexity_assessment, dict):
+                        complexity_score = complexity_assessment.get('complexity_score')
+                    
+                    controversy_score = analysis_results.get('controversy_score', 0.0)
+                    if not isinstance(controversy_score, (int, float)):
+                        controversy_score = 0.0
+                    
+                    # Get processing metadata
+                    chunks_analyzed = len(chunks) if chunks else 0
+                    processing_time = time.time() - start_time
+                    
+                    # Create new analysis version
+                    bill_or_text.create_new_analysis_version(
+                        analysis_data=analysis_results,
+                        complexity_score=complexity_score,
+                        controversy_score=controversy_score,
+                        analysis_method='chunked',
+                        chunks_analyzed=chunks_analyzed,
+                        processing_time=processing_time
                     )
+                    
+                    # Extract and store summary data separately with null safety
+                    summary_data = analysis_results.get('summary', {})
+                    if summary_data and isinstance(summary_data, dict):
+                        bill_or_text.create_new_summary_version(
+                            summary_text=summary_data.get('main_summary'),
+                            plain_language_summary=summary_data.get('plain_language_explanation'),
+                            key_provisions=summary_data.get('key_provisions', []),
+                            funding_amounts=summary_data.get('funding_amounts'),
+                            implementation_timeline=summary_data.get('implementation_timeline'),
+                            summary_type='ai_generated'
+                        )
+                except Exception as e:
+                    logger.error(f"Error creating new database structure: {e}")
             elif hasattr(bill_or_text, 'set_ai_analysis'):
                 # Fallback to old method for backward compatibility
                 bill_or_text.set_ai_analysis(analysis_results)
@@ -354,7 +378,7 @@ class EnhancedAIAnalyzer:
             
             for i, chunk in enumerate(chunks):
                 chunk_analysis = self._analyze_chunk_for_hidden_provisions(chunk, i, title)
-                if chunk_analysis:
+                if chunk_analysis and isinstance(chunk_analysis, dict):
                     hidden_provisions.append(chunk_analysis)
                     if chunk_analysis.get('risk_level', 'low') in ['medium', 'high']:
                         suspicious_chunks.append(i)
@@ -863,16 +887,17 @@ class EnhancedAIAnalyzer:
         
         risk_scores = []
         for provision in hidden_provisions:
-            risk_level = provision.get('risk_level', 'low')
-            confidence = provision.get('confidence_score', 0.5)
-            
-            risk_value = {
-                'low': 0.2,
-                'medium': 0.5,
-                'high': 0.8
-            }.get(risk_level, 0.2)
-            
-            risk_scores.append(risk_value * confidence)
+            if provision and isinstance(provision, dict):
+                risk_level = provision.get('risk_level', 'low')
+                confidence = provision.get('confidence_score', 0.5)
+                
+                risk_value = {
+                    'low': 0.2,
+                    'medium': 0.5,
+                    'high': 0.8
+                }.get(risk_level, 0.2)
+                
+                risk_scores.append(risk_value * confidence)
         
         return sum(risk_scores) / len(risk_scores) if risk_scores else 0.0
     
@@ -882,18 +907,26 @@ class EnhancedAIAnalyzer:
         
         # Hidden provisions risk
         if 'hidden_provisions' in analysis_results:
-            hidden_risk = analysis_results['hidden_provisions'].get('overall_hidden_risk_score', 0.0)
-            risk_factors.append(hidden_risk * 0.4)  # 40% weight
+            hidden_prov_data = analysis_results['hidden_provisions']
+            if hidden_prov_data and isinstance(hidden_prov_data, dict):
+                hidden_risk = hidden_prov_data.get('overall_hidden_risk_score', 0.0)
+                risk_factors.append(hidden_risk * 0.4)  # 40% weight
         
         # Anomalies risk
         if 'anomalies' in analysis_results:
-            anomaly_risk = analysis_results['anomalies'].get('overall_anomaly_score', 0.0)
-            risk_factors.append(anomaly_risk * 0.2)  # 20% weight
+            anomalies_data = analysis_results['anomalies']
+            if anomalies_data and isinstance(anomalies_data, dict):
+                anomaly_risk = anomalies_data.get('overall_anomaly_score', 0.0)
+                risk_factors.append(anomaly_risk * 0.2)  # 20% weight
         
         # Suspicious language risk
         if 'suspicious_language' in analysis_results:
-            suspicious_risk = analysis_results['suspicious_language'].get('ai_analysis', {}).get('risk_score', 0.0)
-            risk_factors.append(suspicious_risk * 0.2)  # 20% weight
+            suspicious_lang_data = analysis_results['suspicious_language']
+            if suspicious_lang_data and isinstance(suspicious_lang_data, dict):
+                ai_analysis = suspicious_lang_data.get('ai_analysis', {})
+                if ai_analysis and isinstance(ai_analysis, dict):
+                    suspicious_risk = ai_analysis.get('risk_score', 0.0)
+                    risk_factors.append(suspicious_risk * 0.2)  # 20% weight
         
         # Controversy risk
         if 'controversy_score' in analysis_results:
