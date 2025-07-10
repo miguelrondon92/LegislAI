@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_required, current_user
 from app import app
-from db_models import db, Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction
+from db_models import db, Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction, AIAnalysis, Summary
 import logging
 from datetime import datetime
 from services.congress_api import CongressAPI
@@ -383,13 +383,32 @@ def _store_policy_categories_with_sneakiness(bill, categories, analysis=None):
                 
                 sneakiness_score = sneakiness_by_category.get(area, 0.0)
                 
+                # Extract section reference and title information
+                section_reference = None
+                if 'section' in category_data:
+                    section_ref = category_data['section']
+                elif 'reasoning' in category_data:
+                    # Try to extract section info from reasoning text
+                    reasoning = category_data['reasoning']
+                    import re
+                    section_match = re.search(r'[Ss]ection\s+(\d+[\w\-\.]*)', reasoning)
+                    if section_match:
+                        section_reference = f"Section {section_match.group(1)}"
+                
+                # Include title in section reference if available
+                if category_data.get('title') and section_reference:
+                    section_reference = f"{section_reference}: {category_data['title'][:100]}"
+                elif category_data.get('title'):
+                    section_reference = category_data['title'][:150]
+                
                 if not mapping:
                     mapping = BillCategoryMapping(
                         bill_id=bill.id,
                         policy_category_id=policy_category.id,
                         relevance_score=score,
                         category_specific_analysis=json.dumps(category_data),
-                        sneakiness_score=sneakiness_score
+                        sneakiness_score=sneakiness_score,
+                        section_reference=section_reference
                     )
                     db.session.add(mapping)
                     categories_stored += 1
@@ -397,6 +416,7 @@ def _store_policy_categories_with_sneakiness(bill, categories, analysis=None):
                 else:
                     mapping.category_specific_analysis = json.dumps(category_data)
                     mapping.sneakiness_score = sneakiness_score
+                    mapping.section_reference = section_reference
                     logging.info(f"Updated existing category mapping: {bill.get_bill_identifier()} -> {area} (sneakiness: {sneakiness_score})")
                     
             except Exception as category_error:

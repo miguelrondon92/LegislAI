@@ -1018,7 +1018,12 @@ class EnhancedAIAnalyzer:
             
             chunk_texts = []
             for i, chunk in enumerate(important_chunks):
-                chunk_texts.append(f"Chunk {i+1} ({chunk.chunk_type}):\n{chunk.content[:1500]}")
+                chunk_header = f"Chunk {i+1} ({chunk.chunk_type})"
+                if hasattr(chunk, 'section_title') and chunk.section_title:
+                    chunk_header += f" - {chunk.section_title}"
+                if hasattr(chunk, 'section_number') and chunk.section_number:
+                    chunk_header += f" (Section {chunk.section_number})"
+                chunk_texts.append(f"{chunk_header}:\n{chunk.content[:1500]}")
             
             combined_text = "\n\n---\n\n".join(chunk_texts)
             
@@ -1038,7 +1043,9 @@ class EnhancedAIAnalyzer:
                 "category_breakdown": {{
                     "category_name": {{
                         "relevance_score": 0.0-1.0,
-                        "reasoning": "why this category is relevant"
+                        "reasoning": "why this category is relevant",
+                        "section": "section number if applicable",
+                        "title": "section title if applicable"
                     }}
                 }},
                 "overall_assessment": "brief assessment of bill's policy focus"
