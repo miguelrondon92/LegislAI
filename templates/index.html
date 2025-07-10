@@ -79,9 +79,10 @@
                                             {% endif %}
                                         </div>
                                     </div>
-                                    {% if bill.summary %}
+                                    {% set summary_text = bill.get_summary_text() %}
+                                    {% if summary_text %}
                                     <p class="mb-1 mt-2">
-                                        {{ bill.summary[:150] }}{% if bill.summary|length > 150 %}...{% endif %}
+                                        {{ summary_text[:150] }}{% if summary_text|length > 150 %}...{% endif %}
                                     </p>
                                     {% endif %}
                                 </div>
