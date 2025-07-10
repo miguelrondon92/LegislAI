@@ -28,7 +28,9 @@ LegislAI is a Python-based Flask web application that analyzes U.S. legislative 
 - **BackfillOrchestrator** (`services/backfill_orchestrator.py`): Handles bulk processing of historical bills
 
 ### Data Models
-- **Bill**: Legislative bills with metadata, AI analysis, complexity scores, and versioning
+- **Bill**: Legislative bills with metadata, complexity scores, and versioning. Now uses relationships to AIAnalysis and Summary tables
+- **AIAnalysis**: Stores AI analysis results with versioning support. Includes complexity/controversy scores, analysis metadata, and processing statistics
+- **Summary**: Stores bill summaries with versioning. Supports multiple summary types and key provisions tracking
 - **User**: User accounts with policy preferences, notification settings, and authentication
 - **Alert**: User-specific notifications about relevant bills with alignment scores
 - **PolicyCategory**: 36 standardized federal policy categories (see `utils/constants.py`)
@@ -134,9 +136,11 @@ The system uses a sophisticated chunked analysis approach for large bills:
 
 ### Bill Management and Versioning
 - Bills support versioning system with `active` flag for latest versions
+- **New Database Structure**: AI analysis and summaries moved to separate tables (AIAnalysis, Summary) with their own versioning
+- Each bill can have multiple analysis/summary versions with `active` flag indicating current version
 - Homepage displays only active bills to avoid duplicates
 - Bill detail pages use `.first()` query pattern for consistency
-- Complexity scores displayed consistently across homepage (AI analysis) and detail pages
+- Complexity scores retrieved from AIAnalysis table via `get_complexity_score_new()` method
 - Bill actions timeline shows congressional progress and history
 
 ### Workflow Management
@@ -159,17 +163,65 @@ The `WorkflowOrchestrator` coordinates:
 
 ### Database and Data Consistency
 - SQLite by default, PostgreSQL support via `DATABASE_URL`
-- Bill complexity scores stored as 0-1 scale in AI analysis JSON
-- Both homepage and bill detail pages display as X/100 scale for consistency
+- **New Database Structure**: AI analysis data moved to separate AIAnalysis table with proper versioning
+- Bill complexity scores stored as 0-100 scale in analysis JSON, converted to 0-1 scale by new methods for template compatibility
+- Both homepage and bill detail pages display as X/100 scale for consistency using `get_complexity_score_new()` method
 - Bill queries use consistent `.first()` pattern to ensure same records across pages
 - Comprehensive migration system with Alembic
+- Backward compatibility maintained: old `ai_analysis` field still available as fallback
 
-### Complexity Score Display (Recently Fixed)
-- AI analysis stores complexity as 0-1 scale in JSON format
-- Homepage: Uses `analysis.complexity_assessment.complexity_score` formatted as X/100
-- Bill detail: Uses `analysis.complexity_assessment.complexity_score` formatted as X/100  
-- Both pages now use same data source (AI analysis JSON) and calculation method
-- Fixed issue where homepage showed 0-5 scale while detail showed 0-100 scale
+### Database Structure Optimization (Recently Implemented)
+- **Moved AI analysis to separate AIAnalysis table** with `bill_id` mapping for proper normalization
+- **Added Summary table** with versioning and `active` field for when bills change and summaries need updates
+- **New Bill methods**: `get_complexity_score_new()`, `get_controversy_score_new()`, `get_summary_text()` use new table structure
+- **AI analysis versioning**: Each bill can have multiple analysis versions with metadata (processing time, chunks analyzed, analysis method)
+- **Summary versioning**: Multiple summary types supported (ai_generated, manual, updated) with key provisions tracking
+- **Migration completed**: All existing data preserved and migrated to new structure (15 AI analyses + 15 summaries)
+- **Backward compatibility**: Old `Bill.ai_analysis` field maintained as fallback, existing code continues to work
+- **Enhanced AI analyzer**: Now creates new analysis versions using `create_new_analysis_version()` method
+
+## New Database Schema (AIAnalysis & Summary Tables)
+
+### AIAnalysis Table
+```python
+class AIAnalysis(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False)
+    analysis_data = db.Column(db.Text)  # JSON stored analysis results
+    complexity_score = db.Column(db.Float)  # 0-1 scale for compatibility
+    controversy_score = db.Column(db.Float)
+    analysis_version = db.Column(db.Integer, nullable=False, default=1)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    analysis_method = db.Column(db.String(50))  # 'chunked', 'full', etc.
+    chunks_analyzed = db.Column(db.Integer)
+    processing_time = db.Column(db.Float)  # seconds
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+```
+
+### Summary Table
+```python
+class Summary(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False)
+    summary_text = db.Column(db.Text)
+    plain_language_summary = db.Column(db.Text)
+    key_provisions = db.Column(db.Text)  # JSON array
+    funding_amounts = db.Column(db.String(500))
+    implementation_timeline = db.Column(db.String(500))
+    summary_version = db.Column(db.Integer, nullable=False, default=1)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    summary_type = db.Column(db.String(50), default='ai_generated')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+```
+
+### New Bill Methods
+- `get_active_ai_analysis()` - Returns active AIAnalysis record
+- `get_active_summary()` - Returns active Summary record  
+- `get_complexity_score_new()` - Gets complexity from AIAnalysis table (0-1 scale for templates)
+- `get_controversy_score_new()` - Gets controversy score from AIAnalysis table
+- `get_summary_text()` - Gets summary text from Summary table (fallback to old field)
+- `create_new_analysis_version()` - Creates new analysis version, deactivating previous ones
+- `create_new_summary_version()` - Creates new summary version with versioning support
 
 ## File Structure Notes
 

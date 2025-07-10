@@ -339,4 +339,30 @@ python -m services.backfill_orchestrator --reset
 
 ---
 
+## 🗄️ Database Structure Updates (New)
+
+### Optimized Analysis Storage
+
+LegislAI now uses an improved database structure for storing AI analysis results:
+
+**New Tables:**
+- **AIAnalysis** - Stores AI analysis with versioning and metadata
+- **Summary** - Dedicated table for bill summaries with versioning support
+
+**Benefits:**
+- Proper versioning when bills are updated or reanalyzed
+- Better query performance for analysis data
+- Metadata tracking (processing time, chunks analyzed, analysis method)
+- Separation of analysis and summary data
+
+**Migration Status:**
+- ✅ All existing data migrated to new structure
+- ✅ Backward compatibility maintained
+- ✅ New analysis creation uses optimized tables
+
+**For Population Scripts:**
+All population scripts automatically use the new database structure. No changes needed to existing workflows.
+
+---
+
 This guide covers all database population tools in LegislAI. For development and testing purposes, also see the various `test_*.py` scripts which demonstrate specific functionality and can be run to verify system components.

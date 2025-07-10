@@ -13,9 +13,10 @@ The system operates continuously and supports both real-time RSS monitoring and 
 
 ### 1. AI Analysis Storage
 - Perform comprehensive AI analysis of bill content using Gemini API
-- Store analysis results in the database with structured data
+- **Store analysis results in dedicated AIAnalysis table** with proper versioning and metadata
+- **Store summaries in separate Summary table** with versioning support for bill changes
 - Map bills to policy categories with relevance scores
-- Maintain analysis history and versioning
+- Maintain analysis history and versioning with processing metadata (chunks analyzed, processing time, analysis method)
 
 ### 2. User Alert Generation
 - Match bills to user policy preferences and subscriptions
@@ -179,6 +180,41 @@ class WorkflowOrchestrator:
 - `enable_rss`: Enable/disable RSS monitoring
 - `enable_backfill`: Enable/disable backfill processing
 - `check_interval`: RSS monitoring frequency (default: 300 seconds)
+
+## Database Structure Updates
+
+### New Analysis Storage (Recently Implemented)
+
+The workflow now uses an optimized database structure for storing AI analysis results:
+
+**AIAnalysis Table**: Dedicated table for AI analysis with versioning
+- Stores analysis data, complexity/controversy scores, and processing metadata
+- Supports multiple versions per bill with `active` flag
+- Tracks processing time, chunks analyzed, and analysis method
+
+**Summary Table**: Separate table for bill summaries with versioning
+- Stores multiple summary types (ai_generated, manual, updated)
+- Supports key provisions tracking and implementation timelines
+- Enables summary updates when bills change
+
+**Enhanced AI Analyzer Integration**:
+```python
+# Workflow now creates analysis versions with metadata
+bill.create_new_analysis_version(
+    analysis_data=analysis_results,
+    complexity_score=complexity_score,
+    controversy_score=controversy_score,
+    analysis_method='chunked',
+    chunks_analyzed=len(chunks),
+    processing_time=processing_time
+)
+```
+
+**Benefits for Workflow**:
+- Proper versioning when bills are updated
+- Metadata tracking for performance monitoring
+- Better query performance for analysis data
+- Separation of concerns (analysis vs summary data)
 
 ## Web Interface
 
