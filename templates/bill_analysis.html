@@ -167,10 +167,10 @@
                 {% set policy = analysis.policy_implications %}
                 
                 <div class="row mb-3">
-                    {% if policy.primary_policy_area %}
+                    {% if policy.primary_category %}
                     <div class="col-md-6">
                         <h6>Primary Policy Area</h6>
-                        <span class="badge bg-primary fs-6">{{ policy.primary_policy_area.title() }}</span>
+                        <span class="badge bg-primary fs-6">{{ policy.primary_category.title() }}</span>
                     </div>
                     {% endif %}
                     
@@ -182,36 +182,44 @@
                     {% endif %}
                 </div>
                 
-                {% if policy.secondary_areas %}
+                {% if policy.secondary_categories %}
                 <div class="mb-3">
                     <h6>Secondary Policy Areas</h6>
-                    {% for area in policy.secondary_areas %}
+                    {% for area in policy.secondary_categories %}
                     <span class="badge bg-secondary me-1">{{ area.title() }}</span>
                     {% endfor %}
                 </div>
                 {% endif %}
                 
-                {% if policy.categories %}
+                {% if policy.overall_assessment %}
+                <div class="mb-3">
+                    <h6>Overall Assessment</h6>
+                    <p class="mb-0">{{ policy.overall_assessment }}</p>
+                </div>
+                {% endif %}
+                
+                {% if policy.category_breakdown %}
                 <h6>Policy Impact by Area</h6>
                 <div class="table-responsive">
                     <table class="table table-sm">
                         <thead>
                             <tr>
                                 <th>Policy Area</th>
-                                <th>Impact Level</th>
-                                <th>Description</th>
+                                <th>Relevance Score</th>
+                                <th>Reasoning</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for category in policy.categories %}
+                            {% for category_name, category_data in policy.category_breakdown.items() %}
                             <tr>
-                                <td>{{ category.area.title() }}</td>
+                                <td>{{ category_name.title() }}</td>
                                 <td>
-                                    <span class="badge bg-{{ 'danger' if category.impact_level == 'high' else 'warning' if category.impact_level == 'medium' else 'secondary' }}">
-                                        {{ category.impact_level.title() }}
+                                    {% set score = category_data.relevance_score %}
+                                    <span class="badge bg-{{ 'success' if score >= 0.7 else 'warning' if score >= 0.4 else 'secondary' }}">
+                                        {{ "%.1f"|format(score * 100) }}%
                                     </span>
                                 </td>
-                                <td>{{ category.description }}</td>
+                                <td>{{ category_data.reasoning }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
