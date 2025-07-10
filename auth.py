@@ -1,8 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash
-from app import db
-from db_models import User, PolicyCategory, UserPolicySubscription
+from db_models import db
 from utils.constants import FEDERAL_POLICY_CATEGORIES
 import re
 
@@ -28,6 +27,8 @@ def validate_password(password):
 @auth.route('/signup', methods=['GET', 'POST'])
 def signup():
     """User registration page"""
+    from db_models import User
+    
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     
@@ -99,6 +100,8 @@ def signup():
 @auth.route('/signin', methods=['GET', 'POST'])
 def signin():
     """User login page"""
+    from db_models import User
+    
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     
@@ -146,6 +149,8 @@ def signout():
 @login_required
 def policy_interests():
     """Policy interests subscription page"""
+    from db_models import PolicyCategory
+    
     # Get all policy categories
     categories = PolicyCategory.query.filter_by(is_active=True).all()
     

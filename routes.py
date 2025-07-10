@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_required, current_user
-from app import app, db
-from db_models import Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction
+from app import app
+from db_models import db, Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction
 import logging
 from datetime import datetime
 from services.congress_api import CongressAPI

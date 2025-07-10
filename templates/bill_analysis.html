@@ -349,16 +349,22 @@
                                 
                                 {% set completed_stages = [] %}
                                 {% for action in bill_actions %}
-                                    {% if 'introduced' in action.action_type.lower() %}
-                                        {% set _ = completed_stages.append('Introduced') %}
-                                    {% elif 'committee' in action.action_type.lower() or 'referred' in action.action_type.lower() %}
-                                        {% set _ = completed_stages.append('Committee') %}
-                                    {% elif 'floor' in action.action_type.lower() or 'vote' in action.action_type.lower() %}
-                                        {% set _ = completed_stages.append('Floor Vote') %}
-                                    {% elif 'passed' in action.action_type.lower() %}
-                                        {% set _ = completed_stages.append('Passed') %}
-                                    {% elif 'enacted' in action.action_type.lower() or 'signed' in action.action_type.lower() %}
+                                    {% set action_type_lower = action.action_type.lower() %}
+                                    {% set action_text_lower = action.action_text.lower() %}
+                                    
+                                    {% if 'becamelaw' in action_type_lower or 'became public law' in action_text_lower or 'signed by president' in action_text_lower or 'enacted' in action_text_lower %}
                                         {% set _ = completed_stages.append('Enacted') %}
+                                        {% set _ = completed_stages.append('Passed') %}
+                                        {% set _ = completed_stages.append('Floor Vote') %}
+                                    {% elif 'passed' in action_type_lower or 'passed' in action_text_lower %}
+                                        {% set _ = completed_stages.append('Passed') %}
+                                        {% set _ = completed_stages.append('Floor Vote') %}
+                                    {% elif 'floor' in action_type_lower or 'vote' in action_text_lower %}
+                                        {% set _ = completed_stages.append('Floor Vote') %}
+                                    {% elif 'committee' in action_type_lower or 'referred' in action_text_lower %}
+                                        {% set _ = completed_stages.append('Committee') %}
+                                    {% elif 'introduced' in action_type_lower or 'introrefer' in action_type_lower %}
+                                        {% set _ = completed_stages.append('Introduced') %}
                                     {% endif %}
                                 {% endfor %}
                                 
@@ -395,7 +401,7 @@
                                     <div class="timeline-card">
                                         <div class="d-flex justify-content-between align-items-start mb-2">
                                             <h6 class="mb-0">
-                                                <span class="badge bg-{{ action.get_action_color() }} me-2">{{ action.action_type.title() }}</span>
+                                                <span class="badge bg-{{ action.get_action_color() }} me-2">{{ action.get_formatted_action_type() }}</span>
                                             </h6>
                                             <small class="text-muted">
                                                 <i data-feather="calendar" class="me-1" style="width: 14px; height: 14px;"></i>

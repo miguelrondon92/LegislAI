@@ -1,9 +1,15 @@
-from app import db
 from datetime import datetime
 from sqlalchemy import JSON
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
+
+class Base(DeclarativeBase):
+    pass
+
+db = SQLAlchemy(model_class=Base)
 
 class PolicyCategory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -366,6 +372,23 @@ class BillAction(db.Model):
             return 'primary'
         else:
             return 'secondary'
+    
+    def get_formatted_action_type(self):
+        """Return properly formatted action type for display"""
+        # Dictionary mapping of concatenated action types to properly formatted versions
+        action_type_mappings = {
+            'BecameLaw': 'Became Law',
+            'IntroReferral': 'Intro Referral',
+            'NotUsed': 'Not Used',
+            'ResolvingDifferences': 'Resolving Differences',
+            'Committee': 'Committee',
+            'Floor': 'Floor',
+            'President': 'President',
+            'Calendars': 'Calendars'
+        }
+        
+        # Return mapped value if exists, otherwise apply title() to the original
+        return action_type_mappings.get(self.action_type, self.action_type.title())
     
     def __repr__(self):
         return f'<BillAction {self.action_type} on {self.action_date}>'
