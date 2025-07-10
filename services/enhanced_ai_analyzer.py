@@ -1449,4 +1449,53 @@ class EnhancedAIAnalyzer:
                 return None
         except Exception as e:
             logger.error(f"[AI] Exception during response parsing: {e}")
-            return None 
+            return None
+    
+    def generate_user_specific_analysis(self, bill_analysis, user_preferences, alignment_score):
+        """Generate personalized analysis based on user preferences"""
+        try:
+            # Create a summary of user preferences
+            strong_preferences = []
+            for area, prefs in user_preferences.items():
+                if isinstance(prefs, dict) and prefs.get('importance') == 'high':
+                    stance = prefs.get('stance', 'neutral')
+                    if stance != 'neutral':
+                        strong_preferences.append(f"{area}: {stance}")
+            
+            prompt = f"""
+            Based on this bill analysis and user preferences, provide personalized insights.
+            
+            Bill Analysis Summary: {bill_analysis.get('summary', {}).get('main_summary', '')}
+            Policy Areas: {bill_analysis.get('policy_implications', {}).get('primary_policy_area', '')}
+            
+            User's Strong Preferences: {'; '.join(strong_preferences)}
+            Calculated Alignment Score: {alignment_score}
+            
+            Provide personalized analysis in JSON format:
+            {{
+                "personal_impact": "How this bill might personally affect someone with these preferences",
+                "key_concerns": ["specific concerns based on user preferences"],
+                "potential_benefits": ["potential benefits for this user"],
+                "action_recommendations": ["what actions the user might consider taking"],
+                "explanation_of_score": "Why the alignment score is what it is"
+            }}
+            """
+            result = self._call_ai_model(prompt)
+            if result:
+                return result
+            return {
+                "personal_impact": "Unable to generate personalized analysis",
+                "key_concerns": [],
+                "potential_benefits": [],
+                "action_recommendations": [],
+                "explanation_of_score": "Analysis unavailable due to technical error"
+            }
+        except Exception as e:
+            logging.error(f"Error generating user-specific analysis: {str(e)}")
+            return {
+                "personal_impact": "Unable to generate personalized analysis",
+                "key_concerns": [],
+                "potential_benefits": [],
+                "action_recommendations": [],
+                "explanation_of_score": "Analysis unavailable due to technical error"
+            } 

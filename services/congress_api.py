@@ -27,8 +27,8 @@ class CongressAPI:
         self.last_request_time = 0
         self.min_request_interval = 3.6  # Roughly 1000 requests per hour limit
     
-    def _make_request(self, endpoint, params=None):
-        """Make a rate-limited request to the Congress API"""
+    def _make_request(self, endpoint, params=None, max_retries=3):
+        """Make a rate-limited request to the Congress API with retry logic"""
         # Implement rate limiting
         current_time = time.time()
         time_since_last = current_time - self.last_request_time
@@ -39,14 +39,39 @@ class CongressAPI:
         if params:
             url += "?" + urlencode(params)
         
-        try:
-            self.last_request_time = time.time()
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Congress API request failed: {str(e)}")
-            return None
+        for attempt in range(max_retries):
+            try:
+                self.last_request_time = time.time()
+                response = self.session.get(url, timeout=30)
+                response.raise_for_status()
+                return response.json()
+            except requests.exceptions.ConnectionError as e:
+                if "Connection reset by peer" in str(e) or "Connection aborted" in str(e):
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                        logging.warning(f"Congress API connection reset, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logging.error(f"Congress API connection failed after {max_retries} attempts: {str(e)}")
+                        return None
+                else:
+                    logging.error(f"Congress API connection error: {str(e)}")
+                    return None
+            except requests.exceptions.Timeout as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logging.warning(f"Congress API timeout, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logging.error(f"Congress API timeout after {max_retries} attempts: {str(e)}")
+                    return None
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Congress API request failed: {str(e)}")
+                return None
+        
+        return None
     
     def get_bill_by_number(self, bill_identifier):
         """
