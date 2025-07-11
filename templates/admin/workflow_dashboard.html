@@ -1,29 +1,30 @@
-{% extends "base.html" %}
+{% extends "admin/base.html" %}
 
-{% block title %}Workflow Dashboard - Legislative Analysis Platform{% endblock %}
+{% block title %}Workflow Admin Dashboard{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12 mb-4">
-        <div class="card bg-primary text-white">
+        <div class="card bg-danger text-white">
             <div class="card-body">
                 <div class="row align-items-center">
                     <div class="col-md-8">
                         <h2 class="card-title mb-2">
-                            <i data-feather="activity" class="me-2"></i>
-                            Workflow Dashboard
+                            <i data-feather="settings" class="me-2"></i>
+                            Workflow Administration Dashboard
+                            <span class="badge bg-light text-danger ms-2">ADMIN</span>
                         </h2>
                         <p class="card-subtitle mb-0 opacity-75">
-                            Monitor and control the automated legislative analysis workflow
+                            Administrative control and monitoring of the legislative analysis workflow system
                         </p>
                     </div>
                     <div class="col-md-4 text-md-end">
                         <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-light" onclick="startWorkflow()">
-                                <i data-feather="play" class="me-1"></i>Start
+                            <button type="button" class="btn btn-outline-light" onclick="startWorkflow()">
+                                <i data-feather="play" class="me-1"></i>Start Workflow
                             </button>
-                            <button type="button" class="btn btn-light" onclick="stopWorkflow()">
-                                <i data-feather="square" class="me-1"></i>Stop
+                            <button type="button" class="btn btn-outline-light" onclick="stopWorkflow()">
+                                <i data-feather="square" class="me-1"></i>Stop Workflow
                             </button>
                         </div>
                     </div>

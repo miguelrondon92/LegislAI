@@ -1,0 +1,177 @@
+2025-07-10 21:50:05,720 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.8.175:5001
+2025-07-10 21:50:05,720 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 21:50:05,721 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 21:50:06,094 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 21:50:06,109 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 21:50:28,078 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:50:28] "GET /health HTTP/1.1" 200 -
+2025-07-10 21:50:34,524 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:50:34] "GET /admin/login HTTP/1.1" 200 -
+2025-07-10 21:50:40,516 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:50:40] "[32mGET /workflow HTTP/1.1[0m" 302 -
+2025-07-10 21:50:49,171 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:50:49] "[32mGET /workflow HTTP/1.1[0m" 302 -
+2025-07-10 21:50:49,178 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:50:49] "GET /admin/login HTTP/1.1" 200 -
+2025-07-10 21:50:49,389 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:50:49] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-07-10 21:51:01,652 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:51:01] "[32mPOST /admin/login HTTP/1.1[0m" 302 -
+2025-07-10 21:51:08,900 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:51:08] "GET /workflow HTTP/1.1" 200 -
+2025-07-10 21:51:21,341 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:51:21,342 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:51:21] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:51:31,279 - root - ERROR - Error starting workflow: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:51:31,280 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:51:31] "[35m[1mPOST /api/workflow/start HTTP/1.1[0m" 500 -
+2025-07-10 21:52:34,387 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:34] "[32mPOST /admin/login HTTP/1.1[0m" 302 -
+2025-07-10 21:52:34,393 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:34] "GET /workflow HTTP/1.1" 200 -
+2025-07-10 21:52:34,560 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:52:34,561 - root - ERROR - Error getting recent workflow items: cannot import name 'WorkflowOrchestrator' from 'services.workflow_orchestrator' (/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py)
+2025-07-10 21:52:34,563 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:34] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:52:34,566 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:34] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:52:47,399 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:47] "GET /workflow HTTP/1.1" 200 -
+2025-07-10 21:52:47,466 - root - ERROR - Error getting recent workflow items: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:52:47,467 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:47] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:52:47,477 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:52:47,478 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:47] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:52:48,595 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:48] "GET /health HTTP/1.1" 200 -
+2025-07-10 21:52:57,380 - root - ERROR - Error starting workflow: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:52:57,381 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:52:57] "[35m[1mPOST /api/workflow/start HTTP/1.1[0m" 500 -
+2025-07-10 21:53:04,400 - root - ERROR - Error starting workflow: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:53:04,401 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:53:04] "[35m[1mPOST /api/workflow/start HTTP/1.1[0m" 500 -
+2025-07-10 21:53:11,948 - root - ERROR - Error starting workflow: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:53:11,949 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:53:11] "[35m[1mPOST /api/workflow/start HTTP/1.1[0m" 500 -
+2025-07-10 21:53:17,779 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:53:17,780 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:53:17] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:53:17,790 - root - ERROR - Error getting recent workflow items: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:53:17,791 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:53:17] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:53:47,776 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:53:47,776 - root - ERROR - Error getting recent workflow items: cannot import name 'WorkflowOrchestrator' from 'services.workflow_orchestrator' (/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py)
+2025-07-10 21:53:47,777 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:53:47] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:53:47,777 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:53:47] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:54:17,782 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:54:17,782 - root - ERROR - Error getting recent workflow items: cannot import name 'WorkflowOrchestrator' from 'services.workflow_orchestrator' (/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py)
+2025-07-10 21:54:17,782 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:54:17] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:54:17,783 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:54:17] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:54:47,787 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:54:47,787 - root - ERROR - Error getting recent workflow items: cannot import name 'WorkflowOrchestrator' from 'services.workflow_orchestrator' (/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py)
+2025-07-10 21:54:47,788 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:54:47] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:54:47,788 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:54:47] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:55:17,778 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:55:17,778 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:55:17] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:55:17,787 - root - ERROR - Error getting recent workflow items: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:55:17,788 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:55:17] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:55:47,771 - root - ERROR - Error getting workflow status: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:55:47,771 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:55:47] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:55:47,779 - root - ERROR - Error getting recent workflow items: cannot import name 'BillProcessor' from partially initialized module 'services.bill_processor' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/bill_processor.py)
+2025-07-10 21:55:47,779 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:55:47] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:55:51,914 - werkzeug - INFO -  * Detected change in '/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py', reloading
+2025-07-10 21:55:52,102 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 21:55:52,521 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 21:55:52,537 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 21:55:57,740 - werkzeug - INFO -  * Detected change in '/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py', reloading
+2025-07-10 21:55:57,804 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 21:55:58,158 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 21:55:58,179 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 21:56:15,805 - werkzeug - INFO -  * Detected change in '/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py', reloading
+2025-07-10 21:56:15,856 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 21:56:16,256 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 21:56:16,275 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 21:56:27,800 - werkzeug - INFO -  * Detected change in '/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py', reloading
+2025-07-10 21:56:27,878 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 21:56:28,288 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 21:56:28,302 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 21:56:38,682 - werkzeug - INFO -  * Detected change in '/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py', reloading
+2025-07-10 21:56:38,741 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 21:56:39,081 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 21:56:39,095 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 21:57:11,526 - root - ERROR - Error getting workflow status: cannot import name 'NotificationService' from partially initialized module 'services.notification_service' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/notification_service.py)
+2025-07-10 21:57:11,529 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:57:11] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:57:11,531 - root - ERROR - Error getting recent workflow items: cannot import name 'NotificationService' from partially initialized module 'services.notification_service' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/notification_service.py)
+2025-07-10 21:57:11,532 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:57:11] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:57:50,352 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.8.175:5001
+2025-07-10 21:57:50,353 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 21:57:50,353 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 21:57:50,696 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 21:57:50,711 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 21:57:55,343 - root - ERROR - Error getting workflow status: cannot import name 'NotificationService' from partially initialized module 'services.notification_service' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/notification_service.py)
+2025-07-10 21:57:55,344 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:57:55] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 21:57:55,350 - root - ERROR - Error getting recent workflow items: cannot import name 'NotificationService' from partially initialized module 'services.notification_service' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/notification_service.py)
+2025-07-10 21:57:55,350 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:57:55] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 21:58:56,174 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:58:56] "[32mPOST /admin/login HTTP/1.1[0m" 302 -
+2025-07-10 21:59:19,358 - root - ERROR - Error starting workflow: cannot import name 'NotificationService' from partially initialized module 'services.notification_service' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/notification_service.py)
+2025-07-10 21:59:19,358 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 21:59:19] "[35m[1mPOST /api/workflow/start HTTP/1.1[0m" 500 -
+2025-07-10 21:59:30,702 - werkzeug - INFO -  * Detected change in '/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py', reloading
+2025-07-10 21:59:30,851 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 21:59:31,217 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 21:59:31,232 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 22:00:09,670 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.8.175:5001
+2025-07-10 22:00:09,670 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 22:00:09,671 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 22:00:10,032 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 22:00:10,046 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 22:00:21,332 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:00:21] "[32mPOST /admin/login HTTP/1.1[0m" 302 -
+2025-07-10 22:00:31,394 - root - ERROR - Error starting workflow: cannot import name 'NotificationService' from partially initialized module 'services.notification_service' (most likely due to a circular import) (/Users/miguelrondon/Desktop/code/legislai/services/notification_service.py)
+2025-07-10 22:00:31,395 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:00:31] "[35m[1mPOST /api/workflow/start HTTP/1.1[0m" 500 -
+2025-07-10 22:00:37,437 - werkzeug - INFO -  * Detected change in '/Users/miguelrondon/Desktop/code/legislai/services/workflow_orchestrator.py', reloading
+2025-07-10 22:00:37,572 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 22:00:37,921 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 22:00:37,937 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 22:00:45,833 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.8.175:5001
+2025-07-10 22:00:45,834 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 22:00:45,835 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 22:00:46,173 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 22:00:46,187 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 22:00:57,840 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:00:57] "[32mPOST /admin/login HTTP/1.1[0m" 302 -
+2025-07-10 22:01:11,349 - services.workflow_orchestrator - INFO - Starting Legislative Analysis Workflow
+2025-07-10 22:01:11,349 - services.workflow_orchestrator - INFO - Workflow started from web interface
+2025-07-10 22:01:11,350 - services.workflow_orchestrator - INFO - RSS Monitoring: Enabled
+2025-07-10 22:01:11,350 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:01:11] "POST /api/workflow/start HTTP/1.1" 200 -
+2025-07-10 22:01:11,350 - services.workflow_orchestrator - INFO - Backfill Processing: Disabled
+2025-07-10 22:01:11,350 - root - INFO - Starting RSS monitor with 3 feeds
+2025-07-10 22:01:11,351 - root - INFO - Keywords: ['bill', 'legislation', 'act', 'resolution']
+2025-07-10 22:01:11,351 - services.workflow_orchestrator - INFO - RSS monitoring thread started
+2025-07-10 22:01:11,351 - root - INFO - Check interval: 60 seconds
+2025-07-10 22:01:11,351 - services.workflow_orchestrator - INFO - Starting workflow processor
+2025-07-10 22:01:11,719 - root - INFO - Sleeping for 60 seconds...
+2025-07-10 22:01:18,201 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:01:18] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 22:01:24,723 - services.workflow_orchestrator - INFO - Workflow stopped from web interface
+2025-07-10 22:01:24,724 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:01:24] "POST /api/workflow/stop HTTP/1.1" 200 -
+2025-07-10 22:01:32,331 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:01:32] "GET /api/workflow/recent HTTP/1.1" 200 -
+2025-07-10 22:01:36,791 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:01:36] "GET /workflow HTTP/1.1" 200 -
+2025-07-10 22:01:41,562 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:01:41] "GET /workflow HTTP/1.1" 200 -
+2025-07-10 22:06:36,183 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.8.175:5001
+2025-07-10 22:06:36,184 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 22:06:36,184 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 22:06:36,511 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 22:06:36,545 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 22:06:41,669 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:41] "[32mGET /workflow HTTP/1.1[0m" 302 -
+2025-07-10 22:06:41,692 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:41] "GET /admin/login HTTP/1.1" 200 -
+2025-07-10 22:06:42,003 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:42] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-07-10 22:06:49,545 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:49] "[32mPOST /admin/login HTTP/1.1[0m" 302 -
+2025-07-10 22:06:49,566 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:49] "GET /workflow HTTP/1.1" 200 -
+2025-07-10 22:06:50,239 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:50] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 22:06:50,241 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:50] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 22:06:57,551 - services.workflow_orchestrator - INFO - Starting Legislative Analysis Workflow
+2025-07-10 22:06:57,552 - services.workflow_orchestrator - INFO - Workflow started from web interface
+2025-07-10 22:06:57,552 - services.workflow_orchestrator - INFO - RSS Monitoring: Enabled
+2025-07-10 22:06:57,553 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:57] "POST /api/workflow/start HTTP/1.1" 200 -
+2025-07-10 22:06:57,553 - services.workflow_orchestrator - INFO - Backfill Processing: Disabled
+2025-07-10 22:06:57,554 - root - INFO - Starting RSS monitor with 3 feeds
+2025-07-10 22:06:57,555 - services.workflow_orchestrator - INFO - RSS monitoring thread started
+2025-07-10 22:06:57,556 - root - INFO - Keywords: ['bill', 'legislation', 'act', 'resolution']
+2025-07-10 22:06:57,556 - services.workflow_orchestrator - INFO - Starting workflow processor
+2025-07-10 22:06:57,556 - root - INFO - Check interval: 60 seconds
+2025-07-10 22:06:57,898 - root - INFO - Sleeping for 60 seconds...
+2025-07-10 22:06:58,565 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:06:58] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 22:07:04,835 - services.workflow_orchestrator - INFO - Workflow stopped from web interface
+2025-07-10 22:07:04,836 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:07:04] "POST /api/workflow/stop HTTP/1.1" 200 -
+2025-07-10 22:07:05,844 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:07:05] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-10 22:07:09,769 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:07:09] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -

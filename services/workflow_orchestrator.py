@@ -16,19 +16,16 @@ from dataclasses import dataclass
 from enum import Enum
 import json
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from db_models import Bill, BillAction, User, Alert, UserBillAlignment, PolicyCategory, UserPolicySubscription
 from services.rss_monitoring import PersistentRSSMonitor
-from services.bill_processor import BillProcessor
+from services.workflow_bill_processor import WorkflowBillProcessor
 from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
-from services.notification_service import NotificationService
+# from services.notification_service import NotificationService  # Disabled to avoid circular imports
 from services.congress_api import CongressAPI
+from services.database_session import get_db_session, get_global_session
 
-# Set up SQLAlchemy engine and session (update path if needed)
-engine = create_engine('sqlite:///instance/legislative_analysis.db')
-Session = sessionmaker(bind=engine)
-session = Session()
+# Use the independent database session
+session = get_global_session()
 
 # Configure logging
 logging.basicConfig(
@@ -82,9 +79,11 @@ class WorkflowOrchestrator:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.rss_monitor = PersistentRSSMonitor()
-        self.bill_processor = BillProcessor()
+        self.bill_processor = WorkflowBillProcessor()
         self.ai_analyzer = EnhancedAIAnalyzer()
-        self.notification_service = NotificationService()
+        # Disable notification service for now to avoid circular imports
+        # self.notification_service = NotificationService()
+        self.notification_service = None
         self.congress_api = CongressAPI()
         
         # Workflow state
@@ -201,12 +200,8 @@ class WorkflowOrchestrator:
         
         while self.is_running:
             try:
-                # Find bills without AI analysis (check both old and new tables)
-                from db_models import AIAnalysis
-                bills_without_analysis = session.query(Bill).outerjoin(AIAnalysis).filter(
-                    ((Bill.ai_analysis.is_(None)) | (Bill.ai_analysis == '')) &
-                    (AIAnalysis.id.is_(None))
-                ).limit(10).all()  # Process 10 at a time
+                # Find bills without AI analysis using the workflow bill processor
+                bills_without_analysis = self.bill_processor.get_bills_without_analysis(limit=10)
                 
                 for bill in bills_without_analysis:
                     if not self.is_running:
@@ -390,17 +385,16 @@ class WorkflowOrchestrator:
         try:
             # If bill_id is already set (backfill case), return existing bill
             if item.bill_id:
-                bill = session.query(Bill).get(item.bill_id)
+                with get_db_session() as db_session:
+                    bill = db_session.query(Bill).get(item.bill_id)
                 if bill:
                     print(f"[DEBUG] Using existing bill: {item.bill_identifier}")
                     self.logger.info(f"[DEBUG] Using existing bill: {item.bill_identifier}")
                     return bill
             # Check if bill already exists
-            existing_bill = session.query(Bill).filter_by(
-                congress=item.congress,
-                bill_type=item.bill_type,
-                bill_number=item.bill_number
-            ).first()
+            existing_bill = self.bill_processor.get_bill_by_identifier(
+                item.congress, item.bill_type, item.bill_number
+            )
             if existing_bill:
                 print(f"[DEBUG] Bill already exists: {item.bill_identifier}")
                 self.logger.info(f"[DEBUG] Bill already exists: {item.bill_identifier}")
@@ -1120,6 +1114,41 @@ class WorkflowOrchestrator:
             }
             for item in self.workflow_queue[-limit:]
         ]
+    
+    def start_workflow_web(self):
+        """Start workflow in a background thread for web interface"""
+        if self.is_running:
+            return {'status': 'already_running', 'message': 'Workflow is already running'}
+        
+        try:
+            # Start workflow in a separate thread so web request doesn't hang
+            def workflow_thread():
+                self.start_workflow(
+                    check_interval=60,  # Check every minute for web interface
+                    enable_rss=True,
+                    enable_backfill=False  # Don't enable backfill from web to avoid heavy load
+                )
+            
+            import threading
+            self.workflow_thread = threading.Thread(target=workflow_thread, daemon=True)
+            self.workflow_thread.start()
+            
+            self.logger.info("Workflow started from web interface")
+            return {'status': 'success', 'message': 'Workflow started successfully'}
+            
+        except Exception as e:
+            self.logger.error(f"Error starting workflow from web: {e}")
+            return {'status': 'error', 'message': str(e)}
+    
+    def stop_workflow_web(self):
+        """Stop workflow for web interface"""
+        try:
+            self.is_running = False
+            self.logger.info("Workflow stopped from web interface")
+            return {'status': 'success', 'message': 'Workflow stopped successfully'}
+        except Exception as e:
+            self.logger.error(f"Error stopping workflow from web: {e}")
+            return {'status': 'error', 'message': str(e)}
 
 def dry_run_sneakiness_mapping(categories, analysis):
     """Dry run the sneakiness mapping logic without writing to the database."""

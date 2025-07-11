@@ -287,18 +287,18 @@ if hasattr(bill_or_text, 'create_new_analysis_version'):
 ### 5.1 Core Documentation
 **Files Updated:**
 
-1. **`readme's/CLAUDE.md`** - Main documentation:
+1. **`readme/CLAUDE.md`** - Main documentation:
    - Updated Data Models section with new tables
    - Added database optimization section
    - Documented new Bill methods
    - Added complete schema definitions
 
-2. **`readme's/WORKFLOW_README.md`** - Workflow documentation:
+2. **`readme/WORKFLOW_README.md`** - Workflow documentation:
    - Updated AI Analysis Storage section
    - Added database structure updates section
    - Documented workflow integration with new tables
 
-3. **`readme's/DATABASE_OPTIMIZATION_SUMMARY.md`** - NEW comprehensive file:
+3. **`readme/DATABASE_OPTIMIZATION_SUMMARY.md`** - NEW comprehensive file:
    - Complete migration documentation
    - Schema definitions and method explanations
    - Testing results and benefits analysis

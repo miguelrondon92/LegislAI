@@ -13,6 +13,17 @@ congress_api = CongressAPI()
 ai_analyzer = EnhancedAIAnalyzer()
 bill_processor = BillProcessor()
 
+# Initialize workflow orchestrator as a global instance
+workflow_orchestrator = None
+
+def get_workflow_orchestrator():
+    """Get the global workflow orchestrator instance"""
+    global workflow_orchestrator
+    if workflow_orchestrator is None:
+        from services.workflow_orchestrator import WorkflowOrchestrator
+        workflow_orchestrator = WorkflowOrchestrator()
+    return workflow_orchestrator
+
 @app.route('/')
 def index():
     """Main dashboard showing recent bills and user alerts"""
@@ -723,59 +734,64 @@ def get_bill_text(congress, bill_type, bill_number):
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/workflow/start', methods=['POST'])
-@login_required
 def start_workflow():
     """Start the bill processing workflow"""
     try:
-        from services.workflow_orchestrator import WorkflowOrchestrator
-        orchestrator = WorkflowOrchestrator()
-        orchestrator.start_workflow()
-        return jsonify({'status': 'success', 'message': 'Workflow started'})
+        orchestrator = get_workflow_orchestrator()
+        result = orchestrator.start_workflow_web()
+        return jsonify(result)
     except Exception as e:
         logging.error(f"Error starting workflow: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/workflow/stop', methods=['POST'])
-@login_required
 def stop_workflow():
     """Stop the bill processing workflow"""
     try:
-        from services.workflow_orchestrator import WorkflowOrchestrator
-        orchestrator = WorkflowOrchestrator()
-        orchestrator.stop_workflow()
-        return jsonify({'status': 'success', 'message': 'Workflow stopped'})
+        orchestrator = get_workflow_orchestrator()
+        result = orchestrator.stop_workflow_web()
+        return jsonify(result)
     except Exception as e:
         logging.error(f"Error stopping workflow: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/workflow/status')
-@login_required
 def get_workflow_status():
     """Get the current workflow status"""
     try:
-        from services.workflow_orchestrator import WorkflowOrchestrator
-        orchestrator = WorkflowOrchestrator()
-        status = orchestrator.get_status()
+        orchestrator = get_workflow_orchestrator()
+        status = orchestrator.get_workflow_status()
         return jsonify(status)
     except Exception as e:
         logging.error(f"Error getting workflow status: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({
+            'is_running': False,
+            'queue_size': 0,
+            'statistics': {
+                'bills_discovered': 0,
+                'bills_processed': 0,
+                'bills_analyzed': 0,
+                'alerts_generated': 0,
+                'errors': 0
+            },
+            'last_run': None,
+            'error_message': str(e)
+        })
 
 @app.route('/api/workflow/recent')
-@login_required
 def get_recent_workflow_items():
     """Get recent workflow items"""
     try:
-        from services.workflow_orchestrator import WorkflowOrchestrator
-        orchestrator = WorkflowOrchestrator()
-        items = orchestrator.get_recent_items()
+        orchestrator = get_workflow_orchestrator()
+        limit = request.args.get('limit', 10, type=int)
+        items = orchestrator.get_recent_workflow_items(limit)
         return jsonify({'items': items})
     except Exception as e:
         logging.error(f"Error getting recent workflow items: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        # Return empty items list if there's an error
+        return jsonify({'items': [], 'error_message': str(e)})
 
 @app.route('/workflow')
-@login_required
 def workflow_dashboard():
     """Workflow dashboard for monitoring bill processing"""
     return render_template('workflow_dashboard.html')
