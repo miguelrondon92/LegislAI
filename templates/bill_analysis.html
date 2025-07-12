@@ -128,28 +128,26 @@
                 </ul>
                 {% endif %}
                 
+                {% set has_funding = summary.funding_amounts and summary.funding_amounts not in ['Unknown', 'Not specified', 'None', 'N/A', ''] %}
+                {% set has_timeline = summary.implementation_timeline and summary.implementation_timeline not in ['Unknown', 'Not specified', 'None', 'N/A', ''] %}
+                {% if has_funding or has_timeline %}
                 <div class="row">
-                    {% if summary.funding_amounts %}
+                    {% if has_funding %}
                     <div class="col-md-6">
                         <h6>Funding</h6>
                         <p class="text-muted">{{ summary.funding_amounts }}</p>
                     </div>
                     {% endif %}
                     
-                    {% if summary.implementation_timeline %}
+                    {% if has_timeline %}
                     <div class="col-md-6">
                         <h6>Timeline</h6>
                         <p class="text-muted">{{ summary.implementation_timeline }}</p>
                     </div>
                     {% endif %}
                 </div>
-                
-                {% if summary.plain_language_explanation %}
-                <div class="alert alert-info" role="alert">
-                    <h6 class="alert-heading">Plain Language Summary</h6>
-                    {{ summary.plain_language_explanation }}
-                </div>
                 {% endif %}
+                
             </div>
         </div>
         {% endif %}
@@ -630,40 +628,40 @@
                                     <div class="col-md-4">
                                         <h6>Risk Details:</h6>
                                         <table class="table table-sm table-borderless">
-                                            <tr>
+                                                    <tr>
                                                 <td><strong>Risk Level:</strong></td>
-                                                <td><span class="badge bg-{{ provision.get_risk_color() }}">{{ provision.risk_level.title() }}</span></td>
-                                            </tr>
-                                            <tr>
+                                                        <td><span class="badge bg-{{ provision.get_risk_color() }}">{{ provision.risk_level.title() }}</span></td>
+                                                    </tr>
+                                                    <tr>
                                                 <td><strong>Confidence:</strong></td>
-                                                <td>{{ (provision.confidence_score * 100)|round }}%</td>
-                                            </tr>
-                                            <tr>
+                                                        <td>{{ (provision.confidence_score * 100)|round }}%</td>
+                                                    </tr>
+                                                    <tr>
                                                 <td><strong>Risk Score:</strong></td>
-                                                <td>{{ (provision.get_risk_score() * 100)|round }}/100</td>
-                                            </tr>
-                                            {% if provision.chunk_type %}
-                                            <tr>
+                                                        <td>{{ (provision.get_risk_score() * 100)|round }}/100</td>
+                                                    </tr>
+                                                    {% if provision.chunk_type %}
+                                                    <tr>
                                                 <td><strong>Location:</strong></td>
-                                                <td>{{ provision.chunk_type.title() }}</td>
-                                            </tr>
-                                            {% endif %}
-                                        </table>
-                                        
-                                        {% set risk_factors = provision.get_risk_factors() %}
-                                        {% if risk_factors %}
+                                                        <td>{{ provision.chunk_type.title() }}</td>
+                                                    </tr>
+                                                    {% endif %}
+                                                </table>
+                                            
+                                            {% set risk_factors = provision.get_risk_factors() %}
+                                            {% if risk_factors %}
                                         <h6>Risk Factors:</h6>
                                         <ul class="list-unstyled">
-                                            {% for factor in risk_factors %}
+                                                    {% for factor in risk_factors %}
                                             <li><small class="text-muted">• {{ factor }}</small></li>
-                                            {% endfor %}
-                                        </ul>
-                                        {% endif %}
+                                                    {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
                     {% endfor %}
                 </div>
                 
