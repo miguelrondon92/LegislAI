@@ -1189,7 +1189,14 @@ class EnhancedAIAnalyzer:
         """Assess bill complexity"""
         try:
             if not self.client:
+                logger.warning("Complexity assessment: No Gemini client available")
                 return None
+            
+            # Check if we're at rate limit and wait if needed
+            if self._check_rate_limit():
+                logger.warning("Complexity assessment: Rate limit reached, waiting for reset...")
+                self._wait_for_rate_limit()
+                logger.info("Complexity assessment: Rate limit reset, proceeding")
             
             # Use a sample of the text for complexity assessment
             sample_text = bill_text[:5000] if len(bill_text) > 5000 else bill_text
@@ -1210,23 +1217,39 @@ class EnhancedAIAnalyzer:
             Respond with only a number between 0.0 and 1.0.
             """
             
+            # Record the request for rate limiting
+            if not self._record_request():
+                logger.warning("Complexity assessment: Failed to record request - quota exhausted")
+                return None
+            
+            logger.debug("Complexity assessment: Making Gemini API call")
             response = self.client.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
             
-            if not response or not response.text:
+            if not response:
+                logger.warning("Complexity assessment: No response from Gemini")
+                return None
+                
+            if not response.text:
+                logger.warning("Complexity assessment: Empty response text from Gemini")
                 return None
             
             # Extract numeric response
             try:
-                complexity_score = float(response.text.strip())
-                return max(0.0, min(1.0, complexity_score))  # Clamp between 0 and 1
-            except ValueError:
+                response_text = response.text.strip()
+                logger.debug(f"Complexity assessment: Raw response: '{response_text}'")
+                complexity_score = float(response_text)
+                clamped_score = max(0.0, min(1.0, complexity_score))  # Clamp between 0 and 1
+                logger.info(f"Complexity assessment: Success - score: {clamped_score}")
+                return clamped_score
+            except ValueError as ve:
+                logger.error(f"Complexity assessment: Failed to parse response '{response_text}': {ve}")
                 return None
                 
         except Exception as e:
-            logging.error(f"Complexity assessment error: {str(e)}")
+            logger.error(f"Complexity assessment error: {str(e)}")
             return None
     
     def _detect_controversy(self, bill_text: str, title: str) -> Optional[float]:

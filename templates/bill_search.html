@@ -183,12 +183,6 @@
                                                 {{ hidden_provisions_count.medium }} Medium Risk
                                             </span>
                                             {% endif %}
-                                            {% if hidden_provisions_count.low > 0 %}
-                                            <span class="badge bg-secondary">
-                                                <i data-feather="info" style="width: 12px; height: 12px;"></i>
-                                                {{ hidden_provisions_count.low }} Low Risk
-                                            </span>
-                                            {% endif %}
                                         </div>
                                         {% endif %}
                                         
@@ -256,11 +250,12 @@
                                         {% endif %}
                                         
                                         {% set hidden_provisions_count = bill.get_hidden_provisions_count() %}
-                                        {% if hidden_provisions_count.total > 0 %}
+                                        {% set significant_provisions = hidden_provisions_count.high + hidden_provisions_count.medium %}
+                                        {% if significant_provisions > 0 %}
                                         <div class="mb-2">
                                             <small class="text-danger">
                                                 <i data-feather="eye" style="width: 12px; height: 12px;"></i>
-                                                {{ hidden_provisions_count.total }} Hidden Provisions
+                                                {{ significant_provisions }} Risky Provisions
                                             </small>
                                         </div>
                                         {% endif %}

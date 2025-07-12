@@ -552,7 +552,8 @@
 
         <!-- Hidden Provisions Analysis -->
         {% set hidden_provisions = bill.get_hidden_provisions() %}
-        {% if hidden_provisions %}
+        {% set filtered_provisions = hidden_provisions | selectattr('risk_level', 'ne', 'low') | list %}
+        {% if filtered_provisions %}
         <div class="card mb-4">
             <div class="card-header">
                 <h6 class="mb-0">
@@ -564,9 +565,6 @@
                     {% endif %}
                     {% if provision_counts.medium > 0 %}
                     <span class="badge bg-warning ms-2">{{ provision_counts.medium }} Medium Risk</span>
-                    {% endif %}
-                    {% if provision_counts.low > 0 %}
-                    <span class="badge bg-secondary ms-2">{{ provision_counts.low }} Low Risk</span>
                     {% endif %}
                 </h6>
             </div>
@@ -588,7 +586,7 @@
                 {% endif %}
                 
                 <div class="accordion" id="hiddenProvisionsAccordion">
-                    {% for provision in hidden_provisions %}
+                    {% for provision in filtered_provisions %}
                     <div class="accordion-item">
                         <h2 class="accordion-header">
                             <button class="accordion-button {{ 'collapsed' if loop.index > 1 else '' }}" type="button" 
@@ -665,10 +663,10 @@
                     {% endfor %}
                 </div>
                 
-                {% if hidden_provisions|length > 3 %}
+                {% if filtered_provisions|length > 3 %}
                 <div class="text-center mt-3">
                     <small class="text-muted">
-                        {{ hidden_provisions|length }} total hidden provisions detected. 
+                        {{ filtered_provisions|length }} medium/high risk provisions detected. 
                         <a href="#" onclick="expandAllProvisions()">Expand all</a> | 
                         <a href="#" onclick="collapseAllProvisions()">Collapse all</a>
                     </small>
