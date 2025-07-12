@@ -168,6 +168,30 @@
                                         </div>
                                         {% endif %}
                                         
+                                        {% set hidden_provisions_count = bill.get_hidden_provisions_count() %}
+                                        {% if hidden_provisions_count.total > 0 %}
+                                        <div class="mb-2">
+                                            {% if hidden_provisions_count.high > 0 %}
+                                            <span class="badge bg-danger">
+                                                <i data-feather="alert-triangle" style="width: 12px; height: 12px;"></i>
+                                                {{ hidden_provisions_count.high }} High Risk
+                                            </span>
+                                            {% endif %}
+                                            {% if hidden_provisions_count.medium > 0 %}
+                                            <span class="badge bg-warning">
+                                                <i data-feather="alert-circle" style="width: 12px; height: 12px;"></i>
+                                                {{ hidden_provisions_count.medium }} Medium Risk
+                                            </span>
+                                            {% endif %}
+                                            {% if hidden_provisions_count.low > 0 %}
+                                            <span class="badge bg-secondary">
+                                                <i data-feather="info" style="width: 12px; height: 12px;"></i>
+                                                {{ hidden_provisions_count.low }} Low Risk
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                        
                                         {% if bill.get_policy_categories() %}
                                         {% set categories = bill.get_policy_categories() %}
                                         {% if categories.primary_policy_area %}
@@ -228,6 +252,16 @@
                                             <span class="badge bg-info">
                                                 Complexity: {{ "%.0f"|format(bill.complexity_score) }}
                                             </span>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% set hidden_provisions_count = bill.get_hidden_provisions_count() %}
+                                        {% if hidden_provisions_count.total > 0 %}
+                                        <div class="mb-2">
+                                            <small class="text-danger">
+                                                <i data-feather="eye" style="width: 12px; height: 12px;"></i>
+                                                {{ hidden_provisions_count.total }} Hidden Provisions
+                                            </small>
                                         </div>
                                         {% endif %}
                                         

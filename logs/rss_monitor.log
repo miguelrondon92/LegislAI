@@ -94,3 +94,26 @@
 2025-06-28 15:16:50,892 - INFO - Sleeping for 10 seconds...
 2025-06-28 15:17:01,214 - INFO - Sleeping for 10 seconds...
 2025-06-28 15:17:05,427 - INFO - Monitor stopped by user
+2025-07-12 12:20:36,739 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:20:36,740 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:20:36,771 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:20:36,772 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:20:36,772 - ERROR - Error storing hidden provisions for 119-HR504: Working outside of application context.
+
+This typically means that you attempted to use functionality that needed
+the current application. To solve this, set up an application context
+with app.app_context(). See the documentation for more information.
+2025-07-12 12:21:19,300 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:21:19,301 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:21:19,329 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:21:19,329 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:21:19,334 - INFO - Processing 2 hidden provisions for 119-HR504
+2025-07-12 12:21:19,346 - INFO - ✅ Successfully stored 3 hidden provisions for 119-HR504
+2025-07-12 12:21:19,346 - INFO -    📊 Risk distribution: 3 low
+2025-07-12 12:26:06,501 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:26:06,502 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:26:06,534 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:26:06,534 - WARNING - GEMINI_API_KEY not found. AI analysis will be disabled.
+2025-07-12 12:26:06,536 - INFO - Processing 2 hidden provisions for 119-HR1729
+2025-07-12 12:26:06,543 - INFO - ✅ Successfully stored 1 hidden provisions for 119-HR1729
+2025-07-12 12:26:06,543 - INFO -    📊 Risk distribution: 1 low

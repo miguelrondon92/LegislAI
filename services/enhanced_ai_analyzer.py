@@ -216,36 +216,49 @@ class EnhancedAIAnalyzer:
             estimated_requests = self._estimate_analysis_requests(chunks)
             logger.info(f"📊 Estimated API requests for analysis: {estimated_requests}")
             
-            # Check if we have enough quota for this analysis
-            if not self._can_handle_analysis(estimated_requests):
-                logger.error(f"🚫 Insufficient API quota for analysis: need {estimated_requests} requests, have {self.max_requests_per_minute - self.requests_this_minute} remaining")
-                return {}
+            # Use progressive analysis instead of all-or-nothing approach
+            available_requests = self.max_requests_per_minute - self.requests_this_minute
+            logger.info(f"📊 Available API requests: {available_requests}/{self.max_requests_per_minute}")
             
-            # Check if we're approaching rate limits
-            if self._check_rate_limit():
-                logger.error(f"🚫 Rate limit reached before starting analysis")
-                return {}
+            if available_requests <= 2:
+                logger.warning(f"⚠️ Very low quota remaining ({available_requests}), waiting for rate limit reset...")
+                self._wait_for_rate_limit_reset()
+                available_requests = self.max_requests_per_minute - self.requests_this_minute
+                logger.info(f"✅ Rate limit reset, available requests: {available_requests}")
             
-            # Perform enhanced analysis
+            # Progressive analysis: analyze what we can with available quota
+            chunks_to_analyze = self._calculate_analyzable_chunks(chunks, available_requests)
+            
+            if not chunks_to_analyze:
+                logger.warning(f"⚠️ No chunks can be analyzed with current quota. Consider running later or increasing rate limits.")
+                # Return minimal analysis based on title and summary only
+                return self._create_minimal_analysis(title, summary)
+            
+            # Perform enhanced analysis on available chunks
             analysis_results = {}
+            logger.info(f"🔍 Starting progressive analysis of {len(chunks_to_analyze)} priority chunks...")
             
-            # 1. Hidden provision detection (NEW)
-            hidden_analysis = self._detect_hidden_provisions(chunks, title)
+            # 1. Hidden provision detection (NEW) - use progressive chunks
+            logger.info(f"   🔍 Analyzing hidden provisions...")
+            hidden_analysis = self._detect_hidden_provisions(chunks_to_analyze, title)
             if hidden_analysis:
                 analysis_results['hidden_provisions'] = hidden_analysis
             
-            # 2. Anomaly detection in chunks (NEW)
-            anomalies = self._detect_anomalies(chunks, title)
+            # 2. Anomaly detection in chunks (NEW) - use progressive chunks  
+            logger.info(f"   🔍 Detecting anomalies...")
+            anomalies = self._detect_anomalies(chunks_to_analyze, title)
             if anomalies:
                 analysis_results['anomalies'] = anomalies
             
-            # 3. Context-aware suspicious language detection (NEW)
-            suspicious_language = self._detect_suspicious_language(chunks, title)
+            # 3. Context-aware suspicious language detection (NEW) - use progressive chunks
+            logger.info(f"   🔍 Checking suspicious language...")
+            suspicious_language = self._detect_suspicious_language(chunks_to_analyze, title)
             if suspicious_language:
                 analysis_results['suspicious_language'] = suspicious_language
             
-            # 4. Cross-reference analysis (NEW)
-            cross_references = self._analyze_cross_references(chunks, title)
+            # 4. Cross-reference analysis (NEW) - use progressive chunks
+            logger.info(f"   🔍 Analyzing cross-references...")
+            cross_references = self._analyze_cross_references(chunks_to_analyze, title)
             if cross_references:
                 analysis_results['cross_references'] = cross_references
             
@@ -269,14 +282,16 @@ class EnhancedAIAnalyzer:
                 logger.error(f"Summary generation failed: {e}")
             
             try:
-                categories = self._categorize_bill_chunked(chunks, title)
+                logger.info(f"   🔍 Categorizing policy implications...")
+                categories = self._categorize_bill_chunked(chunks_to_analyze, title)
                 if categories and isinstance(categories, dict):
                     analysis_results['policy_implications'] = categories
             except Exception as e:
                 logger.error(f"Categorization failed: {e}")
             
             try:
-                stakeholders = self._analyze_stakeholders_chunked(chunks, title)
+                logger.info(f"   🔍 Analyzing stakeholders...")
+                stakeholders = self._analyze_stakeholders_chunked(chunks_to_analyze, title)
                 if stakeholders and isinstance(stakeholders, dict):
                     analysis_results['stakeholders'] = stakeholders
             except Exception as e:
@@ -305,11 +320,28 @@ class EnhancedAIAnalyzer:
             except Exception as e:
                 logger.error(f"Controversy detection failed: {e}")
             
-            # Add enhanced metadata
+            # Add enhanced metadata including progressive analysis info
             analysis_results['generated_at'] = datetime.now().isoformat()
             analysis_results['analysis_method'] = 'enhanced_chunked_with_hidden_detection'
-            analysis_results['chunks_analyzed'] = len(chunks)
+            analysis_results['chunks_analyzed'] = len(chunks_to_analyze)
+            analysis_results['total_chunks_available'] = len(chunks)
+            analysis_results['analysis_completeness'] = 'full' if len(chunks_to_analyze) == len(chunks) else 'partial'
             analysis_results['hidden_detection_enabled'] = True
+            
+            # Log final analysis status
+            if len(chunks_to_analyze) < len(chunks):
+                logger.warning(f"⚠️ Partial analysis completed: {len(chunks_to_analyze)}/{len(chunks)} chunks analyzed due to API quota limits")
+                logger.info(f"   📊 Analysis completeness: {(len(chunks_to_analyze)/len(chunks)*100):.1f}%")
+                logger.info(f"   💡 Tip: Re-run analysis later for remaining {len(chunks) - len(chunks_to_analyze)} chunks")
+            else:
+                logger.info(f"✅ Full analysis completed: All {len(chunks)} chunks analyzed successfully")
+            
+            # Add quota usage info to results
+            analysis_results['quota_usage'] = {
+                'requests_used': self.requests_this_minute,
+                'requests_available_at_start': available_requests,
+                'analysis_was_limited_by_quota': len(chunks_to_analyze) < len(chunks)
+            }
             
             # Calculate overall risk score
             risk_score = self._calculate_overall_risk_score(analysis_results)
@@ -1465,6 +1497,95 @@ class EnhancedAIAnalyzer:
             logger.warning(f"   Rate limit resets in {self.get_rate_limit_status()['time_until_reset']:.1f} seconds")
         
         return can_handle
+    
+    def _calculate_analyzable_chunks(self, chunks: List[BillChunk], available_requests: int) -> List[BillChunk]:
+        """Calculate how many chunks we can analyze with available API quota"""
+        if available_requests <= 2:  # Keep 2 requests as buffer
+            logger.warning(f"⚠️ Insufficient quota ({available_requests}), no chunks can be analyzed")
+            return []
+        
+        # Reserve requests for overall analysis (summary, final assessment)
+        reserved_requests = 3
+        usable_requests = max(0, available_requests - reserved_requests)
+        
+        # Each chunk needs approximately 5 requests for full analysis
+        requests_per_chunk = 5
+        max_chunks = max(0, usable_requests // requests_per_chunk)
+        
+        if max_chunks == 0:
+            logger.warning(f"⚠️ Not enough quota for full chunk analysis. Available: {available_requests}, need minimum: {requests_per_chunk + reserved_requests}")
+            return []
+        
+        # Sort chunks by importance and take the most important ones
+        sorted_chunks = sorted(chunks, key=lambda x: x.importance_score, reverse=True)
+        chunks_to_analyze = sorted_chunks[:max_chunks]
+        
+        logger.info(f"📊 Progressive Analysis: Analyzing {len(chunks_to_analyze)}/{len(chunks)} chunks with {usable_requests} available requests")
+        if len(chunks_to_analyze) < len(chunks):
+            logger.warning(f"⚠️ Partial analysis: {len(chunks) - len(chunks_to_analyze)} chunks will be skipped due to quota limits")
+        
+        return chunks_to_analyze
+    
+    def _wait_for_rate_limit_reset(self):
+        """Wait for rate limit to reset and log progress"""
+        if not self.minute_start_time:
+            return
+        
+        current_time = time.time()
+        elapsed = current_time - self.minute_start_time
+        wait_time = max(0, 60 - elapsed)
+        
+        if wait_time > 0:
+            logger.info(f"⏳ Waiting {wait_time:.1f} seconds for rate limit reset...")
+            logger.info(f"   Current usage: {self.requests_this_minute}/{self.max_requests_per_minute}")
+            logger.info(f"   This ensures continued analysis rather than stopping completely")
+            
+            # Wait in smaller increments to show progress
+            while wait_time > 0:
+                sleep_time = min(10, wait_time)  # Sleep max 10 seconds at a time
+                time.sleep(sleep_time)
+                wait_time -= sleep_time
+                if wait_time > 0:
+                    logger.info(f"   Still waiting... {wait_time:.1f} seconds remaining")
+            
+            # Reset rate limit counters
+            self.requests_this_minute = 0
+            self.minute_start_time = time.time()
+            logger.info(f"✅ Rate limit reset complete, ready to continue analysis")
+    
+    def _create_minimal_analysis(self, title: str, summary: str) -> Dict:
+        """Create minimal analysis when quota is insufficient for full analysis"""
+        logger.info("📝 Creating minimal analysis due to quota constraints...")
+        
+        minimal_analysis = {
+            'analysis_type': 'minimal',
+            'reason': 'insufficient_api_quota',
+            'title': title,
+            'summary': summary if summary else 'No summary available',
+            'analysis_completeness': 'partial',
+            'analyzed_sections': 'title_and_summary_only',
+            'recommendation': 'Run full analysis when API quota is available'
+        }
+        
+        # Add basic pattern-based analysis without AI
+        if title and summary:
+            combined_text = f"{title} {summary}".lower()
+            basic_flags = []
+            
+            # Check for basic suspicious patterns
+            suspicious_keywords = ['emergency', 'waiver', 'notwithstanding', 'discretionary', 'classified']
+            for keyword in suspicious_keywords:
+                if keyword in combined_text:
+                    basic_flags.append(keyword)
+            
+            if basic_flags:
+                minimal_analysis['basic_flags'] = basic_flags
+                minimal_analysis['requires_attention'] = True
+            else:
+                minimal_analysis['requires_attention'] = False
+        
+        logger.info("✅ Minimal analysis created - partial information available")
+        return minimal_analysis
 
     def _parse_response(self, response):
         logger.debug(f"[AI] Parsing response: {str(response)[:2000]}... (truncated)")

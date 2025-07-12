@@ -489,6 +489,10 @@ class WorkflowOrchestrator:
                     if 'categories' in policy_data:
                         self._store_policy_categories(bill, policy_data['categories'], analysis)
                 
+                # Store hidden provisions if detected
+                if 'hidden_provisions' in analysis:
+                    self._store_hidden_provisions(bill, analysis['hidden_provisions'], analysis)
+                
                 # Extract analysis metadata
                 chunks_analyzed = analysis.get('chunks_analyzed', 0)
                 analysis_method = analysis.get('analysis_method', 'unknown')
@@ -1149,6 +1153,92 @@ class WorkflowOrchestrator:
         except Exception as e:
             self.logger.error(f"Error stopping workflow from web: {e}")
             return {'status': 'error', 'message': str(e)}
+    
+    def _store_hidden_provisions(self, bill, hidden_provisions_data: dict, full_analysis: dict):
+        """Store detected hidden provisions with detailed reasoning in the database"""
+        try:
+            from db_models import HiddenProvision
+            
+            provisions_stored = 0
+            detected_provisions = hidden_provisions_data.get('detected_provisions', [])
+            
+            # Get analysis version to link provisions to specific analysis
+            analysis_version = 1
+            try:
+                # Query using self.session instead of bill methods that need app context
+                from db_models import AIAnalysis
+                ai_analysis = self.session.query(AIAnalysis).filter_by(bill_id=bill.id, active=True).first()
+                if ai_analysis:
+                    analysis_version = ai_analysis.analysis_version
+            except Exception:
+                pass  # Use default version 1
+            
+            self.logger.info(f"Processing {len(detected_provisions)} hidden provisions for {bill.get_bill_identifier()}")
+            
+            for provision_data in detected_provisions:
+                try:
+                    # Extract provision details
+                    suspicious_provisions = provision_data.get('suspicious_provisions', [])
+                    chunk_index = provision_data.get('chunk_index', 0)
+                    chunk_type = provision_data.get('chunk_type', 'unknown')
+                    overall_assessment = provision_data.get('overall_assessment', '')
+                    risk_level = provision_data.get('risk_level', 'low')
+                    confidence_score = provision_data.get('confidence_score', 0.0)
+                    
+                    # Create a provision record for each suspicious provision found
+                    for suspicious_provision in suspicious_provisions:
+                        provision = HiddenProvision(
+                            bill_id=bill.id,
+                            provision_type=suspicious_provision.get('type', 'Unknown'),
+                            provision_text=suspicious_provision.get('text', '')[:2000],  # Limit text length
+                            risk_level=risk_level,
+                            confidence_score=confidence_score,
+                            potential_impact=suspicious_provision.get('potential_impact', ''),
+                            recommendation=suspicious_provision.get('recommendation', ''),
+                            overall_assessment=overall_assessment,
+                            chunk_index=chunk_index,
+                            chunk_type=chunk_type,
+                            analysis_version=analysis_version,
+                            detection_method='ai_enhanced'
+                        )
+                        
+                        # Store risk factors as JSON
+                        risk_factors = suspicious_provision.get('risk_factors', [])
+                        provision.set_risk_factors(risk_factors)
+                        
+                        self.session.add(provision)
+                        provisions_stored += 1
+                        
+                        self.logger.debug(f"Stored hidden provision: {provision.provision_type} "
+                                       f"(risk: {risk_level}, confidence: {confidence_score:.2f})")
+                    
+                except Exception as provision_error:
+                    self.logger.error(f"Error processing individual provision: {provision_error}")
+                    continue
+            
+            if provisions_stored > 0:
+                self.session.commit()
+                self.logger.info(f"✅ Successfully stored {provisions_stored} hidden provisions for {bill.get_bill_identifier()}")
+                
+                # Log summary of risk levels
+                risk_summary = {}
+                for provision_data in detected_provisions:
+                    risk_level = provision_data.get('risk_level', 'low')
+                    risk_summary[risk_level] = risk_summary.get(risk_level, 0) + len(provision_data.get('suspicious_provisions', []))
+                
+                if risk_summary:
+                    summary_str = ", ".join([f"{count} {level}" for level, count in risk_summary.items()])
+                    self.logger.info(f"   📊 Risk distribution: {summary_str}")
+                    
+                    # Log high-risk provisions for immediate attention
+                    high_risk_count = risk_summary.get('high', 0)
+                    if high_risk_count > 0:
+                        self.logger.warning(f"   🚨 HIGH RISK: {high_risk_count} high-risk provisions detected!")
+            else:
+                self.logger.info(f"No hidden provisions detected for {bill.get_bill_identifier()}")
+                
+        except Exception as e:
+            self.logger.error(f"Error storing hidden provisions for {bill.get_bill_identifier()}: {e}")
 
 def dry_run_sneakiness_mapping(categories, analysis):
     """Dry run the sneakiness mapping logic without writing to the database."""

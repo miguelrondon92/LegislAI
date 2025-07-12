@@ -175,3 +175,43 @@
 2025-07-10 22:07:04,836 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:07:04] "POST /api/workflow/stop HTTP/1.1" 200 -
 2025-07-10 22:07:05,844 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:07:05] "GET /api/workflow/status HTTP/1.1" 200 -
 2025-07-10 22:07:09,769 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:07:09] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+2025-07-10 22:18:08,787 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.8.175:5001
+2025-07-10 22:18:08,788 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-10 22:18:08,789 - werkzeug - INFO -  * Restarting with stat
+2025-07-10 22:18:09,112 - werkzeug - WARNING -  * Debugger is active!
+2025-07-10 22:18:09,144 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-10 22:18:15,815 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:18:15] "GET /health HTTP/1.1" 200 -
+2025-07-10 22:18:21,073 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:18:21] "[32mGET / HTTP/1.1[0m" 302 -
+2025-07-10 22:18:21,099 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:18:21] "GET /workflow HTTP/1.1" 200 -
+2025-07-10 22:18:21,897 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:18:21] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-10 22:18:21,900 - werkzeug - INFO - 127.0.0.1 - - [10/Jul/2025 22:18:21] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-11 20:09:15,170 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.8.175:5001
+2025-07-11 20:09:15,171 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-07-11 20:09:15,172 - werkzeug - INFO -  * Restarting with stat
+2025-07-11 20:09:15,492 - werkzeug - WARNING -  * Debugger is active!
+2025-07-11 20:09:15,516 - werkzeug - INFO -  * Debugger PIN: 313-658-137
+2025-07-11 20:09:19,063 - werkzeug - INFO - 127.0.0.1 - - [11/Jul/2025 20:09:19] "[32mGET / HTTP/1.1[0m" 302 -
+2025-07-11 20:09:19,097 - werkzeug - INFO - 127.0.0.1 - - [11/Jul/2025 20:09:19] "GET /workflow HTTP/1.1" 200 -
+2025-07-11 20:09:19,865 - werkzeug - INFO - 127.0.0.1 - - [11/Jul/2025 20:09:19] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-11 20:09:19,868 - werkzeug - INFO - 127.0.0.1 - - [11/Jul/2025 20:09:19] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-11 20:09:22,570 - services.workflow_orchestrator - INFO - Starting Legislative Analysis Workflow
+2025-07-11 20:09:22,570 - services.workflow_orchestrator - INFO - Workflow started from web interface
+2025-07-11 20:09:22,571 - services.workflow_orchestrator - INFO - RSS Monitoring: Enabled
+2025-07-11 20:09:22,571 - werkzeug - INFO - 127.0.0.1 - - [11/Jul/2025 20:09:22] "POST /api/workflow/start HTTP/1.1" 200 -
+2025-07-11 20:09:22,571 - services.workflow_orchestrator - INFO - Backfill Processing: Disabled
+2025-07-11 20:09:22,571 - root - INFO - Starting RSS monitor with 3 feeds
+2025-07-11 20:09:22,572 - services.workflow_orchestrator - INFO - RSS monitoring thread started
+2025-07-11 20:09:22,572 - root - INFO - Keywords: ['bill', 'legislation', 'act', 'resolution']
+2025-07-11 20:09:22,572 - services.workflow_orchestrator - INFO - Starting workflow processor
+2025-07-11 20:09:22,572 - root - INFO - Check interval: 60 seconds
+2025-07-11 20:09:22,991 - root - INFO - Sleeping for 60 seconds...
+2025-07-11 20:09:23,583 - werkzeug - INFO - 127.0.0.1 - - [11/Jul/2025 20:09:23] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-11 20:09:49,956 - werkzeug - INFO - 127.0.0.1 - - [11/Jul/2025 20:09:49] "GET /api/workflow/status HTTP/1.1" 200 -
+2025-07-11 20:09:49,957 - werkzeug - INFO - 127.0.0.1 - - [11/Jul/2025 20:09:49] "GET /api/workflow/recent?limit=10 HTTP/1.1" 200 -
+2025-07-11 20:10:23,333 - root - INFO - Sleeping for 60 seconds...

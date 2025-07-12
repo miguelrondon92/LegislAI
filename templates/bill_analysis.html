@@ -552,6 +552,134 @@
         </div>
         {% endif %}
 
+        <!-- Hidden Provisions Analysis -->
+        {% set hidden_provisions = bill.get_hidden_provisions() %}
+        {% if hidden_provisions %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i data-feather="eye" class="me-2"></i>
+                    Hidden Provisions Analysis
+                    {% set provision_counts = bill.get_hidden_provisions_count() %}
+                    {% if provision_counts.high > 0 %}
+                    <span class="badge bg-danger ms-2">{{ provision_counts.high }} High Risk</span>
+                    {% endif %}
+                    {% if provision_counts.medium > 0 %}
+                    <span class="badge bg-warning ms-2">{{ provision_counts.medium }} Medium Risk</span>
+                    {% endif %}
+                    {% if provision_counts.low > 0 %}
+                    <span class="badge bg-secondary ms-2">{{ provision_counts.low }} Low Risk</span>
+                    {% endif %}
+                </h6>
+            </div>
+            <div class="card-body">
+                {% set overall_risk = bill.get_overall_hidden_risk_score() %}
+                {% if overall_risk > 0 %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span>Overall Hidden Risk Score</span>
+                        <span class="badge bg-{{ 'danger' if overall_risk > 0.6 else 'warning' if overall_risk > 0.3 else 'info' }}">
+                            {{ (overall_risk * 100)|round }}/100
+                        </span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-{{ 'danger' if overall_risk > 0.6 else 'warning' if overall_risk > 0.3 else 'info' }}" 
+                             style="width: {{ (overall_risk * 100)|round }}%"></div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="accordion" id="hiddenProvisionsAccordion">
+                    {% for provision in hidden_provisions %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button {{ 'collapsed' if loop.index > 1 else '' }}" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#provision{{ loop.index }}" 
+                                    aria-expanded="{{ 'true' if loop.index == 1 else 'false' }}">
+                                <span class="me-2">
+                                    <i data-feather="{{ provision.get_risk_icon() }}" 
+                                       class="text-{{ provision.get_risk_color() }}" 
+                                       style="width: 16px; height: 16px;"></i>
+                                </span>
+                                <strong>{{ provision.provision_type }}</strong>
+                                <span class="badge bg-{{ provision.get_risk_color() }} ms-auto me-2">
+                                    {{ provision.risk_level.title() }} Risk
+                                </span>
+                                <small class="text-muted">{{ (provision.confidence_score * 100)|round }}% confidence</small>
+                            </button>
+                        </h2>
+                        <div id="provision{{ loop.index }}" 
+                             class="accordion-collapse collapse {{ 'show' if loop.index == 1 else '' }}" 
+                             data-bs-parent="#hiddenProvisionsAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <h6>Provision Text:</h6>
+                                        <p class="text-muted">{{ provision.provision_text }}</p>
+                                        
+                                        {% if provision.potential_impact %}
+                                        <h6>Potential Impact:</h6>
+                                        <p class="text-muted">{{ provision.potential_impact }}</p>
+                                        {% endif %}
+                                        
+                                        {% if provision.recommendation %}
+                                        <h6>Recommendation:</h6>
+                                        <p class="text-warning">{{ provision.recommendation }}</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h6>Risk Details:</h6>
+                                        <table class="table table-sm table-borderless">
+                                            <tr>
+                                                <td><strong>Risk Level:</strong></td>
+                                                <td><span class="badge bg-{{ provision.get_risk_color() }}">{{ provision.risk_level.title() }}</span></td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Confidence:</strong></td>
+                                                <td>{{ (provision.confidence_score * 100)|round }}%</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Risk Score:</strong></td>
+                                                <td>{{ (provision.get_risk_score() * 100)|round }}/100</td>
+                                            </tr>
+                                            {% if provision.chunk_type %}
+                                            <tr>
+                                                <td><strong>Location:</strong></td>
+                                                <td>{{ provision.chunk_type.title() }}</td>
+                                            </tr>
+                                            {% endif %}
+                                        </table>
+                                        
+                                        {% set risk_factors = provision.get_risk_factors() %}
+                                        {% if risk_factors %}
+                                        <h6>Risk Factors:</h6>
+                                        <ul class="list-unstyled">
+                                            {% for factor in risk_factors %}
+                                            <li><small class="text-muted">• {{ factor }}</small></li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if hidden_provisions|length > 3 %}
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        {{ hidden_provisions|length }} total hidden provisions detected. 
+                        <a href="#" onclick="expandAllProvisions()">Expand all</a> | 
+                        <a href="#" onclick="collapseAllProvisions()">Collapse all</a>
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Quick Actions -->
         <div class="card">
             <div class="card-header">
@@ -656,6 +784,28 @@ function shareAnalysis() {
             alert('Link copied to clipboard!');
         });
     }
+}
+
+function expandAllProvisions() {
+    document.querySelectorAll('#hiddenProvisionsAccordion .accordion-collapse').forEach(function(element) {
+        if (!element.classList.contains('show')) {
+            element.classList.add('show');
+        }
+    });
+    document.querySelectorAll('#hiddenProvisionsAccordion .accordion-button').forEach(function(element) {
+        element.classList.remove('collapsed');
+        element.setAttribute('aria-expanded', 'true');
+    });
+}
+
+function collapseAllProvisions() {
+    document.querySelectorAll('#hiddenProvisionsAccordion .accordion-collapse').forEach(function(element) {
+        element.classList.remove('show');
+    });
+    document.querySelectorAll('#hiddenProvisionsAccordion .accordion-button').forEach(function(element) {
+        element.classList.add('collapsed');
+        element.setAttribute('aria-expanded', 'false');
+    });
 }
 </script>
 {% endif %}

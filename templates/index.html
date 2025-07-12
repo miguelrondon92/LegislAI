@@ -89,9 +89,35 @@
                                 <div class="ms-3">
                                     {% set complexity = bill.get_complexity_score_new() %}
                                     {% if complexity is not none %}
-                                    <span class="badge bg-info">
-                                        Complexity: {{ "%.0f"|format(complexity * 100) }}/100
-                                    </span>
+                                    <div class="mb-2">
+                                        <span class="badge bg-info">
+                                            Complexity: {{ "%.0f"|format(complexity * 100) }}/100
+                                        </span>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% set hidden_provisions_count = bill.get_hidden_provisions_count() %}
+                                    {% if hidden_provisions_count.total > 0 %}
+                                    <div>
+                                        {% if hidden_provisions_count.high > 0 %}
+                                        <span class="badge bg-danger me-1">
+                                            <i data-feather="alert-triangle" style="width: 10px; height: 10px;"></i>
+                                            {{ hidden_provisions_count.high }}
+                                        </span>
+                                        {% endif %}
+                                        {% if hidden_provisions_count.medium > 0 %}
+                                        <span class="badge bg-warning me-1">
+                                            <i data-feather="alert-circle" style="width: 10px; height: 10px;"></i>
+                                            {{ hidden_provisions_count.medium }}
+                                        </span>
+                                        {% endif %}
+                                        {% if hidden_provisions_count.low > 0 %}
+                                        <span class="badge bg-secondary">
+                                            <i data-feather="info" style="width: 10px; height: 10px;"></i>
+                                            {{ hidden_provisions_count.low }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
                                     {% endif %}
                                 </div>
                             </div>

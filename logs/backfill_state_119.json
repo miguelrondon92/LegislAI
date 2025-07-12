@@ -1,59 +1,25 @@
 {
   "congress_session": 119,
   "status": "completed",
-  "processing_mode": "full_processing",
-  "start_time": "2025-07-05T22:26:50.855465",
-  "last_update": "2025-07-05T22:27:56.364218",
-  "total_bills_discovered": 3,
-  "bills_discovered": [
-    {
-      "identifier": "119-HR618",
-      "congress": 119,
-      "bill_type": "hr",
-      "bill_number": "618",
-      "title": "Apex Area Technical Corrections Act",
-      "url": "https://api.congress.gov/v3/bill/119/hr/618?format=json",
-      "introduced_date": null,
-      "update_date": "2025-07-04",
-      "latest_action": "Presented to President."
-    },
-    {
-      "identifier": "119-HR43",
-      "congress": 119,
-      "bill_type": "hr",
-      "bill_number": "43",
-      "title": "Alaska Native Village Municipal Lands Restoration Act of 2025",
-      "url": "https://api.congress.gov/v3/bill/119/hr/43?format=json",
-      "introduced_date": null,
-      "update_date": "2025-07-04",
-      "latest_action": "Presented to President."
-    },
-    {
-      "identifier": "119-HR42",
-      "congress": 119,
-      "bill_type": "hr",
-      "bill_number": "42",
-      "title": "Alaska Native Settlement Trust Eligibility Act",
-      "url": "https://api.congress.gov/v3/bill/119/hr/42?format=json",
-      "introduced_date": null,
-      "update_date": "2025-07-04",
-      "latest_action": "Presented to President."
-    }
-  ],
-  "discovery_offset": 250,
+  "processing_mode": "analysis_only",
+  "start_time": "2025-07-12T11:34:02.592743",
+  "last_update": "2025-07-12T11:35:48.968442",
+  "total_bills_discovered": 0,
+  "bills_discovered": [],
+  "discovery_offset": 0,
   "discovery_complete": true,
-  "bills_processed": 3,
+  "bills_processed": 24,
   "bills_analyzed": 0,
   "bills_failed": 0,
-  "current_batch": 3,
-  "last_processed_bill": "119-HR42",
+  "current_batch": 12,
+  "last_processed_bill": "119-S2244",
   "errors": [],
   "api_quota_hits": 0,
   "stats": {
-    "session_total_bills": 3,
-    "db_existing_bills": 0,
-    "db_analyzed_bills": 0,
-    "missing_bills": 3,
-    "unanalyzed_bills": 0
+    "session_total_bills": 0,
+    "db_existing_bills": 75,
+    "db_analyzed_bills": 51,
+    "missing_bills": 0,
+    "unanalyzed_bills": 24
   }
 }

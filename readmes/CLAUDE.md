@@ -39,6 +39,7 @@ LegislAI is a Python-based Flask web application that analyzes U.S. legislative 
 - **BillAction**: Congressional actions and timeline events for bills
 - **UserBillAlignment**: User-specific alignment scores and analysis details for bills
 - **WatchlistItem**: User-created watchlists for tracking specific bills
+- **HiddenProvision**: Detected hidden/sneaky provisions in bills with detailed risk analysis
 
 ## Web Routes and API Endpoints
 
@@ -123,7 +124,7 @@ The system uses a sophisticated chunked analysis approach for large bills:
 4. Results are combined into comprehensive analysis including:
    - Policy implications categorized into 36 federal policy areas
    - Stakeholder impact analysis with winners/losers
-   - Hidden provision detection using pattern matching
+   - Hidden provision detection using 28 suspicious language patterns with detailed reasoning and risk scoring
    - Complexity scoring (0-1 scale, displayed as 0-100)
    - Controversy assessment and risk scoring
 
@@ -180,6 +181,43 @@ The `WorkflowOrchestrator` coordinates:
 - **Backward compatibility**: Old `Bill.ai_analysis` field maintained as fallback, existing code continues to work
 - **Enhanced AI analyzer**: Now creates new analysis versions using `create_new_analysis_version()` method
 
+### Hidden Provisions Detection System
+A sophisticated system for detecting and analyzing potentially problematic bill language:
+
+#### Detection Capabilities
+- **28 Pattern-Based Detection**: Sophisticated regex patterns for suspicious language:
+  - "notwithstanding any other provision of law"
+  - "waiver of requirements", "exemption from review"
+  - "emergency authority", "discretionary power"
+  - "fast track", "expedited approval"
+  - "sunset provision", "grandfather clause"
+  - And 18 additional patterns for comprehensive coverage
+
+#### Risk Assessment Framework
+- **Risk Levels**: Low, Medium, High with color-coded visual indicators
+- **Confidence Scoring**: 0.0-1.0 confidence in detection accuracy
+- **Risk Factors**: Detailed JSON array of specific concerns
+- **Impact Analysis**: Potential consequences and recommendations
+- **Overall Risk Score**: Calculated aggregate score per bill
+
+#### Database Storage
+- **HiddenProvision Table**: Comprehensive storage of detected provisions
+- **Bill Integration**: Foreign key relationships with proper indexing
+- **Analysis Versioning**: Links to specific AI analysis versions
+- **Metadata Tracking**: Chunk location, detection method, timestamps
+
+#### Web Interface Integration
+- **Search Results**: Color-coded badges showing hidden provision counts
+- **Bill Analysis**: Detailed accordion-style provision breakdown
+- **Dashboard**: Risk indicators on recent bills display
+- **Interactive Features**: Expand/collapse all provisions, risk filtering
+
+#### Bill Helper Methods
+- `get_hidden_provisions(risk_level=None)` - Filter provisions by risk level
+- `get_hidden_provisions_count()` - Risk level breakdown statistics
+- `has_high_risk_provisions()` - Boolean check for high-risk items
+- `get_overall_hidden_risk_score()` - Calculated aggregate risk assessment
+
 ## New Database Schema (AIAnalysis & Summary Tables)
 
 ### AIAnalysis Table
@@ -214,6 +252,27 @@ class Summary(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 ```
 
+### HiddenProvision Table
+```python
+class HiddenProvision(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False)
+    provision_type = db.Column(db.String(200), nullable=False)  # Type of provision
+    provision_text = db.Column(db.Text, nullable=False)  # Exact text or description
+    risk_level = db.Column(db.String(20), nullable=False)  # low, medium, high
+    confidence_score = db.Column(db.Float, nullable=False, default=0.0)  # 0.0-1.0
+    risk_factors = db.Column(db.Text)  # JSON array of risk factors
+    potential_impact = db.Column(db.Text)  # Description of potential impact
+    recommendation = db.Column(db.Text)  # What to watch for
+    overall_assessment = db.Column(db.Text)  # Brief assessment
+    chunk_index = db.Column(db.Integer)  # Which chunk this was found in
+    chunk_type = db.Column(db.String(100))  # Type of chunk (section, subsection, etc.)
+    section_reference = db.Column(db.String(200))  # Section reference if available
+    analysis_version = db.Column(db.Integer, nullable=False, default=1)
+    detection_method = db.Column(db.String(50), default='ai_enhanced')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+```
+
 ### New Bill Methods
 - `get_active_ai_analysis()` - Returns active AIAnalysis record
 - `get_active_summary()` - Returns active Summary record  
@@ -222,6 +281,12 @@ class Summary(db.Model):
 - `get_summary_text()` - Gets summary text from Summary table (fallback to old field)
 - `create_new_analysis_version()` - Creates new analysis version, deactivating previous ones
 - `create_new_summary_version()` - Creates new summary version with versioning support
+
+### Hidden Provisions Bill Methods
+- `get_hidden_provisions(risk_level=None)` - Returns hidden provisions filtered by risk level
+- `get_hidden_provisions_count()` - Returns risk level breakdown dictionary
+- `has_high_risk_provisions()` - Boolean check for high-risk provisions
+- `get_overall_hidden_risk_score()` - Calculated aggregate risk score (0.0-1.0)
 
 ## File Structure Notes
 
@@ -244,6 +309,7 @@ class Summary(db.Model):
 ### Implementation Summaries  
 - **`DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`** - Comprehensive log of database structure optimization (AI analysis → separate tables)
 - **`DATABASE_OPTIMIZATION_SUMMARY.md`** - Technical summary of database optimization with schema definitions
+- **`HIDDEN_PROVISIONS_IMPLEMENTATION_SUMMARY.md`** - Complete hidden provisions detection system implementation
 - **`FULL_TEXT_ANALYSIS_IMPLEMENTATION_SUMMARY.md`** - Full text analysis enhancement implementation
 - **`BILL_SEARCH_ENHANCEMENT_SUMMARY.md`** - Bill search functionality improvements
 - **`HOMEPAGE_DUPLICATE_FIX_SUMMARY.md`** - Homepage duplicate bill display fixes

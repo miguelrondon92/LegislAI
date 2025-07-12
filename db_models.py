@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlalchemy import JSON
 import json
+import logging
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
@@ -161,10 +162,24 @@ class Bill(db.Model):
     def get_bill_identifier(self):
         return f"{self.congress}-{self.bill_type.upper()}{self.bill_number}"
     def get_full_text(self):
-        """Get full text from Congress API (not stored in database)"""
-        # This method is kept for compatibility but should not be used
-        # The workflow orchestrator now fetches text directly from Congress API
-        return self.summary or ''
+        """Get full text from Congress API"""
+        try:
+            # Import here to avoid circular imports
+            from services.congress_api import CongressAPI
+            
+            congress_api = CongressAPI()
+            full_text = congress_api.get_bill_text(self.congress, self.bill_type, self.bill_number)
+            
+            if full_text:
+                logging.info(f"Successfully fetched {len(full_text)} characters for {self.get_bill_identifier()}")
+                return full_text
+            else:
+                logging.warning(f"No full text available for {self.get_bill_identifier()}, returning summary")
+                return self.summary or ''
+                
+        except Exception as e:
+            logging.error(f"Error fetching full text for {self.get_bill_identifier()}: {e}")
+            return self.summary or ''
     def get_ai_analysis(self):
         try:
             return json.loads(self.ai_analysis) if self.ai_analysis else None
@@ -290,6 +305,36 @@ class Bill(db.Model):
         db.session.commit()
         
         return new_summary
+    
+    # Hidden Provisions helper methods
+    def get_hidden_provisions(self, risk_level=None):
+        """Get hidden provisions for this bill, optionally filtered by risk level"""
+        # Import here to avoid circular imports
+        query = db.session.query(HiddenProvision).filter_by(bill_id=self.id)
+        if risk_level:
+            query = query.filter_by(risk_level=risk_level)
+        return query.order_by(HiddenProvision.confidence_score.desc()).all()
+    
+    def get_hidden_provisions_count(self):
+        """Get count of hidden provisions by risk level"""
+        provisions = db.session.query(HiddenProvision).filter_by(bill_id=self.id).all()
+        count = {'low': 0, 'medium': 0, 'high': 0, 'total': len(provisions)}
+        for provision in provisions:
+            count[provision.risk_level] = count.get(provision.risk_level, 0) + 1
+        return count
+    
+    def has_high_risk_provisions(self):
+        """Check if this bill has any high-risk hidden provisions"""
+        return db.session.query(HiddenProvision).filter_by(bill_id=self.id, risk_level='high').count() > 0
+    
+    def get_overall_hidden_risk_score(self):
+        """Calculate overall risk score from all hidden provisions"""
+        provisions = db.session.query(HiddenProvision).filter_by(bill_id=self.id).all()
+        if not provisions:
+            return 0.0
+        
+        total_score = sum(provision.get_risk_score() for provision in provisions)
+        return min(total_score / len(provisions), 1.0)  # Normalize to 0-1 scale
 
 class Alert(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -528,4 +573,81 @@ class Summary(db.Model):
         db.session.commit()
     
     def __repr__(self):
-        return f'<Summary {self.bill_id} v{self.summary_version} active={self.active}>' 
+        return f'<Summary {self.bill_id} v{self.summary_version} active={self.active}>'
+
+class HiddenProvision(db.Model):
+    """Hidden/sneaky provisions detected in bills"""
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False)
+    
+    # Provision details
+    provision_type = db.Column(db.String(200), nullable=False)  # Type of provision
+    provision_text = db.Column(db.Text, nullable=False)  # Exact text or description
+    risk_level = db.Column(db.String(20), nullable=False)  # low, medium, high
+    confidence_score = db.Column(db.Float, nullable=False, default=0.0)  # 0.0-1.0
+    
+    # Reasoning and analysis
+    risk_factors = db.Column(db.Text)  # JSON array of risk factors
+    potential_impact = db.Column(db.Text)  # Description of potential impact
+    recommendation = db.Column(db.Text)  # What to watch for
+    overall_assessment = db.Column(db.Text)  # Brief assessment
+    
+    # Location and context
+    chunk_index = db.Column(db.Integer)  # Which chunk this was found in
+    chunk_type = db.Column(db.String(100))  # Type of chunk (section, subsection, etc.)
+    section_reference = db.Column(db.String(200))  # Section reference if available
+    
+    # Analysis metadata
+    analysis_version = db.Column(db.Integer, nullable=False, default=1)  # Links to AIAnalysis version
+    detection_method = db.Column(db.String(50), default='ai_enhanced')  # How it was detected
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    bill = db.relationship('Bill', backref='hidden_provisions', lazy=True)
+    
+    # Indexes for better querying
+    __table_args__ = (
+        db.Index('idx_bill_risk_level', 'bill_id', 'risk_level'),
+        db.Index('idx_risk_level_confidence', 'risk_level', 'confidence_score'),
+    )
+    
+    def get_risk_factors(self):
+        """Get parsed risk factors list"""
+        try:
+            return json.loads(self.risk_factors) if self.risk_factors else []
+        except:
+            return []
+    
+    def set_risk_factors(self, factors):
+        """Set risk factors as JSON"""
+        self.risk_factors = json.dumps(factors)
+    
+    def get_risk_score(self):
+        """Calculate overall risk score"""
+        risk_multipliers = {'low': 0.3, 'medium': 0.6, 'high': 1.0}
+        base_risk = risk_multipliers.get(self.risk_level.lower(), 0.3)
+        return base_risk * self.confidence_score
+    
+    def get_risk_color(self):
+        """Get appropriate color class for risk level"""
+        color_map = {
+            'low': 'success',
+            'medium': 'warning', 
+            'high': 'danger'
+        }
+        return color_map.get(self.risk_level.lower(), 'secondary')
+    
+    def get_risk_icon(self):
+        """Get appropriate icon for risk level"""
+        icon_map = {
+            'low': 'info',
+            'medium': 'alert-triangle',
+            'high': 'alert-circle'
+        }
+        return icon_map.get(self.risk_level.lower(), 'help-circle')
+    
+    def __repr__(self):
+        return f'<HiddenProvision {self.bill_id} {self.provision_type} {self.risk_level}>' 

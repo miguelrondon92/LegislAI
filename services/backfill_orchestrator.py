@@ -53,6 +53,7 @@ class ProcessingMode(Enum):
     DISCOVERY_ONLY = "discovery_only"  # Only discover bills, don't process
     FULL_PROCESSING = "full_processing"  # Discover and process with AI
     GAPS_ONLY = "gaps_only"  # Only process missing/unanalyzed bills
+    ANALYSIS_ONLY = "analysis_only"  # Only analyze existing bills, don't add new ones
 
 @dataclass
 class BackfillState:
@@ -381,11 +382,14 @@ class BackfillOrchestrator:
             )
         
         try:
-            # Step 1: Discovery (if needed)
-            if not self.state.discovery_complete:
+            # Step 1: Discovery (if needed, skip for analysis-only mode)
+            if not self.state.discovery_complete and self.config.processing_mode != ProcessingMode.ANALYSIS_ONLY:
                 logger.info("Running bill discovery...")
                 if not self.discover_bills():
                     return False
+            elif self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                logger.info("Skipping discovery phase for analysis-only mode")
+                self.state.discovery_complete = True  # Mark as complete to skip future checks
             
             # Step 2: Gap analysis
             logger.info("Running gap analysis...")
@@ -435,6 +439,25 @@ class BackfillOrchestrator:
                 
                 # Add unanalyzed bills
                 unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
+                for bill in unanalyzed_bills:
+                    bill_info = {
+                        'identifier': bill.get_bill_identifier(),
+                        'congress': bill.congress,
+                        'bill_type': bill.bill_type,
+                        'bill_number': bill.bill_number,
+                        'title': bill.title,
+                        'existing_in_db': True
+                    }
+                    bills_to_process.append(bill_info)
+        elif self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+            # Only analyze existing bills that lack AI analysis (don't add new bills)
+            with app.app_context():
+                db_bills = Bill.query.filter_by(congress=self.config.congress_session).all()
+                
+                # Only add unanalyzed bills (skip missing bills entirely)
+                unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
+                logger.info(f"Found {len(unanalyzed_bills)} existing bills without AI analysis")
+                
                 for bill in unanalyzed_bills:
                     bill_info = {
                         'identifier': bill.get_bill_identifier(),
@@ -616,6 +639,10 @@ class BackfillOrchestrator:
                                 if categories:
                                     self._create_category_mappings_with_sneakiness(bill, categories, analysis)
                             
+                            # Store hidden provisions with detailed reasoning
+                            if 'hidden_provisions' in analysis:
+                                self._store_hidden_provisions(bill, analysis['hidden_provisions'], analysis)
+                            
                             # Log comprehensive analysis information (same as workflow orchestrator)
                             chunks_analyzed = analysis.get('chunks_analyzed', 0)
                             analysis_method = analysis.get('analysis_method', 'enhanced_backfill')
@@ -780,6 +807,95 @@ class BackfillOrchestrator:
                 
         except Exception as e:
             logger.error(f"Error storing policy categories for {bill.get_bill_identifier()}: {e}")
+            db.session.rollback()
+    
+    def _store_hidden_provisions(self, bill: Bill, hidden_provisions_data: Dict, full_analysis: Dict):
+        """Store detected hidden provisions with detailed reasoning in the database"""
+        try:
+            from db_models import HiddenProvision
+            
+            # Clear existing hidden provisions for this bill
+            with app.app_context():
+                existing_provisions = HiddenProvision.query.filter_by(bill_id=bill.id).all()
+                for provision in existing_provisions:
+                    db.session.delete(provision)
+                
+                provisions_stored = 0
+                detected_provisions = hidden_provisions_data.get('detected_provisions', [])
+                
+                # Get analysis version to link provisions to specific analysis
+                analysis_version = 1
+                if hasattr(bill, 'get_active_ai_analysis'):
+                    ai_analysis = bill.get_active_ai_analysis()
+                    if ai_analysis:
+                        analysis_version = ai_analysis.analysis_version
+                
+                logger.info(f"Processing {len(detected_provisions)} hidden provisions for {bill.get_bill_identifier()}")
+                
+                for provision_data in detected_provisions:
+                    try:
+                        # Extract provision details
+                        suspicious_provisions = provision_data.get('suspicious_provisions', [])
+                        chunk_index = provision_data.get('chunk_index', 0)
+                        chunk_type = provision_data.get('chunk_type', 'unknown')
+                        overall_assessment = provision_data.get('overall_assessment', '')
+                        risk_level = provision_data.get('risk_level', 'low')
+                        confidence_score = provision_data.get('confidence_score', 0.0)
+                        
+                        # Create a provision record for each suspicious provision found
+                        for suspicious_provision in suspicious_provisions:
+                            provision = HiddenProvision(
+                                bill_id=bill.id,
+                                provision_type=suspicious_provision.get('type', 'Unknown'),
+                                provision_text=suspicious_provision.get('text', '')[:2000],  # Limit text length
+                                risk_level=risk_level,
+                                confidence_score=confidence_score,
+                                potential_impact=suspicious_provision.get('potential_impact', ''),
+                                recommendation=suspicious_provision.get('recommendation', ''),
+                                overall_assessment=overall_assessment,
+                                chunk_index=chunk_index,
+                                chunk_type=chunk_type,
+                                analysis_version=analysis_version,
+                                detection_method='ai_enhanced'
+                            )
+                            
+                            # Store risk factors as JSON
+                            risk_factors = suspicious_provision.get('risk_factors', [])
+                            provision.set_risk_factors(risk_factors)
+                            
+                            db.session.add(provision)
+                            provisions_stored += 1
+                            
+                            logger.debug(f"Stored hidden provision: {provision.provision_type} "
+                                       f"(risk: {risk_level}, confidence: {confidence_score:.2f})")
+                        
+                    except Exception as provision_error:
+                        logger.error(f"Error processing individual provision: {provision_error}")
+                        continue
+                
+                if provisions_stored > 0:
+                    db.session.commit()
+                    logger.info(f"✅ Successfully stored {provisions_stored} hidden provisions for {bill.get_bill_identifier()}")
+                    
+                    # Log summary of risk levels
+                    risk_summary = {}
+                    for provision_data in detected_provisions:
+                        risk_level = provision_data.get('risk_level', 'low')
+                        risk_summary[risk_level] = risk_summary.get(risk_level, 0) + len(provision_data.get('suspicious_provisions', []))
+                    
+                    if risk_summary:
+                        summary_str = ", ".join([f"{count} {level}" for level, count in risk_summary.items()])
+                        logger.info(f"   📊 Risk distribution: {summary_str}")
+                        
+                        # Log high-risk provisions for immediate attention
+                        high_risk_count = risk_summary.get('high', 0)
+                        if high_risk_count > 0:
+                            logger.warning(f"   ⚠️ {high_risk_count} HIGH-RISK provisions detected - requires immediate review")
+                else:
+                    logger.info(f"No hidden provisions to store for {bill.get_bill_identifier()}")
+                    
+        except Exception as e:
+            logger.error(f"Error storing hidden provisions for {bill.get_bill_identifier()}: {e}")
             db.session.rollback()
 
     def _create_category_mappings(self, bill: Bill, analysis: Dict):
@@ -959,7 +1075,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="Backfill Congressional Data")
     parser.add_argument('--congress', type=int, default=119, help='Congress session number')
-    parser.add_argument('--mode', choices=['discovery', 'full', 'gaps'], default='full',
+    parser.add_argument('--mode', choices=['discovery', 'full', 'gaps', 'analysis-only'], default='full',
                        help='Processing mode')
     parser.add_argument('--batch-size', type=int, default=10, help='Batch size for processing')
     parser.add_argument('--max-bills', type=int, default=1000, help='Maximum bills to process')
@@ -980,7 +1096,8 @@ def main():
     mode_map = {
         'discovery': ProcessingMode.DISCOVERY_ONLY,
         'full': ProcessingMode.FULL_PROCESSING,
-        'gaps': ProcessingMode.GAPS_ONLY
+        'gaps': ProcessingMode.GAPS_ONLY,
+        'analysis-only': ProcessingMode.ANALYSIS_ONLY
     }
     
     config = BackfillConfig(
