@@ -675,9 +675,16 @@ class BackfillOrchestrator:
                     bill_number=bill_info['bill_number']
                 ).first()
                 
-                if existing_bill and existing_bill.ai_analysis:
-                    logger.debug(f"Bill {identifier} already analyzed, skipping")
-                    return "already_analyzed"
+                # In analysis-only mode, check if bill is already display-ready instead of just analyzed
+                if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                    if existing_bill and existing_bill.display_ready:
+                        logger.debug(f"Bill {identifier} already display-ready, skipping")
+                        return "already_ready"
+                else:
+                    # For other modes, skip if already analyzed
+                    if existing_bill and existing_bill.ai_analysis:
+                        logger.debug(f"Bill {identifier} already analyzed, skipping")
+                        return "already_analyzed"
                 
                 # Fetch full bill data from Congress API
                 if not bill_info.get('existing_in_db'):
@@ -699,13 +706,29 @@ class BackfillOrchestrator:
                 else:
                     bill = existing_bill
                 
-                # Perform comprehensive AI analysis (equivalent to workflow orchestrator)
+                # Perform analysis based on mode and what's needed
                 if bill:
-                    # Check both old and new analysis structures
-                    has_old_analysis = bool(bill.ai_analysis)
-                    has_new_analysis = bool(bill.get_active_ai_analysis()) if hasattr(bill, 'get_active_ai_analysis') else False
+                    # For analysis-only mode, check what specific components are missing
+                    if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                        missing_components = bill_info.get('missing_components', [])
+                        logger.debug(f"Bill {identifier} missing components: {missing_components}")
+                        
+                        # Only perform analysis if specific components are missing
+                        needs_analysis = 'ai_analysis' in missing_components
+                        needs_categories = 'categories' in missing_components
+                        
+                        if not needs_analysis and not needs_categories:
+                            logger.debug(f"Bill {identifier} already has required analysis components")
+                            return "components_complete"
+                    else:
+                        # For other modes, check both old and new analysis structures
+                        has_old_analysis = bool(bill.ai_analysis)
+                        has_new_analysis = bool(bill.get_active_ai_analysis()) if hasattr(bill, 'get_active_ai_analysis') else False
+                        needs_analysis = not has_old_analysis and not has_new_analysis
                     
-                    if not has_old_analysis and not has_new_analysis:
+                    # Perform analysis if needed
+                    if (self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY and (needs_analysis or needs_categories)) or \
+                       (self.config.processing_mode != ProcessingMode.ANALYSIS_ONLY and needs_analysis):
                         import time
                         
                         logger.debug(f"Starting comprehensive AI analysis for {identifier}")
@@ -811,6 +834,30 @@ class BackfillOrchestrator:
                         else:
                             logger.warning(f"AI analysis failed for {identifier}")
                             return "analysis_failed"
+                    
+                    # Handle case where bill only needs category mappings (analysis-only mode)
+                    elif self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY and needs_categories and not needs_analysis:
+                        logger.debug(f"Bill {identifier} needs category mappings only")
+                        
+                        # Get existing analysis to extract categories
+                        active_analysis = bill.get_active_ai_analysis()
+                        if active_analysis:
+                            analysis_data = active_analysis.get_analysis_data()
+                            if analysis_data and 'policy_implications' in analysis_data:
+                                policy_data = analysis_data['policy_implications']
+                                if 'categories' in policy_data:
+                                    # Store category mappings using enhanced AI analyzer method
+                                    self.ai_analyzer._store_policy_categories(bill, policy_data['categories'], analysis_data)
+                                    logger.debug(f"Created category mappings for {identifier}")
+                                    return "categories_added"
+                        
+                        # Fallback: if no usable analysis data, we need full analysis
+                        logger.debug(f"No usable policy data found for {identifier}, needs full analysis")
+                        return "needs_full_analysis"
+                    
+                    else:
+                        logger.debug(f"Bill {identifier} processing complete")
+                        return "complete"
                 
                 return "processed"
                 

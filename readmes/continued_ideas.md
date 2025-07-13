@@ -1,3 +1,5 @@
+-- what does minimal anaylsis look like?
+
 --work on messaging service. 
 
 --more security for backend admin panel, credentials are currently being passed in. (this could be post deployment if admin panel stay only local but services production) 

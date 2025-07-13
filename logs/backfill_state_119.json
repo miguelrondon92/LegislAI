@@ -1,18 +1,18 @@
 {
   "congress_session": 119,
-  "status": "processing",
+  "status": "completed",
   "processing_mode": "analysis_only",
-  "start_time": "2025-07-13T00:26:59.184705",
-  "last_update": "2025-07-13T00:29:25.617402",
+  "start_time": "2025-07-13T10:50:10.334323",
+  "last_update": "2025-07-13T11:06:42.980584",
   "total_bills_discovered": 0,
   "bills_discovered": [],
   "discovery_offset": 0,
   "discovery_complete": true,
-  "bills_processed": 35,
-  "bills_analyzed": 25,
+  "bills_processed": 67,
+  "bills_analyzed": 30,
   "bills_failed": 0,
-  "current_batch": 35,
-  "last_processed_bill": "119-S2261",
+  "current_batch": 67,
+  "last_processed_bill": "119-HR1729",
   "errors": [],
   "api_quota_hits": 0,
   "stats": {
@@ -26,5 +26,5 @@
   },
   "display_ready_start_count": 8,
   "display_ready_goal_count": 75,
-  "bills_made_display_ready": 0
+  "bills_made_display_ready": 14
 }
