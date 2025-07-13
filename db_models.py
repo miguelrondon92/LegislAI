@@ -155,6 +155,7 @@ class Bill(db.Model):
     complexity_score = db.Column(db.Float)
     version = db.Column(db.Integer, nullable=False, default=1)
     active = db.Column(db.Boolean, nullable=False, default=True)
+    display_ready = db.Column(db.Boolean, nullable=False, default=False)
     alerts = db.relationship('Alert', backref='bill', lazy=True)
     watchlists = db.relationship('WatchlistItem', backref='bill', lazy=True)
     user_alignments = db.relationship('UserBillAlignment', backref='bill', lazy=True, cascade='all, delete-orphan')
@@ -335,6 +336,51 @@ class Bill(db.Model):
         
         total_score = sum(provision.get_risk_score() for provision in provisions)
         return min(total_score / len(provisions), 1.0)  # Normalize to 0-1 scale
+    
+    def is_analysis_complete(self):
+        """Check if bill has complete analysis for display"""
+        # Required components for complete analysis:
+        # 1. Basic bill data (title, summary)
+        # 2. AI Analysis with complexity score
+        # 3. Summary data
+        # 4. Policy categorization
+        
+        # Check basic bill data
+        if not self.title or not self.summary:
+            return False
+        
+        # Check AI Analysis
+        ai_analysis = self.get_active_ai_analysis()
+        if not ai_analysis:
+            return False
+        
+        # Check if complexity score exists (not None)
+        if ai_analysis.complexity_score is None:
+            return False
+        
+        # Check if summary exists
+        summary = self.get_active_summary()
+        if not summary or not summary.summary_text:
+            return False
+        
+        # Check policy categorization
+        categories = db.session.query(BillCategoryMapping).filter_by(bill_id=self.id).first()
+        if not categories:
+            return False
+        
+        return True
+    
+    def update_display_ready_status(self):
+        """Update the display_ready flag based on analysis completeness"""
+        old_status = self.display_ready
+        new_status = self.is_analysis_complete()
+        
+        if old_status != new_status:
+            self.display_ready = new_status
+            db.session.commit()
+            return True  # Status changed
+        
+        return False  # No change
 
 class Alert(db.Model):
     id = db.Column(db.Integer, primary_key=True)

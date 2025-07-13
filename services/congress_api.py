@@ -145,20 +145,22 @@ class CongressAPI:
         return bill
     
     def get_bill_text(self, congress, bill_type, bill_number):
-        """Get the full text of a bill with enhanced version selection"""
+        """Get the full text of a bill with enhanced version selection and exhaustive retry logic"""
+        bill_id = f"{congress}-{bill_type}-{bill_number}"
+        
         endpoint = f"/bill/{congress}/{bill_type}/{bill_number}/text"
         text_data = self._make_request(endpoint)
         
         if not text_data or 'textVersions' not in text_data:
-            logging.warning(f"No text versions available for {congress}-{bill_type}-{bill_number}")
+            logging.warning(f"No text versions available for {bill_id}")
             return None
         
         versions = text_data['textVersions']
         if not versions:
-            logging.warning(f"Empty text versions for {congress}-{bill_type}-{bill_number}")
+            logging.warning(f"Empty text versions for {bill_id}")
             return None
         
-        logging.debug(f"Found {len(versions)} text versions for {congress}-{bill_type}-{bill_number}")
+        logging.debug(f"Found {len(versions)} text versions for {bill_id}")
         
         # Prioritize version types (most complete first)
         preferred_types = ['Enrolled', 'Engrossed in House', 'Engrossed in Senate', 
@@ -172,7 +174,7 @@ class CongressAPI:
             for version in versions:
                 if version.get('type', '').strip() == preferred_type:
                     selected_version = version
-                    logging.debug(f"Selected {preferred_type} version for {congress}-{bill_type}-{bill_number}")
+                    logging.debug(f"Selected {preferred_type} version for {bill_id}")
                     break
             if selected_version:
                 break
@@ -180,39 +182,112 @@ class CongressAPI:
         # Fallback to first available version
         if not selected_version:
             selected_version = versions[0]
-            logging.debug(f"Using fallback version: {selected_version.get('type', 'Unknown')} for {congress}-{bill_type}-{bill_number}")
+            logging.debug(f"Using fallback version: {selected_version.get('type', 'Unknown')} for {bill_id}")
         
-        # Extract text content from selected version
+        # Extract text content from selected version with exhaustive retry
         formats = selected_version.get('formats', [])
         logging.debug(f"Available formats: {[f.get('type') for f in formats]}")
         
-        # Prefer 'Formatted Text' but try other text formats as fallback
-        format_preferences = ['Formatted Text', 'Text', 'HTML']
+        # Try ALL available formats, not just preferred ones
+        format_preferences = ['Formatted Text', 'Text', 'HTML', 'XML', 'PDF']
         
+        # First try preferred formats
         for preferred_format in format_preferences:
-            for format_info in formats:
-                if format_info.get('type') == preferred_format:
-                    text_url = format_info.get('url')
-                    if text_url:
-                        try:
-                            logging.debug(f"Fetching {preferred_format} from: {text_url}")
-                            text_response = self.session.get(text_url, timeout=60)  # Increased timeout
-                            if text_response.status_code == 200:
-                                # Clean HTML tags but preserve structure
-                                clean_text = re.sub(r'<[^>]*>', '', text_response.text)
-                                # Remove excessive whitespace
-                                clean_text = re.sub(r'\n\s*\n', '\n\n', clean_text)
-                                clean_text = clean_text.strip()
-                                
-                                logging.info(f"Successfully fetched {len(clean_text):,} characters of {preferred_format} for {congress}-{bill_type}-{bill_number}")
-                                return clean_text
-                            else:
-                                logging.warning(f"HTTP {text_response.status_code} for {text_url}")
-                        except Exception as e:
-                            logging.error(f"Error fetching {preferred_format} from {text_url}: {str(e)}")
-                            continue
+            success = self._try_fetch_format(formats, preferred_format, bill_id)
+            if success:
+                return success
         
-        logging.error(f"Failed to fetch text content for {congress}-{bill_type}-{bill_number}")
+        # If preferred formats fail, try ALL available formats
+        logging.warning(f"Preferred formats failed for {bill_id}, trying all available formats")
+        for format_info in formats:
+            format_type = format_info.get('type', 'Unknown')
+            if format_type not in format_preferences:  # Try formats we haven't tried yet
+                success = self._try_fetch_single_format(format_info, format_type, bill_id)
+                if success:
+                    return success
+        
+        logging.error(f"EXHAUSTED ALL OPTIONS: Failed to fetch text content for {bill_id} after trying all {len(formats)} available formats")
+        logging.error(f"Available formats were: {[f.get('type') for f in formats]}")
+        return None
+    
+    def _try_fetch_format(self, formats, preferred_format, bill_id):
+        """Try to fetch a specific format type with retries"""
+        for format_info in formats:
+            if format_info.get('type') == preferred_format:
+                return self._try_fetch_single_format(format_info, preferred_format, bill_id)
+        return None
+    
+    def _try_fetch_single_format(self, format_info, format_type, bill_id):
+        """Try to fetch from a single format with comprehensive error handling"""
+        text_url = format_info.get('url')
+        if not text_url:
+            logging.debug(f"No URL for {format_type} format for {bill_id}")
+            return None
+        
+        max_retries = 3
+        timeouts = [30, 60, 120]  # Progressive timeout increases
+        
+        for attempt in range(max_retries):
+            try:
+                timeout = timeouts[min(attempt, len(timeouts)-1)]
+                logging.debug(f"Fetching {format_type} from: {text_url} (attempt {attempt+1}/{max_retries}, timeout={timeout}s)")
+                
+                text_response = self.session.get(text_url, timeout=timeout)
+                
+                if text_response.status_code == 200:
+                    # Handle different content types
+                    content_type = text_response.headers.get('content-type', '').lower()
+                    
+                    if 'pdf' in content_type:
+                        logging.warning(f"PDF format not supported for text extraction for {bill_id}")
+                        continue
+                    
+                    # Clean and process text content
+                    raw_text = text_response.text
+                    if not raw_text or len(raw_text.strip()) < 100:  # Minimal content check
+                        logging.warning(f"Insufficient content in {format_type} for {bill_id} (only {len(raw_text)} chars)")
+                        continue
+                    
+                    # Clean HTML tags but preserve structure
+                    clean_text = re.sub(r'<[^>]*>', '', raw_text)
+                    # Remove excessive whitespace
+                    clean_text = re.sub(r'\n\s*\n', '\n\n', clean_text)
+                    clean_text = clean_text.strip()
+                    
+                    if len(clean_text) > 100:  # Final sanity check
+                        logging.info(f"Successfully fetched {len(clean_text):,} characters of {format_type} for {bill_id}")
+                        return clean_text
+                    else:
+                        logging.warning(f"Cleaned content too short for {bill_id} ({len(clean_text)} chars)")
+                        
+                elif text_response.status_code == 404:
+                    logging.warning(f"Format {format_type} not found (404) for {bill_id}")
+                    break  # Don't retry 404s
+                elif text_response.status_code in [429, 503]:
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    logging.warning(f"Rate limited/service unavailable ({text_response.status_code}) for {bill_id}, waiting {wait_time}s")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logging.warning(f"HTTP {text_response.status_code} for {format_type} at {text_url}")
+                    
+            except requests.exceptions.Timeout:
+                logging.warning(f"Timeout ({timeout}s) fetching {format_type} for {bill_id} (attempt {attempt+1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Wait before retry
+                    continue
+            except requests.exceptions.ConnectionError as e:
+                logging.warning(f"Connection error fetching {format_type} for {bill_id}: {str(e)} (attempt {attempt+1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+            except Exception as e:
+                logging.error(f"Unexpected error fetching {format_type} for {bill_id}: {str(e)} (attempt {attempt+1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+        
+        logging.warning(f"Failed to fetch {format_type} for {bill_id} after {max_retries} attempts")
         return None
     
     def get_bill_actions(self, congress, bill_type, bill_number):

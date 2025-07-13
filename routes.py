@@ -91,12 +91,12 @@ def _get_or_fetch_bill_by_number(search_query, congress):
             
         bill_congress, bill_type, bill_number = bill_parts
         
-        # Check if bill exists in database
+        # Check if bill exists in database (prioritize display-ready, but include all)
         existing_bill = Bill.query.filter_by(
             congress=bill_congress,
             bill_type=bill_type, 
             bill_number=bill_number
-        ).first()
+        ).order_by(Bill.display_ready.desc(), Bill.id.desc()).first()
         
         if existing_bill:
             logging.info(f"Found existing bill in database: {existing_bill.get_bill_identifier()}")
@@ -106,8 +106,9 @@ def _get_or_fetch_bill_by_number(search_query, congress):
                 logging.info("No actions found, fetching from API...")
                 fetch_bill_actions_from_api(existing_bill)
             
-            # If no AI analysis, trigger it (check new table structure)
-            if not existing_bill.get_active_ai_analysis() and not existing_bill.ai_analysis:
+            # If no AI analysis, trigger it (prioritize new table structure)
+            active_analysis = existing_bill.get_active_ai_analysis()
+            if not active_analysis and not existing_bill.ai_analysis:
                 logging.info("No AI analysis found, performing analysis...")
                 _perform_analysis_if_needed(existing_bill)
             
@@ -133,18 +134,18 @@ def _search_bills_hybrid(search_query, search_type, limit=20):
     bills = []
     
     try:
-        # First, search our database for existing bills
+        # First, search our database for existing bills (prioritize display-ready)
         if search_type == 'keyword':
             # Search database bills by title/summary
             db_bills = Bill.query.filter(
                 Bill.title.contains(search_query) | 
                 Bill.summary.contains(search_query)
-            ).limit(limit//2).all()  # Get half from database
+            ).order_by(Bill.display_ready.desc(), Bill.last_updated.desc()).limit(limit//2).all()  # Get half from database
         else:  # sponsor search
             # Search database bills by sponsor
             db_bills = Bill.query.filter(
                 Bill.sponsor_name.contains(search_query)
-            ).limit(limit//2).all()
+            ).order_by(Bill.display_ready.desc(), Bill.last_updated.desc()).limit(limit//2).all()
         
         logging.info(f"Found {len(db_bills)} bills in database for {search_type} search: '{search_query}'")
         bills.extend(db_bills)
@@ -262,23 +263,8 @@ def _perform_analysis_if_needed(bill):
                 # The EnhancedAIAnalyzer automatically handles new database structure creation
                 logging.info(f"✅ Enhanced AI analysis completed for: {bill.get_bill_identifier()}")
                 
-                # Store policy categories with sneakiness scoring (equivalent to workflow orchestrator)
-                if 'policy_implications' in analysis:
-                    policy_data = analysis['policy_implications']
-                    # Check for legacy categories format or new category_breakdown format
-                    categories = policy_data.get('categories', [])
-                    if not categories and 'category_breakdown' in policy_data:
-                        # Convert new format to legacy format for category storage
-                        categories = []
-                        for cat_name, cat_data in policy_data['category_breakdown'].items():
-                            categories.append({
-                                'area': cat_name,
-                                'impact_level': 'high' if cat_data.get('relevance_score', 0) >= 0.7 else 'medium',
-                                'analysis': cat_data.get('reasoning', '')
-                            })
-                    
-                    if categories:
-                        _store_policy_categories_with_sneakiness(bill, categories, analysis)
+                # Policy categories and summaries are now automatically stored by EnhancedAIAnalyzer
+                # using the new database structure with proper versioning and display_ready status
                 
                 # Log comprehensive analysis information (same as workflow orchestrator)
                 chunks_analyzed = analysis.get('chunks_analyzed', 0)
@@ -318,9 +304,8 @@ def _perform_analysis_if_needed(bill):
                     risk_score = analysis.get('overall_risk_score', 0)
                     logging.info(f"  🚨 Overall risk score: {risk_score:.2f}")
                 
-                # Also set old field for backward compatibility
-                bill.set_ai_analysis(analysis)
-                db.session.commit()
+                # Legacy compatibility - EnhancedAIAnalyzer already handles new structure
+                # Old field set automatically by analyzer for backward compatibility
                 
                 logging.info(f"Complete analysis pipeline finished for {bill.get_bill_identifier()}")
             else:
@@ -447,8 +432,8 @@ def _store_policy_categories_with_sneakiness(bill, categories, analysis=None):
 def _get_unique_recent_bills(limit=10):
     """Get recent bills, using first record found for each unique bill (same logic as bill detail page)"""
     try:
-        # Get all bills ordered by last_updated desc
-        all_bills = Bill.query.order_by(Bill.last_updated.desc()).limit(limit*3).all()
+        # Get all display-ready bills ordered by last_updated desc
+        all_bills = Bill.query.filter_by(display_ready=True).order_by(Bill.last_updated.desc()).limit(limit*3).all()
         
         # Use a dictionary to keep track of unique bills (first version found)
         unique_bills = {}
@@ -460,11 +445,12 @@ def _get_unique_recent_bills(limit=10):
             
             # Only keep the first version of each unique bill (same as .first() logic)
             if bill_key not in bill_keys_seen:
-                # Use the same logic as bill detail page: get first record for this bill
+                # Use the same logic as bill detail page: get first display-ready record for this bill
                 first_bill = Bill.query.filter_by(
                     congress=bill.congress,
                     bill_type=bill.bill_type,
-                    bill_number=bill.bill_number
+                    bill_number=bill.bill_number,
+                    display_ready=True
                 ).first()
                 unique_bills[bill_key] = first_bill
                 bill_keys_seen.add(bill_key)
@@ -482,8 +468,8 @@ def _get_unique_recent_bills(limit=10):
         
     except Exception as e:
         logging.error(f"Error getting unique recent bills: {e}")
-        # Fallback to active bills only
-        return Bill.query.filter_by(active=True).order_by(Bill.last_updated.desc()).limit(limit).all()
+        # Fallback to active and display-ready bills only
+        return Bill.query.filter_by(active=True, display_ready=True).order_by(Bill.last_updated.desc()).limit(limit).all()
 
 def fetch_bill_actions_from_api(bill):
     """Fetch and store bill actions from Congress API"""
@@ -543,20 +529,24 @@ def bill_analysis(congress, bill_type, bill_number):
     # Fetch bill actions if not already present
     fetch_bill_actions_from_api(bill)
     
-    # Perform AI analysis if not already done (check new table structure)
-    analysis = bill.get_ai_analysis_new() or bill.get_ai_analysis()
-    if not analysis:
-        try:
-            # Fetch full text from API for analysis
-            full_text = bill.get_full_text()
-            if full_text:
-                analysis = ai_analyzer.analyze_bill(full_text, bill.title)
-                bill.set_ai_analysis(analysis)
-                db.session.commit()
-            else:
-                analysis = {"error": "Unable to fetch bill text for analysis"}
-        except Exception as e:
-            logging.error(f"Error in AI analysis: {str(e)}")
+    # Perform AI analysis if not already done (use new database structure)
+    active_analysis = bill.get_active_ai_analysis()
+    if active_analysis:
+        analysis = active_analysis.get_analysis_data()
+    elif bill.get_ai_analysis():
+        analysis = bill.get_ai_analysis()  # Fallback to old structure
+    else:
+        # No analysis exists, perform comprehensive analysis
+        logging.info(f"Performing AI analysis for bill analysis page: {bill.get_bill_identifier()}")
+        _perform_analysis_if_needed(bill)
+        
+        # Get the analysis that was just created
+        new_analysis = bill.get_active_ai_analysis()
+        if new_analysis:
+            analysis = new_analysis.get_analysis_data()
+        elif bill.get_ai_analysis():
+            analysis = bill.get_ai_analysis()  # Fallback
+        else:
             analysis = {"error": "Unable to perform AI analysis at this time"}
     
     # Calculate user alignment score if user is logged in

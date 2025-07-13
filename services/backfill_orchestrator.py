@@ -53,7 +53,7 @@ class ProcessingMode(Enum):
     DISCOVERY_ONLY = "discovery_only"  # Only discover bills, don't process
     FULL_PROCESSING = "full_processing"  # Discover and process with AI
     GAPS_ONLY = "gaps_only"  # Only process missing/unanalyzed bills
-    ANALYSIS_ONLY = "analysis_only"  # Only analyze existing bills, don't add new ones
+    ANALYSIS_ONLY = "analysis_only"  # Get existing bills to display-ready state, don't add new ones
 
 @dataclass
 class BackfillState:
@@ -84,6 +84,11 @@ class BackfillState:
     # Statistics
     stats: Dict = None
     
+    # Display-ready tracking (for analysis-only mode)
+    display_ready_start_count: int = 0
+    display_ready_goal_count: int = 0
+    bills_made_display_ready: int = 0
+    
     def __post_init__(self):
         if self.bills_discovered is None:
             self.bills_discovered = []
@@ -95,7 +100,9 @@ class BackfillState:
                 'db_existing_bills': 0,
                 'db_analyzed_bills': 0,
                 'missing_bills': 0,
-                'unanalyzed_bills': 0
+                'unanalyzed_bills': 0,
+                'display_ready_bills': 0,
+                'not_display_ready_bills': 0
             }
 
 @dataclass
@@ -103,7 +110,7 @@ class BackfillConfig:
     """Configuration for backfill operations"""
     congress_session: int = 119
     processing_mode: ProcessingMode = ProcessingMode.FULL_PROCESSING
-    batch_size: int = 10
+    batch_size: int = 1
     max_bills_per_session: int = 10000
     congress_api_delay: float = 3.6  # Rate limit for Congress API
     ai_api_delay: float = 4.0  # Rate limit for AI API
@@ -182,15 +189,27 @@ class BackfillOrchestrator:
             db_bills = Bill.query.filter_by(congress=self.config.congress_session).all()
             db_bill_ids = set(bill.get_bill_identifier() for bill in db_bills)
             db_analyzed_bills = [bill for bill in db_bills if bill.ai_analysis]
+            db_display_ready_bills = [bill for bill in db_bills if bill.display_ready]
+            db_not_display_ready_bills = [bill for bill in db_bills if not bill.display_ready]
             
             self.state.stats['db_existing_bills'] = len(db_bills)
             self.state.stats['db_analyzed_bills'] = len(db_analyzed_bills)
+            self.state.stats['display_ready_bills'] = len(db_display_ready_bills)
+            self.state.stats['not_display_ready_bills'] = len(db_not_display_ready_bills)
+            
+            # For analysis-only mode, track display-ready progress
+            if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                self.state.display_ready_start_count = len(db_display_ready_bills)
+                self.state.display_ready_goal_count = len(db_bills)  # Goal: all bills display-ready
             
             logger.info(f"Database has {len(db_bills)} bills from Congress {self.config.congress_session}")
             logger.info(f"Of those, {len(db_analyzed_bills)} have AI analysis")
+            logger.info(f"Display-ready bills: {len(db_display_ready_bills)}")
+            logger.info(f"Not display-ready: {len(db_not_display_ready_bills)}")
         
         # If we haven't discovered bills yet, we need to do discovery first
-        if not self.state.discovery_complete:
+        # Exception: analysis-only mode doesn't need discovery since it only works with existing bills
+        if not self.state.discovery_complete and self.config.processing_mode != ProcessingMode.ANALYSIS_ONLY:
             logger.info("No discovery data available. Need to run discovery first.")
             return {
                 'status': 'discovery_needed',
@@ -201,14 +220,24 @@ class BackfillOrchestrator:
                 'unanalyzed_bills': len(db_bills) - len(db_analyzed_bills)
             }
         
-        # Compare discovered bills vs database
-        discovered_bill_ids = set(bill['identifier'] for bill in self.state.bills_discovered)
-        missing_bills = discovered_bill_ids - db_bill_ids
-        unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
-        
-        self.state.stats['session_total_bills'] = len(discovered_bill_ids)
-        self.state.stats['missing_bills'] = len(missing_bills)
-        self.state.stats['unanalyzed_bills'] = len(unanalyzed_bills)
+        # Compare discovered bills vs database (skip for analysis-only mode)
+        if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+            # For analysis-only mode, we only work with existing bills
+            discovered_bill_ids = set()
+            missing_bills = set()
+            unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
+            
+            self.state.stats['session_total_bills'] = len(db_bills)  # Use DB bills as total
+            self.state.stats['missing_bills'] = 0  # No missing bills in analysis-only mode
+            self.state.stats['unanalyzed_bills'] = len(unanalyzed_bills)
+        else:
+            discovered_bill_ids = set(bill['identifier'] for bill in self.state.bills_discovered)
+            missing_bills = discovered_bill_ids - db_bill_ids
+            unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
+            
+            self.state.stats['session_total_bills'] = len(discovered_bill_ids)
+            self.state.stats['missing_bills'] = len(missing_bills)
+            self.state.stats['unanalyzed_bills'] = len(unanalyzed_bills)
         
         gap_analysis = {
             'status': 'complete',
@@ -216,6 +245,8 @@ class BackfillOrchestrator:
             'discovered_bills': len(discovered_bill_ids),
             'db_bills': len(db_bills),
             'db_analyzed_bills': len(db_analyzed_bills),
+            'db_display_ready_bills': len(db_display_ready_bills),
+            'db_not_display_ready_bills': len(db_not_display_ready_bills),
             'missing_bills': len(missing_bills),
             'unanalyzed_bills': len(unanalyzed_bills),
             'missing_bill_samples': list(missing_bills)[:10],
@@ -226,8 +257,15 @@ class BackfillOrchestrator:
         logger.info(f"  Total bills discovered: {gap_analysis['discovered_bills']}")
         logger.info(f"  Bills in database: {gap_analysis['db_bills']}")
         logger.info(f"  Bills with analysis: {gap_analysis['db_analyzed_bills']}")
+        logger.info(f"  Display-ready bills: {gap_analysis['db_display_ready_bills']}")
+        logger.info(f"  Not display-ready: {gap_analysis['db_not_display_ready_bills']}")
         logger.info(f"  Missing from database: {gap_analysis['missing_bills']}")
         logger.info(f"  Missing analysis: {gap_analysis['unanalyzed_bills']}")
+        
+        # Special logging for analysis-only mode
+        if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+            logger.info(f"🎯 Analysis-Only Mode Goal: Get all {len(db_bills)} bills to display-ready state")
+            logger.info(f"📊 Current progress: {len(db_display_ready_bills)}/{len(db_bills)} bills display-ready ({len(db_display_ready_bills)/len(db_bills)*100:.1f}%)")
         
         return gap_analysis
     
@@ -450,24 +488,62 @@ class BackfillOrchestrator:
                     }
                     bills_to_process.append(bill_info)
         elif self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
-            # Only analyze existing bills that lack AI analysis (don't add new bills)
+            # Focus on getting bills to display-ready state (don't add new bills)
             with app.app_context():
                 db_bills = Bill.query.filter_by(congress=self.config.congress_session).all()
                 
-                # Only add unanalyzed bills (skip missing bills entirely)
-                unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
-                logger.info(f"Found {len(unanalyzed_bills)} existing bills without AI analysis")
+                # Target bills that are not display-ready
+                not_display_ready_bills = [bill for bill in db_bills if not bill.display_ready]
+                logger.info(f"Found {len(not_display_ready_bills)} bills not ready for display")
                 
-                for bill in unanalyzed_bills:
+                # Log analysis of what's missing for display-ready status
+                missing_analysis_count = 0
+                missing_complexity_count = 0
+                missing_summary_count = 0
+                missing_categories_count = 0
+                
+                for bill in not_display_ready_bills:
+                    # Check what each bill is missing
+                    reasons = []
+                    if not bill.title or not bill.summary:
+                        reasons.append("basic_data")
+                    
+                    ai_analysis = bill.get_active_ai_analysis()
+                    if not ai_analysis:
+                        reasons.append("ai_analysis")
+                        missing_analysis_count += 1
+                    elif ai_analysis.complexity_score is None:
+                        reasons.append("complexity_score")
+                        missing_complexity_count += 1
+                    
+                    summary = bill.get_active_summary()
+                    if not summary or not summary.summary_text:
+                        reasons.append("summary")
+                        missing_summary_count += 1
+                    
+                    from db_models import BillCategoryMapping
+                    categories = db.session.query(BillCategoryMapping).filter_by(bill_id=bill.id).first()
+                    if not categories:
+                        reasons.append("categories")
+                        missing_categories_count += 1
+                    
                     bill_info = {
                         'identifier': bill.get_bill_identifier(),
                         'congress': bill.congress,
                         'bill_type': bill.bill_type,
                         'bill_number': bill.bill_number,
                         'title': bill.title,
-                        'existing_in_db': True
+                        'existing_in_db': True,
+                        'missing_components': reasons
                     }
                     bills_to_process.append(bill_info)
+                
+                logger.info(f"Display-ready analysis breakdown:")
+                logger.info(f"  Missing AI analysis: {missing_analysis_count}")
+                logger.info(f"  Missing complexity score: {missing_complexity_count}")
+                logger.info(f"  Missing summary: {missing_summary_count}")
+                logger.info(f"  Missing categories: {missing_categories_count}")
+                logger.info(f"  Total bills to process: {len(bills_to_process)}")
         else:
             # Process all discovered bills
             bills_to_process = self.state.bills_discovered
@@ -501,11 +577,35 @@ class BackfillOrchestrator:
             # Process each bill in the batch
             for bill_info in batch:
                 try:
+                    # Check if bill was display-ready before processing
+                    was_display_ready = False
+                    if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                        with app.app_context():
+                            existing_bill = Bill.query.filter_by(
+                                congress=bill_info['congress'],
+                                bill_type=bill_info['bill_type'],
+                                bill_number=bill_info['bill_number']
+                            ).first()
+                            if existing_bill:
+                                was_display_ready = existing_bill.display_ready
+                    
                     success = self._process_single_bill(bill_info)
                     if success:
                         self.state.bills_processed += 1
                         if 'analyzed' in str(success).lower():
                             self.state.bills_analyzed += 1
+                        
+                        # Check if bill became display-ready after processing
+                        if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY and not was_display_ready:
+                            with app.app_context():
+                                existing_bill = Bill.query.filter_by(
+                                    congress=bill_info['congress'],
+                                    bill_type=bill_info['bill_type'],
+                                    bill_number=bill_info['bill_number']
+                                ).first()
+                                if existing_bill and existing_bill.display_ready:
+                                    self.state.bills_made_display_ready += 1
+                                    logger.info(f"✅ {bill_info['identifier']} is now display-ready!")
                     else:
                         self.state.bills_failed += 1
                         
@@ -529,7 +629,13 @@ class BackfillOrchestrator:
             # Save state after each batch
             if batch_num % self.config.save_state_frequency == 0:
                 self._save_state()
-                logger.info(f"Progress: {self.state.bills_processed} processed, {self.state.bills_analyzed} analyzed, {self.state.bills_failed} failed")
+                if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                    current_display_ready = self.state.display_ready_start_count + self.state.bills_made_display_ready
+                    progress_pct = (current_display_ready / self.state.display_ready_goal_count * 100) if self.state.display_ready_goal_count > 0 else 0
+                    logger.info(f"Progress: {self.state.bills_processed} processed, {self.state.bills_analyzed} analyzed, {self.state.bills_failed} failed")
+                    logger.info(f"📊 Display-ready progress: {current_display_ready}/{self.state.display_ready_goal_count} ({progress_pct:.1f}%) - {self.state.bills_made_display_ready} made display-ready this session")
+                else:
+                    logger.info(f"Progress: {self.state.bills_processed} processed, {self.state.bills_analyzed} analyzed, {self.state.bills_failed} failed")
         
         # Mark as completed
         self.state.status = BackfillStatus.COMPLETED.value
@@ -537,6 +643,21 @@ class BackfillOrchestrator:
         
         logger.info("Backfill processing completed!")
         logger.info(f"Final stats: {self.state.bills_processed} processed, {self.state.bills_analyzed} analyzed, {self.state.bills_failed} failed")
+        
+        # Special completion summary for analysis-only mode
+        if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+            final_display_ready = self.state.display_ready_start_count + self.state.bills_made_display_ready
+            final_progress_pct = (final_display_ready / self.state.display_ready_goal_count * 100) if self.state.display_ready_goal_count > 0 else 0
+            logger.info("🎯 Analysis-Only Mode Results:")
+            logger.info(f"   Started with: {self.state.display_ready_start_count} display-ready bills")
+            logger.info(f"   Made display-ready: {self.state.bills_made_display_ready} bills")
+            logger.info(f"   Final count: {final_display_ready}/{self.state.display_ready_goal_count} bills display-ready ({final_progress_pct:.1f}%)")
+            
+            if final_display_ready == self.state.display_ready_goal_count:
+                logger.info("🎉 SUCCESS: All bills are now display-ready!")
+            else:
+                remaining = self.state.display_ready_goal_count - final_display_ready
+                logger.info(f"📋 {remaining} bills still need work to become display-ready")
         
         return True
     
@@ -802,6 +923,12 @@ class BackfillOrchestrator:
             if categories_stored > 0:
                 db.session.commit()
                 logger.info(f"Successfully stored {categories_stored} policy category mappings for {bill.get_bill_identifier()}")
+                
+                # Update display_ready status after policy categories are stored
+                if hasattr(bill, 'update_display_ready_status'):
+                    status_changed = bill.update_display_ready_status()
+                    if status_changed:
+                        logger.info(f"Bill {bill.get_bill_identifier()} is now display ready")
             else:
                 logger.warning(f"No new policy category mappings were stored for {bill.get_bill_identifier()}")
                 
@@ -1077,7 +1204,7 @@ def main():
     parser.add_argument('--congress', type=int, default=119, help='Congress session number')
     parser.add_argument('--mode', choices=['discovery', 'full', 'gaps', 'analysis-only'], default='full',
                        help='Processing mode')
-    parser.add_argument('--batch-size', type=int, default=10, help='Batch size for processing')
+    parser.add_argument('--batch-size', type=int, default=1, help='Batch size for processing (default: 1 for careful, API-friendly processing)')
     parser.add_argument('--max-bills', type=int, default=1000, help='Maximum bills to process')
     parser.add_argument('--resume', action='store_true', help='Resume from previous state')
     parser.add_argument('--reset', action='store_true', help='Reset state and start fresh')

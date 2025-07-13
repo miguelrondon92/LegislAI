@@ -160,10 +160,11 @@
                                 
                                 <div class="col-md-4 d-flex flex-column justify-content-between">
                                     <div class="mb-3">
-                                        {% if bill.complexity_score %}
+                                        {% set complexity = bill.get_complexity_score_new() %}
+                                        {% if complexity is not none %}
                                         <div class="mb-2">
                                             <span class="badge bg-info">
-                                                Complexity: {{ "%.0f"|format(bill.complexity_score) }}/100
+                                                Complexity: {{ "%.0f"|format(complexity * 100) }}/100
                                             </span>
                                         </div>
                                         {% endif %}
@@ -241,10 +242,11 @@
                                     {% endif %}
                                     
                                     <div class="mt-auto">
-                                        {% if bill.complexity_score %}
+                                        {% set complexity = bill.get_complexity_score_new() %}
+                                        {% if complexity is not none %}
                                         <div class="mb-2">
                                             <span class="badge bg-info">
-                                                Complexity: {{ "%.0f"|format(bill.complexity_score) }}
+                                                Complexity: {{ "%.0f"|format(complexity * 100) }}
                                             </span>
                                         </div>
                                         {% endif %}

@@ -385,11 +385,36 @@ class EnhancedAIAnalyzer:
                             implementation_timeline=summary_data.get('implementation_timeline'),
                             summary_type='ai_generated'
                         )
+                    
+                    # Store policy category mappings if available
+                    if 'policy_implications' in analysis_results:
+                        policy_data = analysis_results['policy_implications']
+                        if 'categories' in policy_data and isinstance(policy_data['categories'], list):
+                            self._store_policy_categories(bill_or_text, policy_data['categories'], analysis_results)
+                    
+                    # Update display_ready status after analysis is complete
+                    if hasattr(bill_or_text, 'update_display_ready_status'):
+                        status_changed = bill_or_text.update_display_ready_status()
+                        if status_changed:
+                            logger.info(f"Bill {bill_or_text.get_bill_identifier()} is now display ready")
+                
                 except Exception as e:
                     logger.error(f"Error creating new database structure: {e}")
             elif hasattr(bill_or_text, 'set_ai_analysis'):
                 # Fallback to old method for backward compatibility
                 bill_or_text.set_ai_analysis(analysis_results)
+                
+                # Store policy category mappings for old method too
+                if 'policy_implications' in analysis_results:
+                    policy_data = analysis_results['policy_implications']
+                    if 'categories' in policy_data and isinstance(policy_data['categories'], list):
+                        self._store_policy_categories(bill_or_text, policy_data['categories'], analysis_results)
+                
+                # Update display_ready status for old method too
+                if hasattr(bill_or_text, 'update_display_ready_status'):
+                    status_changed = bill_or_text.update_display_ready_status()
+                    if status_changed:
+                        logger.info(f"Bill {bill_or_text.get_bill_identifier()} is now display ready")
             
             logger.info("[AI] Analysis completed successfully.")
             return analysis_results
@@ -1682,4 +1707,114 @@ class EnhancedAIAnalyzer:
                 "potential_benefits": [],
                 "action_recommendations": [],
                 "explanation_of_score": "Analysis unavailable due to technical error"
-            } 
+            }
+    
+    def _store_policy_categories(self, bill, categories, analysis=None):
+        """Store policy category mappings for the bill, including sneakiness score per category"""
+        try:
+            # Import here to avoid circular imports
+            from db_models import BillCategoryMapping, PolicyCategory, db
+            import re
+            import json
+            
+            if not hasattr(bill, 'id') or not bill.id:
+                logger.error(f"Bill object has no ID, cannot store categories")
+                return
+            
+            categories_stored = 0
+            
+            # Prepare sneakiness mapping if analysis is provided
+            sneakiness_by_category = {}
+            if analysis and 'hidden_provisions' in analysis:
+                hidden_provisions = analysis['hidden_provisions'].get('detected_provisions', [])
+                # Build a mapping: category_name -> max sneakiness score
+                for provision in hidden_provisions:
+                    provision_text = (provision.get('text') or '') + ' ' + (provision.get('type') or '')
+                    risk_level = provision.get('risk_level', 'low')
+                    confidence = provision.get('confidence_score', 0.5)
+                    risk_value = {'low': 0.2, 'medium': 0.5, 'high': 0.8}.get(risk_level, 0.2)
+                    sneakiness_score = risk_value * confidence
+                    for cat in categories:
+                        area = cat.get('area', '')
+                        if area and re.search(re.escape(area), provision_text, re.IGNORECASE):
+                            prev = sneakiness_by_category.get(area, 0.0)
+                            sneakiness_by_category[area] = max(prev, sneakiness_score)
+            
+            for category_data in categories:
+                try:
+                    area = category_data.get('area', '').strip()
+                    if not area:
+                        continue
+                    
+                    # Get or create policy category
+                    policy_category = PolicyCategory.query.filter_by(name=area).first()
+                    if not policy_category:
+                        policy_category = PolicyCategory(
+                            name=area,
+                            display_name=area,
+                            description=f"Policy category for {area}",
+                            is_active=True
+                        )
+                        db.session.add(policy_category)
+                        db.session.flush()
+                        logger.info(f"Created new policy category: {area}")
+                    
+                    # Check if mapping already exists
+                    mapping = BillCategoryMapping.query.filter_by(
+                        bill_id=bill.id,
+                        policy_category_id=policy_category.id
+                    ).first()
+                    
+                    # Extract relevance score from category data or use default
+                    relevance_score = category_data.get('impact_level', 'medium')
+                    if relevance_score == 'high':
+                        score = 0.9
+                    elif relevance_score == 'medium':
+                        score = 0.7
+                    elif relevance_score == 'low':
+                        score = 0.5
+                    else:
+                        score = 0.7  # Default to medium
+                    
+                    # Get sneakiness score for this category
+                    sneakiness_score = sneakiness_by_category.get(area, 0.0)
+                    
+                    # Build section reference
+                    section_reference = category_data.get('section', '')
+                    if section_reference and category_data.get('title'):
+                        section_reference = f"{section_reference}: {category_data['title'][:100]}"
+                    elif category_data.get('title'):
+                        section_reference = category_data['title'][:150]
+                    
+                    if not mapping:
+                        mapping = BillCategoryMapping(
+                            bill_id=bill.id,
+                            policy_category_id=policy_category.id,
+                            relevance_score=score,
+                            category_specific_analysis=json.dumps(category_data),
+                            sneakiness_score=sneakiness_score,
+                            section_reference=section_reference
+                        )
+                        db.session.add(mapping)
+                        categories_stored += 1
+                        logger.info(f"Created category mapping: {bill.get_bill_identifier()} -> {area} (score: {score}, sneakiness: {sneakiness_score})")
+                    else:
+                        mapping.category_specific_analysis = json.dumps(category_data)
+                        mapping.sneakiness_score = sneakiness_score
+                        mapping.section_reference = section_reference
+                        logger.info(f"Updated existing category mapping: {bill.get_bill_identifier()} -> {area} (sneakiness: {sneakiness_score})")
+                        
+                except Exception as category_error:
+                    logger.error(f"Error processing category '{area}': {category_error}")
+                    continue
+            
+            if categories_stored > 0:
+                db.session.commit()
+                logger.info(f"Successfully stored {categories_stored} policy category mappings for {bill.get_bill_identifier()}")
+            else:
+                logger.warning(f"No new policy category mappings were stored for {bill.get_bill_identifier()}")
+                
+        except Exception as e:
+            logger.error(f"Error storing policy categories for {bill.get_bill_identifier()}: {e}")
+            if 'db' in locals():
+                db.session.rollback() 

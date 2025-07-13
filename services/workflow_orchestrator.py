@@ -430,8 +430,9 @@ class WorkflowOrchestrator:
         print(f"[DEBUG] Entered _perform_ai_analysis for bill: {bill.get_bill_identifier()}")
         self.logger.info(f"[DEBUG] Entered _perform_ai_analysis for bill: {bill.get_bill_identifier()}")
         try:
-            # Check if analysis already exists (use new table structure)
-            if bill.get_active_ai_analysis() or bill.get_ai_analysis():
+            # Check if analysis already exists (prioritize new table structure)
+            active_analysis = bill.get_active_ai_analysis()
+            if active_analysis or bill.get_ai_analysis():
                 print(f"[DEBUG] Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
                 self.logger.info(f"[DEBUG] Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
                 return True, None
@@ -480,16 +481,12 @@ class WorkflowOrchestrator:
             processing_time = time.time() - start_time
             
             if analysis:
-                # Analysis is now stored by the AI analyzer using new table structure
-                # bill.set_ai_analysis(analysis)  # Legacy method - now handled by analyzer
+                # Analysis, policy categories, and summaries are now stored automatically by the EnhancedAIAnalyzer
+                # using the new table structure with proper versioning and display_ready status updates
+                print(f"[DEBUG] AI analysis completed and stored for {bill.get_bill_identifier()}")
+                self.logger.info(f"[DEBUG] AI analysis completed and stored for {bill.get_bill_identifier()}")
                 
-                # Store policy categories if available
-                if 'policy_implications' in analysis:
-                    policy_data = analysis['policy_implications']
-                    if 'categories' in policy_data:
-                        self._store_policy_categories(bill, policy_data['categories'], analysis)
-                
-                # Store hidden provisions if detected
+                # Store hidden provisions if detected (this is still handled here for workflow-specific logic)
                 if 'hidden_provisions' in analysis:
                     self._store_hidden_provisions(bill, analysis['hidden_provisions'], analysis)
                 
