@@ -347,6 +347,41 @@ class HiddenProvision(db.Model):
 
 ## Latest Fixes and Enhancements (July 2025)
 
+### API Rate Limit Handling & User Experience Enhancement (July 14, 2025)
+
+#### Comprehensive 429 Error Handling System
+- **Custom Exception Classes** for specific error scenarios:
+  - `APIRateLimitError` - Congress API rate limit exceeded  
+  - `AIAnalysisPartialError` - AI analysis incomplete due to rate limits
+- **Graceful Error Recovery** - 429 errors converted to user-friendly messages
+- **Partial Analysis Preservation** - AI analysis saves partial results when rate limited
+
+#### Enhanced User Communication System
+- **Prominent Bill Profile Alerts** - Red danger alerts on non-display-ready bills stating: "We're sorry, but this bill is not fully analyzed due to API limitations"
+- **Search Result Status Badges** - "Analysis In Progress" indicators for incomplete bills
+- **Fallback Content Display** - Congress API summaries shown for non-display-ready bills with clear "From Congress.gov" labeling
+- **Completion Tracking** - Partial analysis percentages displayed to users
+
+#### Bill Summary Text Cleaning System
+- **HTML Entity Decoding** - Converts `&lt;DOC&gt;` and similar entities to readable text or removes them
+- **Document Markup Removal** - Removes XML/SGML tags like `<DOC>`, `<DOCID>`, legislative bill references
+- **Template Integration** - New `clean_summary` Jinja2 filter automatically cleans bill summaries
+- **Professional Display** - Whitespace normalization and formatting cleanup for better readability
+
+#### Error Handling Flow Implementation
+1. **Congress API 429 Detection** - Rate limit errors caught and user-friendly messages displayed
+2. **AI API Rate Limit Management** - Partial analysis saved to database with completion metadata
+3. **User Experience Continuity** - Fallback content ensures users always see useful information
+4. **Production Resilience** - System continues functioning under API constraints
+
+#### Components Enhanced
+- `services/congress_api.py` - 429 error detection and `APIRateLimitError` exception
+- `services/enhanced_ai_analyzer.py` - `AIAnalysisPartialError` with completion tracking
+- `routes.py` - Comprehensive error handling in search and analysis routes
+- `templates/bill_analysis.html` - Prominent alerts and fallback summary section
+- `utils/text_processing.py` - Bill summary cleaning with `clean_bill_summary()` function
+- `app.py` - Custom `clean_summary` template filter registration
+
 ### Bill Text Acquisition Improvements
 - **Enhanced Congress API text fetching** (`services/congress_api.py`)
 - **Exhaustive retry logic** with progressive timeouts (30s → 60s → 120s)

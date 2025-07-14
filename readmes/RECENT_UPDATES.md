@@ -1,5 +1,75 @@
 # Recent Updates and Implementations
 
+## API Rate Limit Handling & User Experience Enhancement (July 14, 2025)
+
+### Comprehensive 429 Error Handling and Bill Summary Improvements
+
+**Status:** ✅ Completed Successfully
+
+**Summary of Changes:**
+- **Implemented comprehensive 429 error handling** for both Congress API and AI API rate limits
+- **Added custom exception classes** for specific error types (APIRateLimitError, AIAnalysisPartialError)
+- **Enhanced user messaging system** with prominent alerts for incomplete analysis
+- **Added fallback Congress API summaries** for non-display-ready bills
+- **Implemented bill summary text cleaning** to remove illegible markup and HTML entities
+
+**Technical Achievements:**
+- ✅ **Custom Exception Classes**: `APIRateLimitError` for Congress API limits, `AIAnalysisPartialError` for incomplete AI analysis
+- ✅ **Graceful Error Handling**: 429 errors caught and converted to user-friendly messages
+- ✅ **Partial Analysis Support**: AI analysis saves partial results when rate limited, preventing data loss
+- ✅ **Prominent User Alerts**: Red danger alerts on bill profiles for incomplete analysis due to API limitations
+- ✅ **Fallback Content**: Congress API summaries displayed for non-display-ready bills with clear labeling
+- ✅ **Text Cleaning System**: HTML entities and document markup removed from bill summaries
+
+**Components Updated:**
+- `services/congress_api.py` - Added `APIRateLimitError` exception and 429 status code handling
+- `services/enhanced_ai_analyzer.py` - Added `AIAnalysisPartialError` with completion tracking
+- `services/bill_processor.py` - Enhanced error handling for partial AI analysis scenarios
+- `routes.py` - Comprehensive error handling in bill search and analysis routes
+- `templates/bill_analysis.html` - Prominent red alert for non-display-ready bills, fallback summary section
+- `templates/bill_search.html` - Search result badges for analysis status and API limitations
+- `utils/text_processing.py` - New `clean_bill_summary()` function for text cleanup
+- `app.py` - Custom Jinja2 filter `clean_summary` for template use
+
+**Error Handling Flow:**
+1. **Congress API 429 Errors**: Caught and converted to user-friendly messages about rate limits
+2. **AI API Rate Limits**: Partial analysis saved to database, specific error raised with completion percentage
+3. **User Communication**: Clear messaging about API limitations and expected resolution time
+4. **Graceful Degradation**: Partial analysis and Congress summaries shown when full analysis unavailable
+
+**User Experience Enhancements:**
+- **Bill Analysis Page**: Prominent red alert stating "We're sorry, but this bill is not fully analyzed due to API limitations"
+- **Search Results**: "Analysis In Progress" badges for incomplete bills
+- **Fallback Summaries**: Congress API summaries displayed with "From Congress.gov" badge and explanatory note
+- **Clean Text Display**: HTML entities (`&lt;DOC&gt;`) and markup removed from summaries
+
+**Bill Summary Cleaning Features:**
+- **HTML Entity Decoding**: Converts `&lt;DOC&gt;` to readable text or removes entirely
+- **Document Markup Removal**: Removes XML/SGML tags like `<DOC>`, `<DOCID>`, etc.
+- **Legislative Markup Cleanup**: Handles bill references, brackets, and formatting issues
+- **Whitespace Normalization**: Fixes spacing and line break problems
+- **Template Integration**: `{{ bill.summary | clean_summary }}` filter automatically cleans text
+
+**Production Benefits:**
+- 🚨 **Clear User Communication**: Users understand when analysis is incomplete and why
+- 🔄 **No Data Loss**: Partial analysis preserved when API limits hit
+- 📊 **Better UX**: Fallback content provides value while full analysis completes
+- 🧹 **Clean Text Display**: Professional presentation without technical markup
+- ⚡ **Graceful Degradation**: System continues to function under API constraints
+
+**Results Achieved:**
+```
+✅ Congress API 429 Errors: Properly caught and user-friendly messages displayed
+✅ AI API Rate Limits: Partial analysis saved with completion tracking
+✅ User Alerts: Prominent red alerts on non-display-ready bill profiles
+✅ Fallback Content: Congress summaries displayed with clear labeling
+✅ Text Cleaning: HTML entities and markup removed from summaries
+✅ Search Integration: Status badges show analysis progress
+✅ Error Recovery: System gracefully handles all rate limiting scenarios
+```
+
+---
+
 ## Complete System Integration & Enhancement (July 12-13, 2025)
 
 ### Bill Text Acquisition, Category Mapping & Search Integration Fixes
