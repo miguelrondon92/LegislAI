@@ -7,6 +7,10 @@ from urllib.parse import urlencode
 import json
 import re
 
+class APIRateLimitError(Exception):
+    """Exception raised when Congress API rate limit is exceeded"""
+    pass
+
 CURRENT_CONGRESS = 119
 
 class CongressAPI:
@@ -43,6 +47,18 @@ class CongressAPI:
             try:
                 self.last_request_time = time.time()
                 response = self.session.get(url, timeout=30)
+                
+                # Handle rate limiting specifically
+                if response.status_code == 429:
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    if attempt < max_retries - 1:
+                        logging.warning(f"Congress API rate limited (429), retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logging.error(f"Congress API rate limit exceeded after {max_retries} attempts")
+                        raise APIRateLimitError("Congress API rate limit exceeded. Please try again later.")
+                
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.ConnectionError as e:
@@ -67,6 +83,13 @@ class CongressAPI:
                 else:
                     logging.error(f"Congress API timeout after {max_retries} attempts: {str(e)}")
                     return None
+            except requests.exceptions.HTTPError as e:
+                if e.response and e.response.status_code == 429:
+                    # This shouldn't happen now since we handle 429 above, but just in case
+                    logging.error(f"Congress API rate limit exceeded: {str(e)}")
+                    raise APIRateLimitError("Congress API rate limit exceeded. Please try again later.")
+                logging.error(f"Congress API HTTP error: {str(e)}")
+                return None
             except requests.exceptions.RequestException as e:
                 logging.error(f"Congress API request failed: {str(e)}")
                 return None

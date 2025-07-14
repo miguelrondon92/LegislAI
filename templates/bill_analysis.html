@@ -50,6 +50,109 @@
     </div>
 </div>
 
+{% if not bill.display_ready %}
+<!-- Incomplete Analysis Alert for Non-Display-Ready Bills -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-danger border-danger" role="alert">
+            <div class="d-flex align-items-start">
+                <div class="me-3">
+                    <i data-feather="alert-circle" class="text-danger" style="width: 28px; height: 28px;"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h4 class="alert-heading mb-2">
+                        <i data-feather="clock" class="me-2" style="width: 20px; height: 20px;"></i>
+                        Analysis In Progress
+                    </h4>
+                    <p class="mb-2">
+                        <strong>We're sorry, but this bill is not fully analyzed due to API limitations.</strong> 
+                        We are working on fixing the issue and completing the analysis as soon as possible.
+                    </p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <p class="mb-2 text-dark">
+                                <strong>What this means:</strong> Some sections of this bill may not have been processed yet, 
+                                which could result in incomplete summaries, missing policy categorizations, or absent complexity assessments.
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-light border-0 mb-0">
+                                <small class="text-dark">
+                                    <i data-feather="refresh-cw" class="me-1" style="width: 14px; height: 14px;"></i>
+                                    <strong>Check back later</strong> for the complete analysis
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning border-0 mb-0">
+                        <small>
+                            <i data-feather="info" class="me-1" style="width: 14px; height: 14px;"></i>
+                            The information shown below represents our current analysis. Additional insights may become available once the full analysis is complete.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if partial_analysis_warning %}
+<!-- Partial Analysis Warning -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning border-warning" role="alert">
+            <div class="d-flex align-items-start">
+                <div class="me-3">
+                    <i data-feather="alert-triangle" class="text-warning" style="width: 24px; height: 24px;"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="alert-heading mb-2">
+                        <i data-feather="zap" class="me-2" style="width: 18px; height: 18px;"></i>
+                        Partial Analysis Complete
+                    </h5>
+                    <p class="mb-2">{{ partial_analysis_warning.message }}</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="progress mb-2" style="height: 8px;">
+                                <div class="progress-bar bg-warning" 
+                                     style="width: {{ partial_analysis_warning.completion_percentage }}%"
+                                     role="progressbar" 
+                                     aria-valuenow="{{ partial_analysis_warning.completion_percentage }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                {{ partial_analysis_warning.completed_chunks }} of {{ partial_analysis_warning.total_chunks }} sections analyzed
+                            </small>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-0 text-muted">
+                                <strong>What this means:</strong> The analysis below includes insights from 
+                                {{ partial_analysis_warning.completed_chunks }} sections. 
+                                {{ partial_analysis_warning.remaining_chunks }} sections could not be analyzed due to API limits.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-light border-0 mb-0">
+                        <small class="text-muted">
+                            <i data-feather="info" class="me-1" style="width: 14px; height: 14px;"></i>
+                            <strong>Tip:</strong> Try refreshing this page later to complete the remaining analysis, 
+                            or contact support if this issue persists.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if alignment_score is not none %}
 <!-- User Alignment Section -->
 <div class="row mb-4">

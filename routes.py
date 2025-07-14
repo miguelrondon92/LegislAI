@@ -4,8 +4,8 @@ from app import app
 from db_models import db, Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction, AIAnalysis, Summary
 import logging
 from datetime import datetime
-from services.congress_api import CongressAPI
-from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
+from services.congress_api import CongressAPI, APIRateLimitError
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer, AIAnalysisPartialError
 from services.bill_processor import BillProcessor
 
 # Initialize services
@@ -74,6 +74,19 @@ def bill_search():
                     if not bills:
                         error_message = f"No bills found with sponsor '{search_query}'"
                         
+            except APIRateLimitError as e:
+                logging.warning(f"Congress API rate limit exceeded during {search_type} search: {str(e)}")
+                if search_type == 'bill_number':
+                    error_message = f"Unable to fetch bill '{search_query}' from Congress.gov due to API rate limits. If this bill exists in our database, it would appear in search results. Please try again later to search for new bills."
+                else:
+                    error_message = f"Unable to search for new bills matching '{search_query}' due to API rate limits. Results shown are from our existing database only. Please try again later to include new bills from Congress.gov."
+            except AIAnalysisPartialError as e:
+                logging.warning(f"AI analysis was partial during {search_type} search: {str(e)}")
+                if search_type == 'bill_number':
+                    error_message = f"Bill '{search_query}' was found but analysis is only {e.completion_percentage:.1f}% complete due to AI API limits. You can view the partial analysis, or try again later for complete analysis."
+                else:
+                    # For keyword/sponsor searches, this shouldn't really happen as we only analyze if needed
+                    error_message = f"Some bills matching '{search_query}' have incomplete analysis due to AI API limits. You can view available results or try again later."
             except Exception as e:
                 logging.error(f"Error in bill search ({search_type}): {str(e)}")
                 error_message = "An error occurred while searching for bills. Please try again."
@@ -120,11 +133,15 @@ def _get_or_fetch_bill_by_number(search_query, congress):
             if bill_data:
                 bill = bill_processor.process_bill_data(bill_data)
                 if bill:
-                    # Perform analysis on new bill
-                    _perform_analysis_if_needed(bill)
+                    # AI analysis is already performed by bill_processor.process_bill_data()
+                    # No need to call _perform_analysis_if_needed(bill) here
+                    pass
                 return bill
             return None
             
+    except APIRateLimitError:
+        # Re-raise the rate limit error so it can be caught by the main handler
+        raise
     except Exception as e:
         logging.error(f"Error in _get_or_fetch_bill_by_number: {e}")
         return None
@@ -186,6 +203,9 @@ def _search_bills_hybrid(search_query, search_type, limit=20):
         logging.info(f"Returning {len(bills)} total bills for {search_type} search")
         return bills[:limit]  # Ensure we don't exceed limit
         
+    except APIRateLimitError:
+        # Re-raise the rate limit error so it can be caught by the main handler
+        raise
     except Exception as e:
         logging.error(f"Error in _search_bills_hybrid: {e}")
         return bills  # Return what we have so far
@@ -311,6 +331,14 @@ def _perform_analysis_if_needed(bill):
             else:
                 logging.warning(f"No analysis results returned for {bill.get_bill_identifier()}")
                 
+    except AIAnalysisPartialError as e:
+        # Log partial analysis completion but re-raise for user notification
+        logging.info(f"⚠️ Partial AI analysis completed for {bill.get_bill_identifier()}: {e.completion_percentage:.1f}% complete")
+        logging.info(f"  📊 Chunks analyzed: {e.completed_chunks}/{e.total_chunks}")
+        logging.info(f"  💾 Partial results saved to database")
+        
+        # Re-raise partial analysis errors so they can be caught by the main handler
+        raise
     except Exception as e:
         logging.error(f"Error performing comprehensive analysis for {bill.get_bill_identifier()}: {e}")
         import traceback
@@ -521,6 +549,10 @@ def bill_analysis(congress, bill_type, bill_number):
             else:
                 flash('Bill not found', 'error')
                 return redirect(url_for('bill_search'))
+        except APIRateLimitError as e:
+            logging.warning(f"Congress API rate limit exceeded while fetching bill: {str(e)}")
+            flash('Unable to fetch new bill details due to API rate limits. Please try again later.', 'warning')
+            return redirect(url_for('bill_search'))
         except Exception as e:
             logging.error(f"Error fetching bill: {str(e)}")
             flash('Error loading bill details', 'error')
@@ -530,17 +562,29 @@ def bill_analysis(congress, bill_type, bill_number):
     fetch_bill_actions_from_api(bill)
     
     # Perform AI analysis if not already done (use new database structure)
-    active_analysis = bill.get_active_ai_analysis()
-    if active_analysis:
-        analysis = active_analysis.get_analysis_data()
-    elif bill.get_ai_analysis():
-        analysis = bill.get_ai_analysis()  # Fallback to old structure
-    else:
-        # No analysis exists, perform comprehensive analysis
-        logging.info(f"Performing AI analysis for bill analysis page: {bill.get_bill_identifier()}")
-        _perform_analysis_if_needed(bill)
-        
-        # Get the analysis that was just created
+    partial_analysis_warning = None
+    try:
+        active_analysis = bill.get_active_ai_analysis()
+        if active_analysis:
+            analysis = active_analysis.get_analysis_data()
+        elif bill.get_ai_analysis():
+            analysis = bill.get_ai_analysis()  # Fallback to old structure
+        else:
+            # No analysis exists, perform comprehensive analysis
+            logging.info(f"Performing AI analysis for bill analysis page: {bill.get_bill_identifier()}")
+            _perform_analysis_if_needed(bill)
+            
+            # Get the analysis that was just created
+            new_analysis = bill.get_active_ai_analysis()
+            if new_analysis:
+                analysis = new_analysis.get_analysis_data()
+            elif bill.get_ai_analysis():
+                analysis = bill.get_ai_analysis()  # Fallback
+            else:
+                analysis = {"error": "Unable to perform AI analysis at this time"}
+    except AIAnalysisPartialError as e:
+        logging.warning(f"AI analysis was partial for bill {bill.get_bill_identifier()}: {str(e)}")
+        # Still try to get the partial analysis that was stored
         new_analysis = bill.get_active_ai_analysis()
         if new_analysis:
             analysis = new_analysis.get_analysis_data()
@@ -548,6 +592,15 @@ def bill_analysis(congress, bill_type, bill_number):
             analysis = bill.get_ai_analysis()  # Fallback
         else:
             analysis = {"error": "Unable to perform AI analysis at this time"}
+        
+        # Set warning message for the template
+        partial_analysis_warning = {
+            'message': f"Analysis is only {e.completion_percentage:.1f}% complete due to AI API rate limits.",
+            'completion_percentage': e.completion_percentage,
+            'completed_chunks': e.completed_chunks,
+            'total_chunks': e.total_chunks,
+            'remaining_chunks': e.total_chunks - e.completed_chunks
+        }
     
     # Calculate user alignment score if user is logged in
     alignment_score = None
@@ -573,7 +626,8 @@ def bill_analysis(congress, bill_type, bill_number):
                          analysis=analysis,
                          alignment_score=alignment_score,
                          user_analysis=user_analysis,
-                         bill_actions=bill_actions)
+                         bill_actions=bill_actions,
+                         partial_analysis_warning=partial_analysis_warning)
 
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():

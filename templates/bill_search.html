@@ -187,6 +187,19 @@
                                         </div>
                                         {% endif %}
                                         
+                                        {% set ai_analysis = bill.get_active_ai_analysis() %}
+                                        {% if ai_analysis %}
+                                        {% set analysis_data = ai_analysis.get_analysis_data() %}
+                                        {% if analysis_data and analysis_data.get('is_partial', False) %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-warning text-dark">
+                                                <i data-feather="zap" style="width: 12px; height: 12px;"></i>
+                                                {{ "%.0f"|format(analysis_data.get('completion_percentage', 0)) }}% Analysis
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                        {% endif %}
+                                        
                                         {% if bill.get_policy_categories() %}
                                         {% set categories = bill.get_policy_categories() %}
                                         {% if categories.primary_policy_area %}
@@ -194,6 +207,15 @@
                                             <span class="badge bg-primary">{{ categories.primary_policy_area.title() }}</span>
                                         </div>
                                         {% endif %}
+                                        {% endif %}
+                                        
+                                        {% if not bill.display_ready %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-danger">
+                                                <i data-feather="clock" style="width: 12px; height: 12px;"></i>
+                                                Analysis In Progress
+                                            </span>
+                                        </div>
                                         {% endif %}
                                     </div>
                                     

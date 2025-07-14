@@ -13,6 +13,14 @@ import random
 
 logger = logging.getLogger(__name__)
 
+class AIAnalysisPartialError(Exception):
+    """Exception raised when AI analysis is only partially completed due to rate limits"""
+    def __init__(self, message, completion_percentage=0, completed_chunks=0, total_chunks=0):
+        super().__init__(message)
+        self.completion_percentage = completion_percentage
+        self.completed_chunks = completed_chunks
+        self.total_chunks = total_chunks
+
 class EnhancedAIAnalyzer:
     """Enhanced AI-powered legislative analysis with hidden provision detection"""
     
@@ -328,13 +336,22 @@ class EnhancedAIAnalyzer:
             analysis_results['analysis_completeness'] = 'full' if len(chunks_to_analyze) == len(chunks) else 'partial'
             analysis_results['hidden_detection_enabled'] = True
             
-            # Log final analysis status
+            # Log final analysis status and handle partial completion
             if len(chunks_to_analyze) < len(chunks):
+                completion_percentage = (len(chunks_to_analyze)/len(chunks)*100)
                 logger.warning(f"⚠️ Partial analysis completed: {len(chunks_to_analyze)}/{len(chunks)} chunks analyzed due to API quota limits")
-                logger.info(f"   📊 Analysis completeness: {(len(chunks_to_analyze)/len(chunks)*100):.1f}%")
+                logger.info(f"   📊 Analysis completeness: {completion_percentage:.1f}%")
                 logger.info(f"   💡 Tip: Re-run analysis later for remaining {len(chunks) - len(chunks_to_analyze)} chunks")
+                
+                # Store partial analysis but raise exception for user notification
+                analysis_results['is_partial'] = True
+                analysis_results['completion_percentage'] = completion_percentage
+                analysis_results['remaining_chunks'] = len(chunks) - len(chunks_to_analyze)
             else:
                 logger.info(f"✅ Full analysis completed: All {len(chunks)} chunks analyzed successfully")
+                analysis_results['is_partial'] = False
+                analysis_results['completion_percentage'] = 100.0
+                analysis_results['remaining_chunks'] = 0
             
             # Add quota usage info to results
             analysis_results['quota_usage'] = {
@@ -417,8 +434,25 @@ class EnhancedAIAnalyzer:
                         logger.info(f"Bill {bill_or_text.get_bill_identifier()} is now display ready")
             
             logger.info("[AI] Analysis completed successfully.")
+            
+            # Check if analysis was partial and raise exception for user notification
+            if analysis_results.get('is_partial', False):
+                completion_percentage = analysis_results.get('completion_percentage', 0)
+                remaining_chunks = analysis_results.get('remaining_chunks', 0)
+                completed_chunks = analysis_results.get('chunks_analyzed', 0)
+                total_chunks = analysis_results.get('total_chunks_available', 0)
+                raise AIAnalysisPartialError(
+                    f"Bill analysis was only {completion_percentage:.1f}% complete due to AI API rate limits. {remaining_chunks} chunks remaining.",
+                    completion_percentage=completion_percentage,
+                    completed_chunks=completed_chunks,
+                    total_chunks=total_chunks
+                )
+            
             return analysis_results
             
+        except AIAnalysisPartialError:
+            # Re-raise partial analysis errors - they should be handled by the caller
+            raise
         except Exception as e:
             logger.error(f"[AI] Exception during analysis: {e}")
             return {}

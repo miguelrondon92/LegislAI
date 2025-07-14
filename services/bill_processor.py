@@ -213,7 +213,18 @@ class BillProcessor:
                         if not self.ai_analyzer.client:
                             logging.warning(f"AI analyzer not available for bill {bill.get_bill_identifier()}. Skipping AI analysis.")
                             return bill
-                        analysis = self.ai_analyzer.analyze_bill(bill)
+                        
+                        # Import the partial analysis exception
+                        from services.enhanced_ai_analyzer import AIAnalysisPartialError
+                        
+                        try:
+                            analysis = self.ai_analyzer.analyze_bill(bill)
+                        except AIAnalysisPartialError as e:
+                            # Partial analysis was saved to database, log and continue
+                            logging.info(f"⚠️ Partial AI analysis saved for {bill.get_bill_identifier()}: {e.completion_percentage:.1f}% complete")
+                            logging.info(f"  📊 Partial analysis: {e.completed_chunks}/{e.total_chunks} chunks analyzed")
+                            # Return the bill - partial analysis is already stored in new database structure
+                            return bill
                         if analysis and isinstance(analysis, dict) and len(analysis) > 0:
                             has_valid_data = False
                             for key, value in analysis.items():
