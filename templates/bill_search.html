@@ -144,7 +144,7 @@
                                     
                                     {% if bill.summary %}
                                     <p class="card-text">
-                                        {{ bill.summary[:200] }}{% if bill.summary|length > 200 %}...{% endif %}
+                                        {{ (bill.summary | clean_summary)[:200] }}{% if (bill.summary | clean_summary)|length > 200 %}...{% endif %}
                                     </p>
                                     {% endif %}
                                     

@@ -255,6 +255,33 @@
         </div>
         {% endif %}
 
+        <!-- Fallback Summary for Non-Display-Ready Bills -->
+        {% if not bill.display_ready and bill.summary and not (analysis and analysis.summary) %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i data-feather="file-text" class="me-2"></i>
+                        Bill Summary
+                    </h5>
+                    <small class="badge bg-warning text-dark">
+                        <i data-feather="info" style="width: 12px; height: 12px;" class="me-1"></i>
+                        From Congress.gov
+                    </small>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info border-info mb-3">
+                    <small>
+                        <i data-feather="info" class="me-1" style="width: 14px; height: 14px;"></i>
+                        <strong>Note:</strong> This is the original summary from Congress.gov. Our enhanced AI analysis is still in progress and will provide additional insights when complete.
+                    </small>
+                </div>
+                <p>{{ bill.summary | clean_summary }}</p>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Policy Analysis -->
         {% if analysis and analysis.policy_implications %}
         <div class="card mb-4">

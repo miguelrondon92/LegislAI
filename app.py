@@ -51,6 +51,14 @@ login_manager.login_view = 'auth.signin'
 login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'info'
 
+# Register custom template filters
+from utils.text_processing import clean_bill_summary
+
+@app.template_filter('clean_summary')
+def clean_summary_filter(text):
+    """Template filter to clean bill summary text"""
+    return clean_bill_summary(text)
+
 @login_manager.user_loader
 def load_user(user_id):
     from db_models import User

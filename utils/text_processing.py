@@ -1,5 +1,6 @@
 import re
 import logging
+import html
 from bs4 import BeautifulSoup
 
 def clean_bill_text(raw_text):
@@ -206,3 +207,55 @@ def summarize_text(text, max_length=500):
     except Exception as e:
         logging.error(f"Error summarizing text: {str(e)}")
         return text[:max_length] + "..."
+
+def clean_bill_summary(summary_text):
+    """
+    Clean bill summary text by removing HTML entities, document markup, and formatting issues
+    """
+    if not summary_text:
+        return ""
+    
+    try:
+        # Decode HTML entities like &lt; &gt; &amp; etc.
+        text = html.unescape(summary_text)
+        
+        # Remove common document markup patterns
+        # Remove XML/SGML tags like <DOC>, <DOCID>, etc.
+        text = re.sub(r'</?[A-Z][A-Z0-9]*>', '', text)
+        
+        # Remove other markup patterns common in legislative documents
+        markup_patterns = [
+            r'&lt;DOC&gt;.*?&lt;/DOC&gt;',  # HTML encoded DOC tags
+            r'&lt;[^&]*?&gt;',  # Any HTML encoded tags
+            r'\[H\.R\.\s*\d+\]',  # Bill number references in brackets
+            r'\[S\.\s*\d+\]',     # Senate bill references
+            r'<<[^>]*>>',         # Double angle brackets
+            r'\[\[.*?\]\]',       # Double square brackets
+            r'^\s*\d+\s*$',       # Lines with only numbers
+            r'^\s*[A-Z\s]+:\s*$', # Lines with only uppercase labels
+        ]
+        
+        for pattern in markup_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # Clean up formatting issues
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r'\n\s*\n', '\n\n', text)
+        
+        # Remove leading/trailing whitespace
+        text = text.strip()
+        
+        # Remove empty parentheses and brackets
+        text = re.sub(r'\(\s*\)', '', text)
+        text = re.sub(r'\[\s*\]', '', text)
+        
+        # Fix common formatting issues
+        text = re.sub(r'\s+([,.;:])', r'\1', text)  # Remove space before punctuation
+        text = re.sub(r'([.!?])\s*([a-z])', r'\1 \2', text)  # Ensure space after sentence endings
+        
+        return text
+        
+    except Exception as e:
+        logging.error(f"Error cleaning bill summary: {str(e)}")
+        return summary_text
