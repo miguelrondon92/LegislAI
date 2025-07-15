@@ -30,7 +30,8 @@ class EnhancedAIAnalyzer:
             logging.warning("GEMINI_API_KEY not found. AI analysis will be disabled.")
             self.client = None
         else:
-            self.client = genai.Client(api_key=self.api_key)
+            genai.configure(api_key=self.api_key)
+            self.client = genai.GenerativeModel('gemini-1.5-flash')
         
         # Rate limiting configuration
         self.max_requests_per_minute = 15  # Free tier limit
@@ -560,7 +561,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -627,7 +628,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -693,7 +694,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -802,7 +803,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -909,7 +910,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -981,7 +982,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -1110,7 +1111,7 @@ class EnhancedAIAnalyzer:
             Keep it concise but comprehensive, suitable for someone without legal expertise.
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -1172,7 +1173,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -1239,7 +1240,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -1311,7 +1312,7 @@ class EnhancedAIAnalyzer:
                 return None
             
             logger.debug("Complexity assessment: Making Gemini API call")
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -1366,7 +1367,7 @@ class EnhancedAIAnalyzer:
             Respond with only a number between 0.0 and 1.0.
             """
             
-            response = self.client.models.generate_content(
+            response = self.client.generate_content(
                 model="gemini-2.0-flash",
                 contents=prompt
             )
@@ -1452,7 +1453,7 @@ class EnhancedAIAnalyzer:
                     logger.error(f"🚫 Failed to record request due to rate limit on attempt {attempt + 1}")
                     return None
                 
-                response = self.client.models.generate_content(
+                response = self.client.generate_content(
                     model="gemini-2.0-flash",
                     contents=prompt
                 )
