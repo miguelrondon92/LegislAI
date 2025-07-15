@@ -2,7 +2,7 @@ import json
 import os
 import logging
 from typing import Dict, List, Optional, Tuple, Any
-from google import genai
+import google.generativeai as genai
 # from openai import OpenAI  # Removed - using Gemini only
 import re
 from datetime import datetime

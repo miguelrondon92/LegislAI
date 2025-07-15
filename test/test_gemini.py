@@ -2,7 +2,7 @@
 
 import os
 import json
-from google import genai
+import google.generativeai as genai
 
 def test_gemini_json():
     api_key = os.environ.get('GEMINI_API_KEY')
