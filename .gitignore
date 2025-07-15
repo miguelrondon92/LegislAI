@@ -1,3 +1,4 @@
 .venv
 docs/continued_ideas.md
 .env
+.env.local
