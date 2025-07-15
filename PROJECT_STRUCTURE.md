@@ -60,6 +60,7 @@ Reusable utility functions:
 
 ### `/config/` - Configuration Files
 - `production_email_config.env` - Email service configuration
+- `production.env.template` - Production environment template with secure defaults
 
 ### `/docs/` - Documentation
 Comprehensive project documentation:
@@ -102,6 +103,58 @@ Python virtual environment (if using venv)
 5. **Test Organization** - Comprehensive test suite in `/test/`
 6. **Documentation Separation** - Different docs for different audiences
 
+## Environment Configuration
+
+### Logging Configuration
+The application uses environment-based logging configuration:
+
+**Development (.env):**
+```
+LOG_LEVEL=DEBUG
+```
+
+**Production:**
+```
+LOG_LEVEL=WARNING
+```
+
+**Available Log Levels:**
+- `DEBUG` - Detailed debugging information
+- `INFO` - General information messages
+- `WARNING` - Warning messages (production default)
+- `ERROR` - Error messages only
+- `CRITICAL` - Critical errors only
+
+**Log Format:**
+```
+%(asctime)s - %(name)s - %(levelname)s - %(message)s
+```
+
+### Notification Configuration
+The application controls notification delivery based on environment:
+
+**Development (.env):**
+```
+FLASK_ENV=development
+# Notifications automatically enabled in development
+```
+
+**Production:**
+```
+FLASK_ENV=production
+NOTIFICATIONS_ENABLED=false  # Explicitly enable with 'true'
+```
+
+**Notification Behavior:**
+- `FLASK_ENV=development` - Notifications always enabled
+- `FLASK_ENV=production` + `NOTIFICATIONS_ENABLED=true` - Notifications enabled
+- `FLASK_ENV=production` + `NOTIFICATIONS_ENABLED=false` - Notifications disabled (default)
+
+### Environment Templates
+- Development settings in `.env`
+- Production template in `config/production.env.template`
+- Copy production template and customize for deployment
+
 ## Development Workflow
 
 1. Core application files remain in root for Flask conventions
@@ -110,3 +163,4 @@ Python virtual environment (if using venv)
 4. Scripts for administrative tasks
 5. Tests for quality assurance
 6. Documentation for maintainability
+7. Environment-based configuration for different deployment stages

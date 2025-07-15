@@ -2,6 +2,7 @@ import schedule
 import time
 import threading
 import logging
+import os
 from .notification_service import NotificationService
 from app import app
 
@@ -14,9 +15,28 @@ class NotificationScheduler:
         self.notification_service = NotificationService()
         self.scheduler_thread = None
         self.is_running = False
+        self.notifications_enabled = self._should_enable_notifications()
+    
+    def _should_enable_notifications(self):
+        """Check if notifications should be enabled based on environment"""
+        flask_env = os.environ.get('FLASK_ENV', 'production').lower()
+        notifications_enabled = os.environ.get('NOTIFICATIONS_ENABLED', 'false').lower() == 'true'
+        
+        # Enable notifications in development or if explicitly enabled
+        if flask_env == 'development':
+            return True
+        elif notifications_enabled:
+            return True
+        else:
+            logger.info("Notification scheduler disabled in production environment")
+            return False
 
     def start(self):
         """Start the notification scheduler"""
+        if not self.notifications_enabled:
+            logger.info("Notification scheduler start skipped - notifications disabled")
+            return
+            
         if self.is_running:
             logger.warning("Notification scheduler is already running")
             return

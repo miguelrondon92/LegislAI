@@ -11,8 +11,13 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-# Configure logging for debugging
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging based on environment
+log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+numeric_level = getattr(logging, log_level, logging.INFO)
+logging.basicConfig(
+    level=numeric_level,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 # Create the app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")

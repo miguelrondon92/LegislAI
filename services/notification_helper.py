@@ -4,10 +4,24 @@ This module provides a simple interface for triggering notifications
 without requiring direct imports of the NotificationService.
 """
 import logging
+import os
 from typing import Optional
 import threading
 
 logger = logging.getLogger(__name__)
+
+def _should_enable_notifications():
+    """Check if notifications should be enabled based on environment"""
+    flask_env = os.environ.get('FLASK_ENV', 'production').lower()
+    notifications_enabled = os.environ.get('NOTIFICATIONS_ENABLED', 'false').lower() == 'true'
+    
+    # Enable notifications in development or if explicitly enabled
+    if flask_env == 'development':
+        return True
+    elif notifications_enabled:
+        return True
+    else:
+        return False
 
 def trigger_bill_analysis_notification(bill_id: int) -> None:
     """
@@ -18,6 +32,10 @@ def trigger_bill_analysis_notification(bill_id: int) -> None:
     Args:
         bill_id: The ID of the bill that was just analyzed
     """
+    if not _should_enable_notifications():
+        logger.info(f"Notifications disabled - skipping trigger for bill {bill_id}")
+        return
+        
     try:
         # Import here to avoid circular imports
         from services.notification_service import NotificationService
@@ -69,6 +87,10 @@ def trigger_high_risk_bill_notification(bill_id: int, risk_score: float) -> None
         bill_id: The ID of the bill that was analyzed
         risk_score: The overall risk score of the bill
     """
+    if not _should_enable_notifications():
+        logger.info(f"Notifications disabled - skipping high-risk trigger for bill {bill_id}")
+        return
+        
     try:
         # Import here to avoid circular imports
         from services.notification_service import NotificationService

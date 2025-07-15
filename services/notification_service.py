@@ -11,9 +11,28 @@ logger = logging.getLogger(__name__)
 class NotificationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.notifications_enabled = self._should_enable_notifications()
+    
+    def _should_enable_notifications(self):
+        """Check if notifications should be enabled based on environment"""
+        flask_env = os.environ.get('FLASK_ENV', 'production').lower()
+        notifications_enabled = os.environ.get('NOTIFICATIONS_ENABLED', 'false').lower() == 'true'
+        
+        # Enable notifications in development or if explicitly enabled
+        if flask_env == 'development':
+            return True
+        elif notifications_enabled:
+            return True
+        else:
+            self.logger.info("Notifications disabled in production environment")
+            return False
 
     def process_new_bill_analysis(self, bill_id):
         """Process a newly analyzed bill and create notifications for relevant users."""
+        if not self.notifications_enabled:
+            self.logger.info(f"Notifications disabled - skipping bill {bill_id}")
+            return
+            
         try:
             with app.app_context():
                 from db_models import Bill
@@ -230,6 +249,10 @@ class NotificationService:
 
     def send_pending_notifications(self):
         """Send all pending notifications based on user alert frequency preferences."""
+        if not self.notifications_enabled:
+            self.logger.info("Notifications disabled - skipping email delivery")
+            return
+            
         try:
             with app.app_context():
                 # Get all unread alerts
