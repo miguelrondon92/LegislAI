@@ -81,9 +81,8 @@ class WorkflowOrchestrator:
         self.rss_monitor = PersistentRSSMonitor()
         self.bill_processor = WorkflowBillProcessor()
         self.ai_analyzer = EnhancedAIAnalyzer()
-        # Disable notification service for now to avoid circular imports
-        # self.notification_service = NotificationService()
-        self.notification_service = None
+        # Use notification helper to avoid circular imports
+        self.notification_service = None  # Will use notification_helper instead
         self.congress_api = CongressAPI()
         
         # Workflow state
@@ -363,10 +362,20 @@ class WorkflowOrchestrator:
                     item.analysis_method = analysis_metadata.get('analysis_method')
                     item.processing_time = analysis_metadata.get('processing_time')
                 # Step 3: Generate user alerts based on preferences
-                alerts_generated = self._generate_user_alerts(bill)
-                if alerts_generated:
+                # Use notification helper to avoid code duplication and ensure consistency
+                try:
+                    from services.notification_helper import trigger_bill_analysis_notification
+                    trigger_bill_analysis_notification(bill.id)
                     item.alerts_generated = True
-                    self.stats['alerts_generated'] += alerts_generated
+                    self.stats['alerts_generated'] += 1  # Increment since notifications were triggered
+                    self.logger.info(f"Triggered notifications for bill {bill.get_bill_identifier()}")
+                except Exception as e:
+                    self.logger.warning(f"Could not trigger notifications for bill {bill.get_bill_identifier()}: {e}")
+                    # Fallback to old alert generation system
+                    alerts_generated = self._generate_user_alerts(bill)
+                    if alerts_generated:
+                        item.alerts_generated = True
+                        self.stats['alerts_generated'] += alerts_generated
             # Mark as completed
             item.status = WorkflowStatus.COMPLETED
             item.processing_completed = datetime.utcnow()

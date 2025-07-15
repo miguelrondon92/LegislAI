@@ -414,6 +414,15 @@ class EnhancedAIAnalyzer:
                         status_changed = bill_or_text.update_display_ready_status()
                         if status_changed:
                             logger.info(f"Bill {bill_or_text.get_bill_identifier()} is now display ready")
+                            
+                            # Trigger notifications for newly analyzed bill
+                            if hasattr(bill_or_text, 'id'):
+                                try:
+                                    from services.notification_helper import trigger_bill_analysis_notification_async
+                                    trigger_bill_analysis_notification_async(bill_or_text.id)
+                                    logger.info(f"Notifications triggered for bill {bill_or_text.get_bill_identifier()}")
+                                except Exception as e:
+                                    logger.warning(f"Could not trigger notifications for bill {bill_or_text.get_bill_identifier()}: {e}")
                 
                 except Exception as e:
                     logger.error(f"Error creating new database structure: {e}")
@@ -432,8 +441,28 @@ class EnhancedAIAnalyzer:
                     status_changed = bill_or_text.update_display_ready_status()
                     if status_changed:
                         logger.info(f"Bill {bill_or_text.get_bill_identifier()} is now display ready")
+                        
+                        # Trigger notifications for newly analyzed bill (fallback case)
+                        if hasattr(bill_or_text, 'id'):
+                            try:
+                                from services.notification_helper import trigger_bill_analysis_notification_async
+                                trigger_bill_analysis_notification_async(bill_or_text.id)
+                                logger.info(f"Notifications triggered for bill {bill_or_text.get_bill_identifier()}")
+                            except Exception as e:
+                                logger.warning(f"Could not trigger notifications for bill {bill_or_text.get_bill_identifier()}: {e}")
             
             logger.info("[AI] Analysis completed successfully.")
+            
+            # Check for high-risk bills and trigger special notifications
+            if hasattr(bill_or_text, 'id') and analysis_results:
+                try:
+                    overall_risk_score = analysis_results.get('overall_risk_score', 0)
+                    if overall_risk_score >= 0.7:  # High risk threshold
+                        from services.notification_helper import trigger_high_risk_bill_notification
+                        trigger_high_risk_bill_notification(bill_or_text.id, overall_risk_score)
+                        logger.info(f"High-risk notification triggered for bill {bill_or_text.get_bill_identifier()} (risk: {overall_risk_score:.2f})")
+                except Exception as e:
+                    logger.warning(f"Could not trigger high-risk notifications: {e}")
             
             # Check if analysis was partial and raise exception for user notification
             if analysis_results.get('is_partial', False):
