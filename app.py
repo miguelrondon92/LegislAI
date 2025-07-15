@@ -23,6 +23,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # needed for url_for to generate with https
 
+# Configure Flask app based on environment
+app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+app.config['TESTING'] = os.environ.get('FLASK_TESTING', 'False').lower() == 'true'
+
 # Configure the database, relative to the app instance folder
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///legislative_analysis.db")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
