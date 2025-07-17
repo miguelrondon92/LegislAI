@@ -143,7 +143,7 @@ class Bill(db.Model):
     summary = db.Column(db.Text)
     introduced_date = db.Column(db.DateTime)
     last_action_date = db.Column(db.DateTime)
-    status = db.Column(db.String(50))
+    status = db.Column(db.String(500))
     sponsor_name = db.Column(db.String(100))
     sponsor_party = db.Column(db.String(20))
     sponsor_state = db.Column(db.String(5))

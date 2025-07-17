@@ -194,7 +194,6 @@ class BillProcessor:
                                 bill.last_action_date = datetime.fromisoformat(action_date + 'T00:00:00')
                             except:
                                 pass
-                        self._process_bill_actions(bill, action_list)
                 # Set Congress API URL
                 bill.congress_api_url = f"https://api.congress.gov/v3/bill/{congress}/{bill_type}/{bill_number}"
                 # Set summary if not present
@@ -205,7 +204,10 @@ class BillProcessor:
                         if sections:
                             bill.summary = sections[0][:500] + "..." if len(sections[0]) > 500 else sections[0]
                 db.session.add(bill)
-                db.session.commit()
+                db.session.commit()  # Commit bill first to get the ID
+                
+                # Now process actions after bill has been committed and has an ID
+                self._process_bill_actions(bill, action_list)
                 # Perform AI analysis if full text is available
                 if full_text:
                     try:
