@@ -561,10 +561,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 return None
@@ -628,10 +625,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 return None
@@ -694,10 +688,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 return None
@@ -803,10 +794,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 return None
@@ -910,10 +898,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 return None
@@ -982,10 +967,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 return None
@@ -1111,10 +1093,7 @@ class EnhancedAIAnalyzer:
             Keep it concise but comprehensive, suitable for someone without legal expertise.
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 logging.warning("Empty response from Gemini for summary")
@@ -1173,10 +1152,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 logging.warning("Empty response from Gemini for categorization")
@@ -1240,10 +1216,7 @@ class EnhancedAIAnalyzer:
             }}
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 logging.warning("Empty response from Gemini for stakeholder analysis")
@@ -1312,10 +1285,7 @@ class EnhancedAIAnalyzer:
                 return None
             
             logger.debug("Complexity assessment: Making Gemini API call")
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response:
                 logger.warning("Complexity assessment: No response from Gemini")
@@ -1367,10 +1337,7 @@ class EnhancedAIAnalyzer:
             Respond with only a number between 0.0 and 1.0.
             """
             
-            response = self.client.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response or not response.text:
                 return None
@@ -1453,10 +1420,7 @@ class EnhancedAIAnalyzer:
                     logger.error(f"🚫 Failed to record request due to rate limit on attempt {attempt + 1}")
                     return None
                 
-                response = self.client.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=prompt
-                )
+                response = self.client.generate_content(prompt)
                 logger.debug(f"[AI] Model raw API response: {str(response)[:2000]}... (truncated)")
                 
                 if hasattr(response, 'error') and response.error:
