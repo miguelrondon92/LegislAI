@@ -14,7 +14,8 @@
                             Workflow Dashboard
                         </h2>
                         <p class="card-subtitle mb-0 opacity-75">
-                            Monitor and control the automated legislative analysis workflow
+                            Monitor and control the automated legislative analysis workflow.<br>
+                            <small><i data-feather="info" width="12" height="12" class="me-1"></i>Workflow runs in background - safe to navigate away</small>
                         </p>
                     </div>
                     <div class="col-md-4 text-md-end">
@@ -188,7 +189,7 @@ function startWorkflow() {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            showAlert('Workflow started successfully!', 'success');
+            showAlert('Workflow started successfully! The workflow will continue running in the background even if you navigate away from this page.', 'success');
             setTimeout(loadWorkflowStatus, 1000);
         } else {
             showAlert('Error starting workflow: ' + data.message, 'danger');

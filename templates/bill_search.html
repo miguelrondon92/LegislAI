@@ -81,6 +81,20 @@
 </div>
 {% endif %}
 
+{% if background_analysis_info %}
+<div class="row">
+    <div class="col-12 mb-3">
+        <div class="alert alert-info" role="alert">
+            <i data-feather="activity" class="me-2"></i>
+            <strong>Background Analysis in Progress</strong> - 
+            {{ background_analysis_info.count }} bill{{ 's' if background_analysis_info.count != 1 else '' }} 
+            {{ 'are' if background_analysis_info.count != 1 else 'is' }} being analyzed in the background. 
+            You can navigate away and the analysis will continue. Refresh the page later to see updated results.
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% if bills %}
 <div class="row">
     <div class="col-12 mb-4">

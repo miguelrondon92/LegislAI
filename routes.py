@@ -91,8 +91,28 @@ def bill_search():
                 logging.error(f"Error in bill search ({search_type}): {str(e)}")
                 error_message = "An error occurred while searching for bills. Please try again."
     
+    # Check if any bills have background analysis running
+    background_analysis_info = None
+    if bills:
+        partial_bills = []
+        for bill in bills:
+            analysis = bill.get_active_ai_analysis()
+            if analysis:
+                data = analysis.get_analysis_data()
+                if data and data.get('is_partial', False):
+                    completion = data.get('completion_percentage', 0)
+                    if completion < 50:
+                        partial_bills.append((bill.get_bill_identifier(), completion))
+        
+        if partial_bills:
+            background_analysis_info = {
+                'count': len(partial_bills),
+                'bills': partial_bills
+            }
+    
     return render_template('bill_search.html', bills=bills, error_message=error_message, 
-                         search_query=search_query, search_type=search_type, congress=congress)
+                         search_query=search_query, search_type=search_type, congress=congress,
+                         background_analysis_info=background_analysis_info)
 
 def _get_or_fetch_bill_by_number(search_query, congress):
     """Get bill by number - check database first, fetch from API if needed"""
@@ -119,11 +139,35 @@ def _get_or_fetch_bill_by_number(search_query, congress):
                 logging.info("No actions found, fetching from API...")
                 fetch_bill_actions_from_api(existing_bill)
             
-            # If no AI analysis, trigger it (prioritize new table structure)
+            # Check if we need AI analysis (prioritize new table structure)
             active_analysis = existing_bill.get_active_ai_analysis()
+            needs_analysis = False
+            
             if not active_analysis and not existing_bill.ai_analysis:
                 logging.info("No AI analysis found, performing analysis...")
-                _perform_analysis_if_needed(existing_bill)
+                needs_analysis = True
+            elif active_analysis:
+                # Check if existing analysis is partial and incomplete
+                analysis_data = active_analysis.get_analysis_data()
+                if analysis_data and analysis_data.get('is_partial', False):
+                    completion = analysis_data.get('completion_percentage', 0)
+                    if completion < 50:  # Less than 50% complete
+                        # Check if we have enough API quota to continue analysis
+                        quota_info = ai_analyzer.get_quota_info()
+                        can_analyze = quota_info['status']['can_handle_small_bill']
+                        
+                        if can_analyze:
+                            logging.info(f"Partial AI analysis found ({completion:.1f}% complete), sufficient quota available, performing continued analysis...")
+                            needs_analysis = True
+                        else:
+                            logging.info(f"Partial AI analysis found ({completion:.1f}% complete), but insufficient API quota remaining. Try again later.")
+                    else:
+                        logging.info(f"Sufficient AI analysis found ({completion:.1f}% complete)")
+                else:
+                    logging.info("Complete AI analysis found")
+            
+            if needs_analysis:
+                _perform_analysis_async(existing_bill)
             
             return existing_bill
         else:
@@ -194,7 +238,7 @@ def _search_bills_hybrid(search_query, search_type, limit=20):
                             # Process new bill from API
                             bill = bill_processor.process_bill_data(bill_data)
                             if bill:
-                                _perform_analysis_if_needed(bill)
+                                _perform_analysis_async(bill)
                                 bills.append(bill)
                     
                     if len(bills) >= limit:
@@ -343,6 +387,29 @@ def _perform_analysis_if_needed(bill):
         logging.error(f"Error performing comprehensive analysis for {bill.get_bill_identifier()}: {e}")
         import traceback
         logging.error(traceback.format_exc())
+
+def _perform_analysis_async(bill):
+    """Perform AI analysis in a background thread to avoid blocking the web request"""
+    import threading
+    
+    def analysis_worker():
+        """Worker function that runs the analysis in background"""
+        try:
+            # Use app context for database operations in the background thread
+            with app.app_context():
+                logging.info(f"🔄 Starting background analysis for {bill.get_bill_identifier()}")
+                _perform_analysis_if_needed(bill)
+                logging.info(f"✅ Background analysis completed for {bill.get_bill_identifier()}")
+        except Exception as e:
+            logging.error(f"❌ Background analysis failed for {bill.get_bill_identifier()}: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
+    
+    # Start the analysis in a background thread
+    thread = threading.Thread(target=analysis_worker, daemon=True)
+    thread.start()
+    
+    logging.info(f"🚀 Background analysis started for {bill.get_bill_identifier()}")
 
 def _store_policy_categories_with_sneakiness(bill, categories, analysis=None):
     """Store policy category mappings for the bill, including sneakiness score per category"""
