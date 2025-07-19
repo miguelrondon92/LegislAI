@@ -1243,6 +1243,60 @@ class BackfillOrchestrator:
         self._save_state()
 
 
+def _configure_production_environment():
+    """Configure production environment settings"""
+    # Load production environment variables
+    from dotenv import load_dotenv
+    
+    # Try to load production.env first, then fallback to .env
+    production_env_path = Path(__file__).parent.parent / "config" / "production.env"
+    if production_env_path.exists():
+        load_dotenv(production_env_path)
+        logger.info(f"Loaded production configuration from {production_env_path}")
+    else:
+        load_dotenv()  # Load from .env as fallback
+        logger.info("Loaded configuration from .env file")
+    
+    # Validate required production environment variables
+    required_vars = ['DATABASE_URL', 'GEMINI_API_KEY']
+    missing_vars = []
+    
+    for var in required_vars:
+        if not os.environ.get(var):
+            missing_vars.append(var)
+    
+    if missing_vars:
+        raise ValueError(f"Missing required production environment variables: {', '.join(missing_vars)}")
+    
+    # Verify we're using PostgreSQL
+    database_url = os.environ.get('DATABASE_URL', '')
+    if not database_url.startswith('postgresql://') and not database_url.startswith('postgres://'):
+        logger.warning(f"Production mode expects PostgreSQL database, but DATABASE_URL is: {database_url[:20]}...")
+    
+    logger.info("✅ Production environment configuration validated")
+
+
+def _update_app_for_production():
+    """Update Flask app configuration for production database"""
+    # Override the database URL for production
+    production_db_url = os.environ.get('DATABASE_URL')
+    if production_db_url:
+        app.config['SQLALCHEMY_DATABASE_URI'] = production_db_url
+        logger.info(f"🔧 Updated database URL for production: {production_db_url[:30]}...")
+        
+        # Configure production-specific database settings
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            "pool_recycle": 300,
+            "pool_pre_ping": True,
+            "pool_size": 10,  # Production pool size
+            "max_overflow": 20,  # Production overflow
+            "echo": False  # Disable SQL logging in production
+        }
+        
+        # Note: Don't re-initialize db as it's already initialized in app.py
+        logger.info("🔧 Database configuration updated for production")
+
+
 def main():
     """CLI interface for backfill orchestrator"""
     import argparse
@@ -1257,16 +1311,36 @@ def main():
     parser.add_argument('--reset', action='store_true', help='Reset state and start fresh')
     parser.add_argument('--status', action='store_true', help='Show current status')
     parser.add_argument('--analyze-gaps', action='store_true', help='Run gap analysis only')
+    parser.add_argument('--prod', action='store_true', help='Run in production mode with PostgreSQL database')
     
     args = parser.parse_args()
     
-    # Set up logging
+    # Configure production environment if --prod flag is used
+    if args.prod:
+        _configure_production_environment()
+        _update_app_for_production()
+        print("🔧 Production mode enabled - using PostgreSQL database")
+        
+        # Production safety confirmation for destructive operations
+        if args.reset:
+            response = input("⚠️  WARNING: You are about to reset backfill state in PRODUCTION mode. Type 'CONFIRM' to proceed: ")
+            if response != 'CONFIRM':
+                print("❌ Operation cancelled")
+                return
+    
+    # Set up logging with production-appropriate level
+    log_level = logging.WARNING if args.prod else logging.INFO
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Create config
+    if args.prod:
+        logger.info("🚀 Starting backfill orchestrator in PRODUCTION mode")
+        logger.info(f"📊 Database: {os.environ.get('DATABASE_URL', 'Unknown')[:50]}...")
+        logger.info(f"🔑 API Key: {'✅ Configured' if os.environ.get('GEMINI_API_KEY') else '❌ Missing'}")
+    
+    # Create config with production-optimized settings
     mode_map = {
         'discovery': ProcessingMode.DISCOVERY_ONLY,
         'full': ProcessingMode.FULL_PROCESSING,
@@ -1274,14 +1348,36 @@ def main():
         'analysis-only': ProcessingMode.ANALYSIS_ONLY
     }
     
+    # Production-specific configuration adjustments
+    production_config_overrides = {}
+    if args.prod:
+        production_config_overrides.update({
+            'congress_api_delay': 2.0,  # Slightly faster for production with better infrastructure
+            'ai_api_delay': 3.0,  # Slightly faster for production
+            'save_state_frequency': 10,  # Save state more frequently in production
+        })
+    
     config = BackfillConfig(
         congress_session=args.congress,
         processing_mode=mode_map[args.mode],
         batch_size=args.batch_size,
-        max_bills_per_session=args.max_bills
+        max_bills_per_session=args.max_bills,
+        **production_config_overrides
     )
     
-    # Create orchestrator
+    # Create orchestrator with production-specific state file location
+    if args.prod:
+        # Use production-specific state file location
+        original_init = BackfillOrchestrator.__init__
+        
+        def production_init(self, config=None):
+            original_init(self, config)
+            # Override state file location for production
+            self.state_file = Path("logs") / f"backfill_state_prod_{self.config.congress_session}.json"
+            logger.info(f"📁 Using production state file: {self.state_file}")
+        
+        BackfillOrchestrator.__init__ = production_init
+    
     orchestrator = BackfillOrchestrator(config)
     
     # Handle commands
@@ -1300,18 +1396,34 @@ def main():
         print(json.dumps(gaps, indent=2))
         return
     
-    # Start backfill
-    print(f"Starting backfill for Congress {args.congress} in {args.mode} mode")
+    # Start backfill with production-specific messaging
+    environment = "PRODUCTION" if args.prod else "DEVELOPMENT"
+    print(f"🚀 Starting backfill for Congress {args.congress} in {args.mode} mode ({environment} environment)")
+    
+    if args.prod:
+        print("📊 Production Configuration:")
+        print(f"   • Database: PostgreSQL")
+        print(f"   • Batch size: {args.batch_size}")
+        print(f"   • Congress API delay: {config.congress_api_delay}s")
+        print(f"   • AI API delay: {config.ai_api_delay}s")
+        print(f"   • State file: backfill_state_prod_{args.congress}.json")
+    
     success = orchestrator.start_backfill(resume=args.resume)
     
     if success:
-        print("Backfill completed successfully!")
+        completion_msg = "✅ Backfill completed successfully!"
+        if args.prod:
+            completion_msg += " (PRODUCTION mode)"
+        print(completion_msg)
     else:
-        print("Backfill failed or was paused")
+        failure_msg = "❌ Backfill failed or was paused"
+        if args.prod:
+            failure_msg += " (PRODUCTION mode)"
+        print(failure_msg)
     
     # Show final status
     status = orchestrator.get_status()
-    print("\nFinal Status:")
+    print(f"\n📋 Final Status ({environment}):")
     print(json.dumps(status, indent=2))
 
 

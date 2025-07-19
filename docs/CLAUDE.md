@@ -91,6 +91,8 @@ python test/test_hr1_analysis.py
 ```
 
 ### Backfill Operations (Careful Processing)
+
+#### Development Mode (SQLite)
 ```bash
 # Careful analysis-only mode (batch size 1, default)
 python services/backfill_orchestrator.py --mode analysis-only
@@ -111,6 +113,38 @@ python services/backfill_orchestrator.py --resume
 python services/backfill_orchestrator.py --mode analysis-only --batch-size 5
 ```
 
+#### Production Mode (PostgreSQL)
+```bash
+# Production analysis-only mode with PostgreSQL database
+python services/backfill_orchestrator.py --prod --mode analysis-only
+
+# Production full processing (discovers and processes new bills)
+python services/backfill_orchestrator.py --prod --mode full --congress 119
+
+# Production gap processing (missing/unanalyzed bills only)
+python services/backfill_orchestrator.py --prod --mode gaps --batch-size 3
+
+# Check production database status
+python services/backfill_orchestrator.py --prod --status
+
+# Analyze production database gaps
+python services/backfill_orchestrator.py --prod --analyze-gaps
+
+# Resume production operation (uses production state file)
+python services/backfill_orchestrator.py --prod --resume
+
+# Reset production state (with safety confirmation)
+python services/backfill_orchestrator.py --prod --reset
+```
+
+#### Production Mode Features
+- **PostgreSQL Database**: Automatically uses `DATABASE_URL` from production.env
+- **Enhanced Performance**: Optimized rate limiting (2.0s Congress API, 3.0s AI API)
+- **Separate State Files**: Uses `backfill_state_prod_{congress}.json` for production
+- **Safety Confirmations**: Prompts for destructive operations in production
+- **Enhanced Logging**: Production-appropriate log levels and detailed status reporting
+- **Environment Validation**: Validates required environment variables before starting
+
 ### Database Operations
 ```bash
 # Create migration
@@ -128,12 +162,28 @@ sqlite3 instance/legislative_analysis.db
 
 ## Environment Variables
 
-Required environment variables (set in `.env`):
+### Development Environment (`.env`)
+Required environment variables for development:
 - `DATABASE_URL`: Database connection string (default: sqlite:///legislative_analysis.db)
 - `SESSION_SECRET`: Flask session secret key  
 - `GEMINI_API_KEY`: Google Gemini API key for AI analysis
 - `CONGRESS_API_KEY`: Congress.gov API key (optional for most operations)
 - `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`: Email settings for notifications
+
+### Production Environment (`config/production.env`)
+Required environment variables for production mode (--prod flag):
+- `DATABASE_URL`: PostgreSQL connection string (e.g., postgresql://user:pass@host:port/dbname)
+- `GEMINI_API_KEY`: Google Gemini API key for AI analysis (REQUIRED)
+- `CONGRESS_API_KEY`: Congress.gov API key for enhanced rate limits
+- `SESSION_SECRET`: Secure random secret key for production
+- `FLASK_ENV`: Set to 'production'
+- `FLASK_DEBUG`: Set to 'false'
+- `LOG_LEVEL`: Set to 'WARNING' for production
+
+#### Production Environment Setup
+1. Copy the template: `cp config/production.env.template config/production.env`
+2. Update values in `config/production.env` with your production credentials
+3. Use `--prod` flag to automatically load production configuration
 
 ## Key Features
 
