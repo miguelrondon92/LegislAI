@@ -28,6 +28,14 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from enum import Enum
 
+# Check for production mode early and load environment before any other imports
+if '--prod' in sys.argv:
+    from dotenv import load_dotenv
+    production_env_path = Path(__file__).parent.parent / "config" / "production.env"
+    if production_env_path.exists():
+        load_dotenv(production_env_path, override=True)
+        print(f"🔧 Early production environment loaded from {production_env_path}")
+
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -1251,7 +1259,7 @@ def _configure_production_environment():
     # Try to load production.env first, then fallback to .env
     production_env_path = Path(__file__).parent.parent / "config" / "production.env"
     if production_env_path.exists():
-        load_dotenv(production_env_path)
+        load_dotenv(production_env_path, override=True)  # Override existing env vars
         logger.info(f"Loaded production configuration from {production_env_path}")
     else:
         load_dotenv()  # Load from .env as fallback
@@ -1274,6 +1282,7 @@ def _configure_production_environment():
         logger.warning(f"Production mode expects PostgreSQL database, but DATABASE_URL is: {database_url[:20]}...")
     
     logger.info("✅ Production environment configuration validated")
+    logger.info(f"✅ Production DATABASE_URL loaded: {database_url[:50]}...")
 
 
 def _update_app_for_production():
@@ -1320,13 +1329,13 @@ def main():
         _configure_production_environment()
         _update_app_for_production()
         print("🔧 Production mode enabled - using PostgreSQL database")
-        
-        # Production safety confirmation for destructive operations
-        if args.reset:
-            response = input("⚠️  WARNING: You are about to reset backfill state in PRODUCTION mode. Type 'CONFIRM' to proceed: ")
-            if response != 'CONFIRM':
-                print("❌ Operation cancelled")
-                return
+    
+    # Production safety confirmation for destructive operations
+    if args.prod and args.reset:
+        response = input("⚠️  WARNING: You are about to reset backfill state in PRODUCTION mode. Type 'CONFIRM' to proceed: ")
+        if response != 'CONFIRM':
+            print("❌ Operation cancelled")
+            return
     
     # Set up logging with production-appropriate level
     log_level = logging.WARNING if args.prod else logging.INFO
