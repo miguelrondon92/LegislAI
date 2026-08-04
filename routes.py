@@ -1022,8 +1022,19 @@ def ops_log_mark_read(alert_id):
     alert.is_read = True
     db.session.commit()
     if request.accept_mimetypes.best == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({'ok': True, 'id': alert_id})
+        return jsonify({'ok': True, 'id': alert_id, 'is_read': True})
     next_url = request.form.get('next') or request.referrer or url_for('ops_logs')
+    return redirect(next_url)
+
+
+@app.route('/ops/logs/<int:alert_id>/unread', methods=['POST'])
+def ops_log_mark_unread(alert_id):
+    alert = OpsAlert.query.get_or_404(alert_id)
+    alert.is_read = False
+    db.session.commit()
+    if request.accept_mimetypes.best == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'ok': True, 'id': alert_id, 'is_read': False})
+    next_url = request.form.get('next') or request.referrer or url_for('ops_logs', view='all')
     return redirect(next_url)
 
 
@@ -1042,6 +1053,23 @@ def ops_logs_mark_all_read():
     updated = q.filter_by(is_read=False).update({'is_read': True}, synchronize_session=False)
     db.session.commit()
     flash(f'Marked {updated} alert(s) as read.', 'success')
+    return redirect(url_for('ops_logs', view=view, bill=bill or None, failure_class=failure_class))
+
+
+@app.route('/ops/logs/unread-all', methods=['POST'])
+def ops_logs_mark_all_unread():
+    """Mark filtered alerts as unread again (typically used from All view)."""
+    view = request.form.get('view', 'all')
+    bill = request.form.get('bill', '').strip()
+    failure_class = request.form.get('failure_class', '').strip() or None
+    q = _ops_alerts_query(
+        unread_only=False,
+        bill=bill or None,
+        failure_class=failure_class,
+    )
+    updated = q.filter_by(is_read=True).update({'is_read': False}, synchronize_session=False)
+    db.session.commit()
+    flash(f'Marked {updated} alert(s) as unread.', 'success')
     return redirect(url_for('ops_logs', view=view, bill=bill or None, failure_class=failure_class))
 
 
