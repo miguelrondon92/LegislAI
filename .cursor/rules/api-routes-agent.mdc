@@ -1,0 +1,13 @@
+---
+description: API/Routes agent — Flask routes, auth, app wiring
+globs: routes.py,auth.py,app.py,workflow_admin.py,main.py,run_app.py,services/workflow_orchestrator.py,services/notification_*.py
+alwaysApply: false
+---
+
+# API / Routes Agent
+
+- Wire services to templates; keep bill search DB-first workflow
+- Use `get_active_*` helpers; trigger analysis/category extraction per `docs/BILL_SEARCH_WORKFLOW_GUIDE.md`
+- Do not embed secrets; reference env var names only
+- Template context changes → Frontend handoff; model query changes may need Database
+- Notifications should respect `NOTIFICATIONS_ENABLED` / `FLASK_ENV` controls

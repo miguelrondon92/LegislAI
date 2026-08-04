@@ -34,6 +34,10 @@ Welcome to the LegislAI documentation collection. This folder contains comprehen
 | [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) | **🆕 Start here:** Summary of recent major system changes and enhancements |
 | [`continued_ideas.md`](./continued_ideas.md) | Future enhancement ideas and development roadmap |
 
+## 🤖 Agentic development
+
+Multi-agent Cursor setup (skills, hooks, contracts, secrets ban): see root [`AGENTS.md`](../AGENTS.md) and [`.cursor/README.md`](../.cursor/README.md).
+
 ## 🚀 Quick Start for Developers
 
 1. **New to the project?** Start with [`CLAUDE.md`](./CLAUDE.md) for complete system overview

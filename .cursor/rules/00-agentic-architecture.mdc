@@ -1,0 +1,35 @@
+---
+description: LegislAI multi-agent architecture — roster, pipeline, handoffs
+alwaysApply: true
+---
+
+# LegislAI Agentic Architecture
+
+Read `AGENTS.md` and `.cursor/resources/agent-roster.md` before multi-file work.
+
+## Pipeline order
+
+ETL → Database → Analysis → API/Routes → Frontend → QA
+
+Upstream changes must produce a handoff (skill `legislai-pipeline-handoff`) so downstream layers accept the new shape and the UI can show it.
+
+## Role selection
+
+| Work touches | Load skill / act as |
+|--------------|---------------------|
+| Cross-layer feature | `legislai-orchestrate` |
+| Congress/RSS/processors/backfill | `legislai-etl` |
+| `db_models.py` / migrations | `legislai-database` |
+| Gemini analyzer / categories / hidden provisions | `legislai-analysis` |
+| `templates/` / `static/` | `legislai-frontend` |
+| Tests / display_ready verification | `legislai-qa` |
+
+Prefer Task subagents with clear ownership boundaries from the roster. Pass handoff packets between them.
+
+## Contracts
+
+- `.cursor/resources/pipeline-contract.md`
+- `.cursor/resources/display-ready-contract.md`
+- `.cursor/resources/schema-surface.md`
+
+Do not invent parallel schema or analysis JSON shapes outside these contracts.
