@@ -31,7 +31,8 @@ class EnhancedAIAnalyzer:
             self.client = None
         else:
             genai.configure(api_key=self.api_key)
-            self.client = genai.GenerativeModel('gemini-1.5-flash')
+            # gemini-1.5-flash is no longer available on many API keys; 2.0 is used elsewhere in repo
+            self.client = genai.GenerativeModel('gemini-2.0-flash')
         
         # Rate limiting configuration
         self.max_requests_per_minute = 15  # Free tier limit
