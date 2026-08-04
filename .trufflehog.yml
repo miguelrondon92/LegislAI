@@ -1,0 +1,46 @@
+# TruffleHog configuration file
+# This configures how TruffleHog scans for secrets in your repository
+
+# Exclude patterns (files/directories to skip)
+exclude_paths:
+  - ".git/"
+  - ".github/"
+  - "node_modules/"
+  - "*.lock"
+  - "*.pyc"
+  - "__pycache__/"
+  - ".pytest_cache/"
+  - "venv/"
+  - ".venv/"
+  - "instance/"
+  - "logs/"
+  - "test/sample_email.html"
+  - "test/sample_email.txt"
+  - "archives/"
+
+# Exclude entropy patterns (to reduce false positives)
+exclude_entropy_patterns:
+  - "example"
+  - "placeholder"
+  - "your-.*-key"
+  - "your-.*-password"
+  - "template"
+
+# Include specific detectors (optional - by default all are enabled)
+include_detectors:
+  - "openai"
+  - "github"
+  - "google"
+  - "anthropic"
+  - "aws"
+  - "slack"
+  - "stripe"
+  - "twilio"
+
+# Verification settings
+verify: true
+only_verified: true
+
+# Output settings
+output_format: "json"
+debug: false

@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Legislative Analysis Platform{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="mb-0">
+            <i class="fas fa-tachometer-alt me-2"></i>
+            Your Dashboard
+        </h1>
+        <p class="text-muted">Personalized legislative analysis and alerts</p>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-bell fa-2x mb-2"></i>
+                <h3 class="mb-0">{{ alerts|length }}</h3>
+                <small>Active Alerts</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-bookmark fa-2x mb-2"></i>
+                <h3 class="mb-0">{{ watchlist_items|length }}</h3>
+                <small>Watched Bills</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-2x mb-2"></i>
+                <h3 class="mb-0">{{ (user.get_policy_preferences().values() | list | length) if user else 0 }}</h3>
+                <small>Policy Areas</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-fire fa-2x mb-2"></i>
+                <h3 class="mb-0">{{ trending_bills|length }}</h3>
+                <small>Trending Bills</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Setup Prompt for New Users -->
+{% if not user or not user.get_policy_preferences() %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning" role="alert">
+            <h5 class="alert-heading">
+                <i class="fas fa-user-cog me-2"></i>
+                Complete Your Setup
+            </h5>
+            <p class="mb-3">
+                To get personalized bill analysis and alerts, please set up your policy preferences.
+                This will help us show you bills that align with or conflict with your values.
+            </p>
+            <a href="{{ url_for('profile_setup') }}" class="btn btn-warning">
+                <i class="fas fa-sliders-h me-1"></i> Set Policy Preferences
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Recent Alerts -->
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-bell me-2"></i>
+                    Recent Alerts
+                </h5>
+                <a href="{{ url_for('alerts') }}" class="btn btn-outline-primary btn-sm">
+                    View All
+                </a>
+            </div>
+            <div class="card-body">
+                {% if alerts %}
+                    {% for alert in alerts[:5] %}
+                    <div class="d-flex align-items-start mb-3 pb-3 border-bottom">
+                        <div class="flex-shrink-0 me-3">
+                            {% if alert.priority == 'critical' %}
+                                <i class="fas fa-exclamation-triangle text-danger"></i>
+                            {% elif alert.priority == 'high' %}
+                                <i class="fas fa-exclamation-circle text-warning"></i>
+                            {% else %}
+                                <i class="fas fa-info-circle text-info"></i>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">
+                                <a href="{{ url_for('bill_analysis', bill_id=alert.bill.id) }}" 
+                                   class="text-decoration-none">
+                                    {{ alert.bill.get_bill_identifier() }}
+                                </a>
+                            </h6>
+                            <p class="mb-1">{{ alert.message }}</p>
+                            <small class="text-muted">
+                                {% if alert.alignment_score %}
+                                    Alignment: {{ alert.alignment_score|round }}% •
+                                {% endif %}
+                                {{ alert.created_at.strftime('%m/%d/%Y %H:%M') }}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-bell-slash fa-2x mb-3"></i>
+                        <p>No alerts yet. Set up your policy preferences to start receiving personalized alerts.</p>
+                        <a href="{{ url_for('profile_setup') }}" class="btn btn-primary">
+                            <i class="fas fa-cog me-1"></i> Setup Now
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-search me-2"></i>
+                        Search Bills
+                    </a>
+                    
+                    <a href="{{ url_for('profile_setup') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-user-cog me-2"></i>
+                        Update Preferences
+                    </a>
+                    
+                    <a href="{{ url_for('alerts') }}" class="btn btn-outline-info">
+                        <i class="fas fa-bell me-2"></i>
+                        View All Alerts
+                    </a>
+                    
+                    <button class="btn btn-outline-success" onclick="refreshDashboard()">
+                        <i class="fas fa-sync-alt me-2"></i>
+                        Refresh Data
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Policy Preferences Summary -->
+        {% if user and user.get_policy_preferences() %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Your Policy Focus
+                </h6>
+            </div>
+            <div class="card-body">
+                {% set preferences = user.get_policy_preferences() %}
+                {% for category, score in preferences.items() %}
+                    {% if score|abs > 30 %}
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between">
+                            <small>{{ category }}</small>
+                            <small class="text-{{ 'success' if score > 0 else 'danger' }}">
+                                {{ score|round }}%
+                            </small>
+                        </div>
+                        <div class="progress" style="height: 4px;">
+                            <div class="progress-bar bg-{{ 'success' if score > 0 else 'danger' }}" 
+                                 style="width: {{ (score|abs) }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Watchlist -->
+{% if watchlist_items %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bookmark me-2"></i>
+                    Your Watchlist
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for item in watchlist_items[:6] %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <h6 class="card-title mb-1">
+                                    <a href="{{ url_for('bill_analysis', bill_id=item.bill.id) }}" 
+                                       class="text-decoration-none">
+                                        {{ item.bill.get_bill_identifier() }}
+                                    </a>
+                                </h6>
+                                <p class="card-text small mb-1">
+                                    {{ item.bill.title[:80] if item.bill.title else 'Untitled Bill' }}
+                                    {% if item.bill.title and item.bill.title|length > 80 %}...{% endif %}
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-{{ item.bill.status | bill_status_color }}">
+                                        {{ item.bill.status or 'Unknown' }}
+                                    </span>
+                                    <button class="btn btn-outline-danger btn-sm" 
+                                            onclick="removeFromWatchlist({{ item.bill.id }})">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Trending Bills -->
+{% if trending_bills %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-fire me-2"></i>
+                    Trending Bills
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for bill in trending_bills %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card border-warning">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <a href="{{ url_for('bill_analysis', bill_id=bill.id) }}" 
+                                       class="text-decoration-none">
+                                        {{ bill.get_bill_identifier() }}
+                                    </a>
+                                </h6>
+                                <p class="card-text small">
+                                    {{ bill.title[:100] if bill.title else 'Untitled Bill' }}
+                                    {% if bill.title and bill.title|length > 100 %}...{% endif %}
+                                </p>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-{{ bill.status | bill_status_color }}">
+                                        {{ bill.status or 'Unknown' }}
+                                    </span>
+                                    {% if bill.controversy_score %}
+                                    <small class="text-warning">
+                                        <i class="fas fa-fire me-1"></i>
+                                        {{ (bill.controversy_score * 100)|round }}% controversial
+                                    </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function refreshDashboard() {
+    // Show loading state
+    const btn = event.target;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Refreshing...';
+    btn.disabled = true;
+    
+    // Simulate refresh (in a real app, this would make an AJAX call)
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+function removeFromWatchlist(billId) {
+    if (!confirm('Remove this bill from your watchlist?')) {
+        return;
+    }
+    
+    fetch(`/watchlist/remove/${billId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the card from the UI
+            event.target.closest('.col-md-6').remove();
+            
+            // Show success message
+            showAlert('Bill removed from watchlist', 'success');
+        } else {
+            showAlert(data.error || 'Error removing bill from watchlist', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Error removing bill from watchlist', 'danger');
+    });
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('main .container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}

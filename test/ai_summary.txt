@@ -1,0 +1,29 @@
+summary: Okay, here's a breakdown of that bill in plain language, followed by the Spanish version.
+
+**Explanation of H.J. Res. 87**
+
+**1. What the bill does:**
+
+This bill is like a "veto" from Congress aimed at stopping a specific rule issued by the Environmental Protection Agency (EPA). The rule in question allows California to set its own, stricter pollution standards for heavy-duty vehicles (like big trucks and buses) and their engines. By passing this bill, Congress is saying they disapprove of the EPA's decision to grant California this authority.
+
+**2. Who it affects:**
+
+*   **Vehicle Manufacturers:** Companies that make heavy-duty vehicles and engines, as they might have to meet different standards in California compared to the rest of the country if the EPA rule stands.
+*   **The State of California:** California would be unable to implement its stricter pollution standards for heavy-duty vehicles.
+*   **Other States:** States that often follow California's lead on vehicle emissions might also be affected, as they might not be able to adopt the same standards.
+*   **The EPA:** The EPA's authority to grant waivers allowing California to set its own emissions standards would be challenged.
+*   **The Environment and Public Health:** The level of air pollution from heavy-duty vehicles could be higher than it would be under California's stricter rules.
+*   **Consumers:** Businesses that operate fleets of heavy-duty vehicles, and ultimately consumers who purchase goods transported by those vehicles, could see changes in costs related to compliance with emissions standards.
+
+**3. Key Provisions:**
+
+*   **Disapproval:** The core of the bill is a simple statement that Congress *disapproves* of the EPA rule.
+*   **No Force or Effect:** It states that the EPA rule "shall have no force or effect," meaning it's legally blocked from being implemented.
+*   **Specific Rule Targeted:** The bill clearly identifies the exact EPA rule it's targeting by referencing its official publication in the Federal Register (a government publication where rules are announced).
+
+**4. Potential Impacts:**
+
+*   **Less Stringent Pollution Controls:** Without California's stricter standards, there could be more pollution from heavy-duty vehicles.
+*   **Legal Battles:** It's possible that California or environmental groups might challenge Congress's disapproval in court.
+*   **Uncertainty for Manufacturers:** The back-and-forth between the EPA, California, and Congress creates uncertainty for vehicle manufacturers who need to plan for future emissions requirements.
+*   **Sets a Precedent:** This action could set a precedent for Congress to block other EPA regulations in the future.

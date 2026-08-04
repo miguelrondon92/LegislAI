@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}Policy Profile - Legislative Analysis Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h2 class="card-title mb-2">
+                    <i data-feather="user" class="me-2"></i>
+                    Your Policy Profile
+                </h2>
+                <p class="card-text mb-0">
+                    Configure your policy preferences to receive personalized bill analysis and alerts tailored to your interests.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('profile') }}">
+    <div class="row">
+        <!-- Policy Preferences -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i data-feather="sliders" class="me-2"></i>
+                        Policy Preferences
+                    </h5>
+                    <small class="text-muted">Set your stance and importance level for different policy areas</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% set policy_areas = [
+                            ('healthcare', 'Healthcare & Medicine', 'Activity'),
+                            ('environment', 'Environment & Climate', 'Leaf'),
+                            ('economy', 'Economy & Finance', 'DollarSign'),
+                            ('education', 'Education', 'BookOpen'),
+                            ('defense', 'Defense & Security', 'Shield'),
+                            ('immigration', 'Immigration', 'Globe'),
+                            ('civil_rights', 'Civil Rights', 'Users'),
+                            ('technology', 'Technology & Innovation', 'Cpu'),
+                            ('agriculture', 'Agriculture & Food', 'Truck'),
+                            ('energy', 'Energy Policy', 'Zap'),
+                            ('transportation', 'Transportation', 'Navigation'),
+                            ('housing', 'Housing & Urban Development', 'Home'),
+                            ('tax_policy', 'Tax Policy', 'Calculator'),
+                            ('foreign_policy', 'Foreign Policy', 'Globe'),
+                            ('criminal_justice', 'Criminal Justice', 'Scale'),
+                            ('social_services', 'Social Services', 'Heart')
+                        ] %}
+                        
+                        {% for area_key, area_name, icon in policy_areas %}
+                        <div class="col-md-6 mb-4">
+                            <div class="card bg-secondary">
+                                <div class="card-body">
+                                    <h6 class="card-title d-flex align-items-center">
+                                        <i data-feather="{{ icon.lower() }}" class="me-2" style="width: 20px; height: 20px;"></i>
+                                        {{ area_name }}
+                                    </h6>
+                                    
+                                    <!-- Importance Level -->
+                                    <div class="mb-3">
+                                        <label class="form-label small">Importance to You</label>
+                                        <select class="form-select form-select-sm" name="{{ area_key }}_importance">
+                                            <option value="low" {% if preferences.get(area_key, {}).get('importance') == 'low' %}selected{% endif %}>Low</option>
+                                            <option value="medium" {% if preferences.get(area_key, {}).get('importance') == 'medium' or not preferences.get(area_key) %}selected{% endif %}>Medium</option>
+                                            <option value="high" {% if preferences.get(area_key, {}).get('importance') == 'high' %}selected{% endif %}>High</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Policy Stance -->
+                                    <div>
+                                        <label class="form-label small">Your Stance</label>
+                                        <select class="form-select form-select-sm" name="{{ area_key }}_stance">
+                                            <option value="very_opposed" {% if preferences.get(area_key, {}).get('stance') == 'very_opposed' %}selected{% endif %}>Strongly Oppose</option>
+                                            <option value="opposed" {% if preferences.get(area_key, {}).get('stance') == 'opposed' %}selected{% endif %}>Oppose</option>
+                                            <option value="neutral" {% if preferences.get(area_key, {}).get('stance') == 'neutral' or not preferences.get(area_key) %}selected{% endif %}>Neutral</option>
+                                            <option value="supportive" {% if preferences.get(area_key, {}).get('stance') == 'supportive' %}selected{% endif %}>Support</option>
+                                            <option value="very_supportive" {% if preferences.get(area_key, {}).get('stance') == 'very_supportive' %}selected{% endif %}>Strongly Support</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Settings -->
+        <div class="col-lg-4 mb-4">
+            <!-- Alert Settings -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i data-feather="bell" class="me-2"></i>
+                        Alert Settings
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="alert_frequency" class="form-label">Alert Frequency</label>
+                        <select class="form-select" id="alert_frequency" name="alert_frequency">
+                            <option value="daily" {% if user.alert_frequency == 'daily' %}selected{% endif %}>Daily</option>
+                            <option value="weekly" {% if user.alert_frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+                            <option value="monthly" {% if user.alert_frequency == 'monthly' %}selected{% endif %}>Monthly</option>
+                        </select>
+                        <div class="form-text">How often would you like to receive alert summaries?</div>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="alert_enabled" name="alert_enabled" 
+                               {% if user.alert_enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="alert_enabled">
+                            Enable alerts for relevant bills
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Summary -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i data-feather="user" class="me-2"></i>
+                        Profile Summary
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td><strong>Username:</strong></td>
+                            <td>{{ user.username }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Email:</strong></td>
+                            <td>{{ user.email }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Member Since:</strong></td>
+                            <td>{{ user.created_at.strftime('%B %Y') }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Alerts:</strong></td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if user.alert_enabled else 'secondary' }}">
+                                    {{ 'Enabled' if user.alert_enabled else 'Disabled' }}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i data-feather="save" class="me-2"></i>
+                            Save Preferences
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                            <i data-feather="arrow-left" class="me-2"></i>
+                            Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Section -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i data-feather="help-circle" class="me-2"></i>
+                        How It Works
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info alert-sm" role="alert">
+                        <h6 class="alert-heading">Policy Alignment</h6>
+                        <p class="small mb-2">Your preferences are used to calculate alignment scores for congressional bills:</p>
+                        <ul class="small mb-0">
+                            <li><strong>Importance:</strong> How much weight this area has in your overall score</li>
+                            <li><strong>Stance:</strong> Your position on government action in this area</li>
+                            <li><strong>Alerts:</strong> Notifications when bills match or conflict with your preferences</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <h6 class="small">Alignment Scoring</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar bg-success" style="width: 33.33%">+100 (Strong Support)</div>
+                            <div class="progress-bar bg-warning" style="width: 33.33%">0 (Neutral)</div>
+                            <div class="progress-bar bg-danger" style="width: 33.33%">-100 (Strong Opposition)</div>
+                        </div>
+                        <small class="text-muted">Bills are scored from -100 to +100 based on how well they align with your preferences.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Policy Preferences Visualization -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="pie-chart" class="me-2"></i>
+                    Your Policy Priorities
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <canvas id="importanceChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        <canvas id="stanceChart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        Charts update automatically as you modify your preferences above.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    updateCharts();
+    
+    // Update charts when preferences change
+    document.querySelectorAll('select[name$="_importance"], select[name$="_stance"]').forEach(select => {
+        select.addEventListener('change', updateCharts);
+    });
+});
+
+function updateCharts() {
+    updateImportanceChart();
+    updateStanceChart();
+}
+
+function updateImportanceChart() {
+    const ctx = document.getElementById('importanceChart').getContext('2d');
+    const importanceData = getImportanceData();
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['High Priority', 'Medium Priority', 'Low Priority'],
+            datasets: [{
+                data: [importanceData.high, importanceData.medium, importanceData.low],
+                backgroundColor: ['#dc3545', '#ffc107', '#6c757d'],
+                borderWidth: 2,
+                borderColor: '#495057'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Policy Importance Distribution',
+                    color: '#dee2e6'
+                },
+                legend: {
+                    labels: {
+                        color: '#dee2e6'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateStanceChart() {
+    const ctx = document.getElementById('stanceChart').getContext('2d');
+    const stanceData = getStanceData();
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Strong Support', 'Support', 'Neutral', 'Oppose', 'Strong Oppose'],
+            datasets: [{
+                data: [stanceData.very_supportive, stanceData.supportive, stanceData.neutral, stanceData.opposed, stanceData.very_opposed],
+                backgroundColor: ['#198754', '#20c997', '#6c757d', '#fd7e14', '#dc3545'],
+                borderWidth: 1,
+                borderColor: '#495057'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Policy Stance Distribution',
+                    color: '#dee2e6'
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#dee2e6'
+                    },
+                    grid: {
+                        color: '#495057'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#dee2e6'
+                    },
+                    grid: {
+                        color: '#495057'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function getImportanceData() {
+    const importanceSelects = document.querySelectorAll('select[name$="_importance"]');
+    const data = { high: 0, medium: 0, low: 0 };
+    
+    importanceSelects.forEach(select => {
+        data[select.value]++;
+    });
+    
+    return data;
+}
+
+function getStanceData() {
+    const stanceSelects = document.querySelectorAll('select[name$="_stance"]');
+    const data = { very_supportive: 0, supportive: 0, neutral: 0, opposed: 0, very_opposed: 0 };
+    
+    stanceSelects.forEach(select => {
+        data[select.value]++;
+    });
+    
+    return data;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,286 @@
+# AI Legislative Analysis Platform Development Prompt
+
+## Core Vision
+Build a complete AI-powered legislative analysis platform with an MCP (Model Context Protocol) server backend that democratizes understanding of complex congressional bills. The system should instantly parse, categorize, and evaluate legislation while providing personalized insights based on user policy preferences.
+
+## Technical Architecture Requirements
+
+### MCP Server Backend
+- Implement a lightweight MCP server that exposes modular tools for legislative analysis
+- Each capability should be exposed as a discrete, API-like tool that can be easily integrated into AI agents or interfaces
+- Tools should include: bill parsing, section categorization, stakeholder mapping, policy alignment scoring, and alert generation
+- Use modern Python framework (FastAPI recommended) with proper async handling
+- Include comprehensive error handling and logging
+
+### Core Functionality Tools
+1. **Bill Parser Tool**
+   - **Input**: Bill number/ID or Congress API URL
+   - **Cache Check**: First check if bill already exists in database with current version hash
+   - **Process**: If not cached, fetch from api.congress.gov, store full text with metadata
+   - Extracts structured data: sections, subsections, amendments, funding allocations
+   - **Storage**: Saves parsed structure and raw text for future reference
+   - Returns standardized JSON format with full provenance tracking
+
+2. **Policy Categorizer Tool**
+   - **Cache Check**: Look for existing categorization analysis by bill ID and analysis hash
+   - **Incremental Processing**: For amended bills, only categorize new/changed sections
+   - Uses LLM to categorize bill sections into policy domains (healthcare, environment, economy, etc.)
+   - **Storage**: Saves categorization results with confidence scores and reasoning
+   - Tags sections with confidence scores and reasoning
+
+3. **Stakeholder Mapper Tool**
+   - **Cache Check**: Verify if stakeholder mapping exists for current bill version
+   - Maps bill sections to affected stakeholder groups using cached analysis when available
+   - **Storage**: Persists stakeholder mappings with impact assessments
+   - Cross-references with historical lobbying data patterns
+
+4. **Alignment Scorer Tool**
+   - **Cache Check**: Look for existing user-bill alignment scores in database
+   - **Smart Recomputation**: Only recalculate if user profile or bill content changed
+   - Accepts user policy profiles (JSON format with weighted preferences)
+   - **Storage**: Caches alignment scores and detailed reasoning for each user-bill pair
+   - Generates detailed explanations for alignment/conflict reasoning
+
+5. **Alert Generator Tool**
+   - **Reference Stored Analysis**: Uses cached categorization and alignment data
+   - Creates prioritized alerts based on stored policy conflicts or alignments
+   - **Historical Context**: References past bill analyses for trend identification
+   - Includes actionable insights and contact information for relevant representatives
+
+### User Interface Components
+- Clean, modern web interface for exploring bill analysis
+- User profile creation for policy preferences (sliders, weighted categories)
+- Interactive bill viewer with section-by-section breakdowns
+- Dashboard showing personalized alerts and trending legislation
+- Comparison tools for multiple bills or versions
+
+### Data Integration
+- **Primary Data Source**: https://api.congress.gov/ for real-time congressional bill data
+- Implement comprehensive Congress API client with endpoints for:
+  - Bill search and retrieval (`/bill/{congress}/{billType}/{billNumber}`)
+  - Bill text in multiple formats (`/bill/{congress}/{billType}/{billNumber}/text`)
+  - Bill actions and status updates (`/bill/{congress}/{billType}/{billNumber}/actions`)
+  - Committee information (`/committee`)
+  - Member information (`/member`)
+  - Amendment tracking (`/amendment`)
+- Support for uploading custom legislative documents as fallback
+- Historical bill database populated from Congress API for trend analysis
+- Optional integration with lobbying disclosure data from senate.gov
+
+## Implementation Specifications
+
+### MCP Server Structure
+```
+/mcp-server/
+├── server.py (main MCP server implementation)
+├── tools/
+│   ├── bill_parser.py
+│   ├── policy_categorizer.py
+│   ├── stakeholder_mapper.py
+│   ├── alignment_scorer.py
+│   └── alert_generator.py
+├── models/
+│   ├── bill_models.py
+│   ├── analysis_models.py
+│   ├── user_models.py
+│   └── cache_models.py
+├── storage/
+│   ├── analysis_store.py
+│   ├── bill_cache.py
+│   ├── version_tracker.py
+│   └── search_indexer.py
+├── utils/
+│   ├── llm_client.py
+│   ├── congress_api_client.py
+│   ├── bill_fetcher.py
+│   ├── text_processing.py
+│   ├── data_validator.py
+│   └── diff_analyzer.py
+└── config/
+    ├── settings.py
+    └── prompts.py
+```
+
+### Frontend Structure
+```
+/frontend/
+├── pages/
+│   ├── dashboard.py
+│   ├── bill_analysis.py
+│   ├── profile_setup.py
+│   └── alerts.py
+├── components/
+│   ├── bill_viewer.py
+│   ├── policy_sliders.py
+│   ├── alert_cards.py
+│   └── comparison_tools.py
+└── utils/
+    ├── mcp_client.py
+    └── data_formatting.py
+```
+
+## Key Features to Implement
+
+### Bill Analysis Engine
+- **Complexity Scoring**: Rate bills by reading difficulty and scope
+- **Impact Assessment**: Predict real-world effects of legislation
+- **Amendment Tracking**: Monitor changes between bill versions
+- **Deadline Detection**: Identify critical dates and implementation timelines
+
+### Personalization System
+- **Policy Profile Builder**: Intuitive interface for setting preferences across 20+ policy categories
+- **Learning Algorithm**: Improve recommendations based on user interactions
+- **Custom Watchlists**: Allow users to follow specific topics or legislators
+- **Notification Preferences**: Granular control over alert frequency and types
+
+### Transparency Features
+- **Controversial Provision Detector**: Highlight potentially problematic sections
+- **Funding Flow Mapper**: Visualize where money goes in spending bills
+- **Special Interest Scanner**: Identify provisions that benefit narrow constituencies
+- **Plain Language Translator**: Convert legalese into accessible summaries
+
+### Congress API Integration Requirements
+
+**API Setup & Authentication**
+- Obtain API key from https://api.congress.gov/sign-up/
+- Implement proper rate limiting (1000 requests/hour for registered users)
+- Add User-Agent header with contact information as required by API terms
+
+**Core API Endpoints to Implement**
+```python
+# Bill retrieval and search
+GET /bill                           # Search bills with filters
+GET /bill/{congress}/{billType}/{billNumber}     # Get specific bill
+GET /bill/{congress}/{billType}/{billNumber}/text # Get bill full text
+GET /bill/{congress}/{billType}/{billNumber}/actions # Get bill actions/status
+GET /bill/{congress}/{billType}/{billNumber}/amendments # Get amendments
+
+# Supporting data
+GET /member                         # Congress member information  
+GET /committee                      # Committee information
+GET /committee/{chamber}/{committeeCode}/bills # Bills by committee
+```
+
+**Data Processing Pipeline**
+1. **Bill Discovery**: Automated polling of new bills using date filters
+2. **Text Extraction**: Handle multiple text formats (XML, PDF, HTML) from API
+3. **Metadata Enrichment**: Combine bill text with sponsor, committee, and action data
+4. **Change Detection**: Monitor bill amendments and version differences
+5. **Batch Processing**: Efficient handling of large bill datasets
+
+**API Client Features**
+- Automatic retry logic with exponential backoff
+- Response caching to minimize API calls
+- Webhook support for real-time bill updates (if available)  
+- Error handling for rate limits and API outages
+- Data validation and schema enforcement
+
+### Analysis Storage & Caching Architecture
+
+**Database Schema Design**
+```sql
+-- Bills table with full text and metadata
+CREATE TABLE bills (
+    id UUID PRIMARY KEY,
+    congress_id VARCHAR(50) UNIQUE,
+    bill_number VARCHAR(20),
+    title TEXT,
+    full_text LONGTEXT,
+    last_updated TIMESTAMP,
+    version_hash VARCHAR(64),
+    status VARCHAR(50),
+    sponsors JSONB,
+    committees JSONB
+);
+
+-- Stored analysis results
+CREATE TABLE bill_analyses (
+    id UUID PRIMARY KEY,
+    bill_id UUID REFERENCES bills(id),
+    analysis_type VARCHAR(50), -- 'categorization', 'stakeholder_mapping', etc.
+    analysis_data JSONB,
+    created_at TIMESTAMP,
+    llm_model VARCHAR(50),
+    analysis_hash VARCHAR(64)
+);
+
+-- Section-level analysis for incremental updates
+CREATE TABLE bill_sections (
+    id UUID PRIMARY KEY,
+    bill_id UUID REFERENCES bills(id),
+    section_number VARCHAR(20),
+    section_text TEXT,
+    section_hash VARCHAR(64),
+    analysis_data JSONB,
+    last_analyzed TIMESTAMP
+);
+
+-- User alignment scores (cached)
+CREATE TABLE user_alignments (
+    id UUID PRIMARY KEY,
+    user_id UUID,
+    bill_id UUID REFERENCES bills(id),
+    alignment_score INTEGER,
+    detailed_scores JSONB,
+    calculated_at TIMESTAMP
+);
+```
+
+**Smart Caching Strategy**
+1. **Bill Text Caching**: Store full bill text with version hashing to detect changes
+2. **Analysis Result Caching**: Persist all AI-generated analysis to avoid re-computation
+3. **Incremental Processing**: Only analyze changed sections when bills are amended
+4. **User Score Caching**: Store personalized alignment scores for frequently accessed bills
+5. **Search Index Caching**: Pre-computed search indices for fast bill discovery
+
+**Cost Optimization Logic**
+- Check analysis cache before making AI API calls
+- Use text diffing to identify changed sections in bill amendments  
+- Batch similar analysis requests to optimize API usage
+- Implement analysis expiry for time-sensitive content
+- Priority queue for high-value analyses (trending bills, user-requested)
+
+## Technical Considerations
+- Support for multiple LLM providers (OpenAI, Anthropic, local models)
+- Efficient prompt engineering for consistent analysis quality
+- Cost optimization through smart caching and batch processing
+- Fallback mechanisms for API failures
+
+### Performance & Scalability
+- **Persistent Analysis Storage**: Save all AI-generated analyses to prevent re-processing
+- **Smart Caching Strategy**: Multi-tier caching for bill text, analysis results, and user queries
+- **Bill Version Tracking**: Store and compare different versions without re-analyzing unchanged sections
+- **Incremental Analysis**: Only process new/changed bill sections when amendments occur
+- **Database Optimization**: Efficient indexing and search capabilities for stored analyses
+- **Rate limiting and queue management for external APIs**
+
+### Security & Privacy
+- User data encryption and secure storage
+- API key management for external services
+- Optional anonymous usage mode
+- GDPR/privacy compliance considerations
+
+## Sample User Workflows
+
+1. **Citizen Advocate**: Searches for "climate change" bills, platform automatically fetches latest environmental legislation from Congress API, sets up profile prioritizing environmental protection, receives alerts when new climate bills are introduced with detailed analysis of how provisions align with their values
+
+2. **Policy Researcher**: Inputs bill number "HR-1234", system fetches all versions and amendments from api.congress.gov, uses comparison tools to track changes over time, identifies what lobbying groups may have influenced revisions, exports detailed reports
+
+3. **Legislator's Office**: Sets up monitoring for bills from specific committees, receives daily briefings on new legislation from Congress API, analyzes constituent impact of proposed legislation, generates talking points for public communications
+
+4. **Lobbyist/Advocacy Group**: Configures alerts for bills containing specific keywords, gets instant notifications when relevant legislation is introduced, analyzes bill text against client interests, tracks amendment activity in real-time
+
+## Success Metrics
+- Analysis accuracy vs human expert review
+- User engagement with generated alerts
+- Time saved vs manual bill review
+- Platform adoption across different user types
+
+## Deliverables
+1. Fully functional MCP server with all specified tools
+2. Web-based frontend with core user workflows
+3. Documentation for API integration and deployment
+4. Sample user profiles and test bill analyses
+5. Performance benchmarks and optimization recommendations
+
+Build this as a production-ready system that can handle real congressional bills and provide genuine value to users across the political spectrum. Focus on accuracy, usability, and the modular architecture that makes it easy to extend and integrate.

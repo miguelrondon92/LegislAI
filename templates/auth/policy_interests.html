@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Policy Interests - LegislAI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Select Your Policy Interests</h3>
+                    <p class="mb-0">Choose the policy areas you'd like to track and receive notifications about</p>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('auth.policy_interests') }}">
+                        <div class="row">
+                            {% for category in categories %}
+                            <div class="col-md-6 col-lg-4 mb-4">
+                                <div class="card h-100 border-2 {% if category.id|string in user_subscriptions %}border-primary{% endif %}">
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input category-checkbox" type="checkbox" 
+                                                   name="categories" value="{{ category.id }}" 
+                                                   id="category_{{ category.id }}"
+                                                   {% if category.id|string in user_subscriptions %}checked{% endif %}>
+                                            <label class="form-check-label fw-bold" for="category_{{ category.id }}">
+                                                {{ category.display_name }}
+                                            </label>
+                                        </div>
+                                        
+                                        <p class="text-muted small mt-2">{{ category.description }}</p>
+                                        
+                                        <div class="interest-level mt-3" id="interest_{{ category.id }}" 
+                                             style="display: {% if category.id|string in user_subscriptions %}block{% else %}none{% endif %};">
+                                            <label for="slider_{{ category.id }}" class="form-label small">
+                                                Interest Level: <span id="level_{{ category.id }}">5</span>/10
+                                            </label>
+                                            <input type="range" class="form-range" 
+                                                   id="slider_{{ category.id }}" 
+                                                   name="interest_{{ category.id }}"
+                                                   min="1" max="10" step="1"
+                                                   value="{{ user_subscriptions.get(category.id, 5) }}"
+                                                   oninput="updateLevel({{ category.id }}, this.value)">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                Save Policy Interests
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.category-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const categoryId = this.value;
+            const interestDiv = document.getElementById(`interest_${categoryId}`);
+            
+            if (this.checked) {
+                interestDiv.style.display = 'block';
+            } else {
+                interestDiv.style.display = 'none';
+            }
+        });
+    });
+});
+
+function updateLevel(categoryId, value) {
+    document.getElementById(`level_${categoryId}`).textContent = value;
+}
+</script>
+
+<style>
+.category-checkbox:checked + label {
+    color: #0d6efd;
+}
+
+.card.border-primary {
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+</style>
+{% endblock %} 

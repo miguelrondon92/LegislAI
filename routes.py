@@ -1,0 +1,916 @@
+from flask import render_template, request, redirect, url_for, flash, jsonify, session
+from flask_login import login_required, current_user
+from app import app
+from db_models import db, Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction, AIAnalysis, Summary
+import logging
+from datetime import datetime
+from services.congress_api import CongressAPI, APIRateLimitError
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer, AIAnalysisPartialError
+from services.bill_processor import BillProcessor
+
+# Initialize services
+congress_api = CongressAPI()
+ai_analyzer = EnhancedAIAnalyzer()
+bill_processor = BillProcessor()
+
+# Initialize workflow orchestrator as a global instance
+workflow_orchestrator = None
+
+def get_workflow_orchestrator():
+    """Get the global workflow orchestrator instance"""
+    global workflow_orchestrator
+    if workflow_orchestrator is None:
+        from services.workflow_orchestrator import WorkflowOrchestrator
+        workflow_orchestrator = WorkflowOrchestrator()
+    return workflow_orchestrator
+
+@app.route('/')
+def index():
+    """Main dashboard showing recent bills and user alerts"""
+    # Get recent bills - only show latest version of each unique bill
+    recent_bills = _get_unique_recent_bills(limit=10)
+    
+    # Get user alerts if user is authenticated
+    alerts = []
+    if current_user.is_authenticated:
+        alerts = Alert.query.filter_by(user_id=current_user.id, is_read=False)\
+                           .order_by(Alert.created_at.desc()).limit(5).all()
+    
+    return render_template('index.html', recent_bills=recent_bills, alerts=alerts)
+
+@app.route('/bill_search', methods=['GET', 'POST'])
+def bill_search():
+    """Search for bills using various criteria with enhanced search types"""
+    bills = []
+    error_message = None
+    search_query = ""
+    search_type = "bill_number"
+    congress = 119  # Default to current congress (119th)
+    
+    if request.method == 'POST':
+        search_query = request.form.get('search_query', '').strip()
+        search_type = request.form.get('search_type', 'bill_number')
+        congress = int(request.form.get('congress', 119))
+        
+        if search_query:
+            try:
+                if search_type == 'bill_number':
+                    # Search by specific bill number - check database first
+                    bill = _get_or_fetch_bill_by_number(search_query, congress)
+                    if bill:
+                        bills = [bill]
+                    else:
+                        error_message = f"Bill '{search_query}' not found"
+                        
+                elif search_type == 'keyword':
+                    # Search by keywords - hybrid approach
+                    bills = _search_bills_hybrid(search_query, 'keyword', limit=20)
+                    if not bills:
+                        error_message = f"No bills found matching keywords '{search_query}'"
+                        
+                elif search_type == 'sponsor':
+                    # Search by sponsor name - hybrid approach
+                    bills = _search_bills_hybrid(search_query, 'sponsor', limit=20)
+                    if not bills:
+                        error_message = f"No bills found with sponsor '{search_query}'"
+                        
+            except APIRateLimitError as e:
+                logging.warning(f"Congress API rate limit exceeded during {search_type} search: {str(e)}")
+                if search_type == 'bill_number':
+                    error_message = f"Unable to fetch bill '{search_query}' from Congress.gov due to API rate limits. If this bill exists in our database, it would appear in search results. Please try again later to search for new bills."
+                else:
+                    error_message = f"Unable to search for new bills matching '{search_query}' due to API rate limits. Results shown are from our existing database only. Please try again later to include new bills from Congress.gov."
+            except AIAnalysisPartialError as e:
+                logging.warning(f"AI analysis was partial during {search_type} search: {str(e)}")
+                if search_type == 'bill_number':
+                    error_message = f"Bill '{search_query}' was found but analysis is only {e.completion_percentage:.1f}% complete due to AI API limits. You can view the partial analysis, or try again later for complete analysis."
+                else:
+                    # For keyword/sponsor searches, this shouldn't really happen as we only analyze if needed
+                    error_message = f"Some bills matching '{search_query}' have incomplete analysis due to AI API limits. You can view available results or try again later."
+            except Exception as e:
+                logging.error(f"Error in bill search ({search_type}): {str(e)}")
+                error_message = "An error occurred while searching for bills. Please try again."
+    
+    # Check if any bills have background analysis running
+    background_analysis_info = None
+    if bills:
+        partial_bills = []
+        for bill in bills:
+            analysis = bill.get_active_ai_analysis()
+            if analysis:
+                data = analysis.get_analysis_data()
+                if data and data.get('is_partial', False):
+                    completion = data.get('completion_percentage', 0)
+                    if completion < 50:
+                        partial_bills.append((bill.get_bill_identifier(), completion))
+        
+        if partial_bills:
+            background_analysis_info = {
+                'count': len(partial_bills),
+                'bills': partial_bills
+            }
+    
+    return render_template('bill_search.html', bills=bills, error_message=error_message, 
+                         search_query=search_query, search_type=search_type, congress=congress,
+                         background_analysis_info=background_analysis_info)
+
+def _get_or_fetch_bill_by_number(search_query, congress):
+    """Get bill by number - check database first, fetch from API if needed"""
+    try:
+        # Parse the bill identifier to get congress, type, and number
+        bill_parts = _parse_bill_identifier(search_query)
+        if not bill_parts:
+            return None
+            
+        bill_congress, bill_type, bill_number = bill_parts
+        
+        # Check if bill exists in database (prioritize display-ready, but include all)
+        existing_bill = Bill.query.filter_by(
+            congress=bill_congress,
+            bill_type=bill_type, 
+            bill_number=bill_number
+        ).order_by(Bill.display_ready.desc(), Bill.id.desc()).first()
+        
+        if existing_bill:
+            logging.info(f"Found existing bill in database: {existing_bill.get_bill_identifier()}")
+            
+            # Check if we need to update actions (simple check - could be enhanced)
+            if not existing_bill.actions:
+                logging.info("No actions found, fetching from API...")
+                fetch_bill_actions_from_api(existing_bill)
+            
+            # Check if we need AI analysis (prioritize new table structure)
+            active_analysis = existing_bill.get_active_ai_analysis()
+            needs_analysis = False
+            
+            if not active_analysis and not existing_bill.ai_analysis:
+                logging.info("No AI analysis found, performing analysis...")
+                needs_analysis = True
+            elif active_analysis:
+                # Check if existing analysis is partial and incomplete
+                analysis_data = active_analysis.get_analysis_data()
+                if analysis_data and analysis_data.get('is_partial', False):
+                    completion = analysis_data.get('completion_percentage', 0)
+                    if completion < 50:  # Less than 50% complete
+                        # Check if we have enough API quota to continue analysis
+                        quota_info = ai_analyzer.get_quota_info()
+                        can_analyze = quota_info['status']['can_handle_small_bill']
+                        
+                        if can_analyze:
+                            logging.info(f"Partial AI analysis found ({completion:.1f}% complete), sufficient quota available, performing continued analysis...")
+                            needs_analysis = True
+                        else:
+                            logging.info(f"Partial AI analysis found ({completion:.1f}% complete), but insufficient API quota remaining. Try again later.")
+                    else:
+                        logging.info(f"Sufficient AI analysis found ({completion:.1f}% complete)")
+                else:
+                    logging.info("Complete AI analysis found")
+            
+            if needs_analysis:
+                _perform_analysis_async(existing_bill)
+            
+            return existing_bill
+        else:
+            # Bill not in database, fetch from Congress API
+            logging.info(f"Bill not in database, fetching from Congress API: {search_query}")
+            bill_data = congress_api.get_bill_by_number(search_query)
+            if bill_data:
+                bill = bill_processor.process_bill_data(bill_data)
+                if bill:
+                    # AI analysis is already performed by bill_processor.process_bill_data()
+                    # No need to call _perform_analysis_if_needed(bill) here
+                    pass
+                return bill
+            return None
+            
+    except APIRateLimitError:
+        # Re-raise the rate limit error so it can be caught by the main handler
+        raise
+    except Exception as e:
+        logging.error(f"Error in _get_or_fetch_bill_by_number: {e}")
+        return None
+
+def _search_bills_hybrid(search_query, search_type, limit=20):
+    """Hybrid search - use database when possible, fetch from API when needed"""
+    bills = []
+    
+    try:
+        # First, search our database for existing bills (prioritize display-ready)
+        if search_type == 'keyword':
+            # Search database bills by title/summary
+            db_bills = Bill.query.filter(
+                Bill.title.contains(search_query) | 
+                Bill.summary.contains(search_query)
+            ).order_by(Bill.display_ready.desc(), Bill.last_updated.desc()).limit(limit//2).all()  # Get half from database
+        else:  # sponsor search
+            # Search database bills by sponsor
+            db_bills = Bill.query.filter(
+                Bill.sponsor_name.contains(search_query)
+            ).order_by(Bill.display_ready.desc(), Bill.last_updated.desc()).limit(limit//2).all()
+        
+        logging.info(f"Found {len(db_bills)} bills in database for {search_type} search: '{search_query}'")
+        bills.extend(db_bills)
+        
+        # If we don't have enough results, supplement with API search
+        if len(bills) < limit:
+            remaining_limit = limit - len(bills)
+            logging.info(f"Fetching {remaining_limit} additional bills from Congress API")
+            
+            if search_type == 'keyword':
+                api_bills_data = congress_api.search_bills(search_query, limit=remaining_limit)
+            else:  # sponsor
+                api_bills_data = congress_api.search_bills_by_sponsor(search_query, limit=remaining_limit)
+            
+            if api_bills_data:
+                # Get identifiers of bills we already have to avoid duplicates
+                existing_identifiers = set(bill.get_bill_identifier() for bill in bills)
+                
+                for bill_data in api_bills_data:
+                    # Check if we already have this bill
+                    bill_id = f"{bill_data.get('congress', '')}-{bill_data.get('type', '').upper()}{bill_data.get('number', '')}"
+                    
+                    if bill_id not in existing_identifiers:
+                        # Check database first before processing
+                        existing_bill = _check_bill_in_database(bill_data)
+                        if existing_bill:
+                            bills.append(existing_bill)
+                        else:
+                            # Process new bill from API
+                            bill = bill_processor.process_bill_data(bill_data)
+                            if bill:
+                                _perform_analysis_async(bill)
+                                bills.append(bill)
+                    
+                    if len(bills) >= limit:
+                        break
+        
+        logging.info(f"Returning {len(bills)} total bills for {search_type} search")
+        return bills[:limit]  # Ensure we don't exceed limit
+        
+    except APIRateLimitError:
+        # Re-raise the rate limit error so it can be caught by the main handler
+        raise
+    except Exception as e:
+        logging.error(f"Error in _search_bills_hybrid: {e}")
+        return bills  # Return what we have so far
+
+def _parse_bill_identifier(search_query):
+    """Parse bill identifier to extract congress, type, and number"""
+    try:
+        # Use the same logic as Congress API
+        parts = search_query.upper().replace('-', '').replace(' ', '').replace('.', '')
+        
+        if parts.startswith('HR') and not parts.startswith('HRES'):
+            bill_type = 'hr'
+            bill_number = int(parts[2:])
+        elif parts.startswith('S') and not parts.startswith('SJRES') and not parts.startswith('SRES'):
+            bill_type = 's'
+            bill_number = int(parts[1:])
+        else:
+            # Handle other bill types if needed
+            return None
+        
+        # Default to current congress if not specified
+        return 119, bill_type, bill_number
+        
+    except (ValueError, IndexError):
+        return None
+
+def _check_bill_in_database(bill_data):
+    """Check if a bill from API data already exists in database"""
+    try:
+        congress = bill_data.get('congress')
+        bill_type = bill_data.get('type', '').lower()
+        bill_number = bill_data.get('number')
+        
+        if congress and bill_type and bill_number:
+            return Bill.query.filter_by(
+                congress=congress,
+                bill_type=bill_type,
+                bill_number=bill_number
+            ).first()
+    except Exception:
+        pass
+    return None
+
+def _perform_analysis_if_needed(bill):
+    """Perform comprehensive AI analysis on bill if not already done - equivalent to workflow orchestrator"""
+    import time
+    try:
+        # Check both old and new database structure for existing analysis
+        has_old_analysis = bool(bill.ai_analysis)
+        has_new_analysis = bool(bill.get_active_ai_analysis())
+        
+        if not has_old_analysis and not has_new_analysis:
+            logging.info(f"Performing comprehensive AI analysis for {bill.get_bill_identifier()}")
+            
+            # Get full text for analysis
+            full_text = bill.get_full_text()
+            if not full_text:
+                logging.warning(f"No full text available for analysis: {bill.get_bill_identifier()}")
+                return
+                
+            text_length = len(full_text)
+            start_time = time.time()
+            
+            logging.info(f"Starting enhanced AI analysis for {bill.get_bill_identifier()} "
+                        f"(text length: {text_length:,} characters)")
+            
+            # Perform comprehensive analysis using EnhancedAIAnalyzer
+            # This includes: summary, policy implications, stakeholders, complexity, controversy,
+            # hidden provisions, anomalies, suspicious language, cross-references, risk scoring
+            analysis = ai_analyzer.analyze_bill(bill, bill.title)
+            
+            processing_time = time.time() - start_time
+            
+            if analysis:
+                # The EnhancedAIAnalyzer automatically handles new database structure creation
+                logging.info(f"✅ Enhanced AI analysis completed for: {bill.get_bill_identifier()}")
+                
+                # Policy categories and summaries are now automatically stored by EnhancedAIAnalyzer
+                # using the new database structure with proper versioning and display_ready status
+                
+                # Log comprehensive analysis information (same as workflow orchestrator)
+                chunks_analyzed = analysis.get('chunks_analyzed', 0)
+                analysis_method = analysis.get('analysis_method', 'enhanced_search')
+                
+                logging.info(f"  📊 Method: {analysis_method}")
+                logging.info(f"  🔧 Chunks analyzed: {chunks_analyzed}")
+                logging.info(f"  📝 Text processed: {text_length:,} characters")
+                logging.info(f"  ⏱️ Processing time: {processing_time:.2f} seconds")
+                if processing_time > 0:
+                    logging.info(f"  🚀 Processing speed: {text_length/processing_time:,.0f} chars/sec")
+                
+                # Log analysis components
+                if 'summary' in analysis:
+                    logging.info(f"  📝 Summary generated")
+                if 'policy_implications' in analysis:
+                    policy_data = analysis['policy_implications']
+                    primary_area = policy_data.get('primary_category') or policy_data.get('primary_policy_area', 'Unknown')
+                    logging.info(f"  🎯 Primary policy area: {primary_area}")
+                if 'stakeholders' in analysis:
+                    logging.info(f"  👥 Stakeholder analysis completed")
+                if 'hidden_provisions' in analysis:
+                    hidden_data = analysis['hidden_provisions']
+                    if isinstance(hidden_data, dict):
+                        provisions_count = len(hidden_data.get('detected_provisions', []))
+                        risk_score = hidden_data.get('overall_hidden_risk_score', 0)
+                        logging.info(f"  🕵️ Hidden provisions: {provisions_count} detected, risk: {risk_score:.2f}")
+                if 'complexity_assessment' in analysis:
+                    complexity_data = analysis['complexity_assessment']
+                    if isinstance(complexity_data, dict):
+                        complexity_score = complexity_data.get('complexity_score', 0)
+                        logging.info(f"  🧮 Complexity score: {complexity_score:.2f}")
+                if 'controversy_score' in analysis:
+                    controversy_score = analysis.get('controversy_score', 0)
+                    logging.info(f"  ⚡ Controversy score: {controversy_score:.2f}")
+                if 'overall_risk_score' in analysis:
+                    risk_score = analysis.get('overall_risk_score', 0)
+                    logging.info(f"  🚨 Overall risk score: {risk_score:.2f}")
+                
+                # Legacy compatibility - EnhancedAIAnalyzer already handles new structure
+                # Old field set automatically by analyzer for backward compatibility
+                
+                logging.info(f"Complete analysis pipeline finished for {bill.get_bill_identifier()}")
+            else:
+                logging.warning(f"No analysis results returned for {bill.get_bill_identifier()}")
+                
+    except AIAnalysisPartialError as e:
+        # Log partial analysis completion but re-raise for user notification
+        logging.info(f"⚠️ Partial AI analysis completed for {bill.get_bill_identifier()}: {e.completion_percentage:.1f}% complete")
+        logging.info(f"  📊 Chunks analyzed: {e.completed_chunks}/{e.total_chunks}")
+        logging.info(f"  💾 Partial results saved to database")
+        
+        # Re-raise partial analysis errors so they can be caught by the main handler
+        raise
+    except Exception as e:
+        logging.error(f"Error performing comprehensive analysis for {bill.get_bill_identifier()}: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
+
+def _perform_analysis_async(bill):
+    """Perform AI analysis in a background thread to avoid blocking the web request"""
+    import threading
+    
+    def analysis_worker():
+        """Worker function that runs the analysis in background"""
+        try:
+            # Use app context for database operations in the background thread
+            with app.app_context():
+                logging.info(f"🔄 Starting background analysis for {bill.get_bill_identifier()}")
+                _perform_analysis_if_needed(bill)
+                logging.info(f"✅ Background analysis completed for {bill.get_bill_identifier()}")
+        except Exception as e:
+            logging.error(f"❌ Background analysis failed for {bill.get_bill_identifier()}: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
+    
+    # Start the analysis in a background thread
+    thread = threading.Thread(target=analysis_worker, daemon=True)
+    thread.start()
+    
+    logging.info(f"🚀 Background analysis started for {bill.get_bill_identifier()}")
+
+def _store_policy_categories_with_sneakiness(bill, categories, analysis=None):
+    """Store policy category mappings for the bill, including sneakiness score per category"""
+    try:
+        from db_models import BillCategoryMapping, PolicyCategory
+        import re
+        import json
+        categories_stored = 0
+
+        # Prepare sneakiness mapping if analysis is provided
+        sneakiness_by_category = {}
+        if analysis and 'hidden_provisions' in analysis:
+            hidden_provisions = analysis['hidden_provisions'].get('detected_provisions', [])
+            # Build a mapping: category_name -> max sneakiness score
+            for provision in hidden_provisions:
+                provision_text = (provision.get('text') or '') + ' ' + (provision.get('type') or '')
+                risk_level = provision.get('risk_level', 'low')
+                confidence = provision.get('confidence_score', 0.5)
+                risk_value = {'low': 0.2, 'medium': 0.5, 'high': 0.8}.get(risk_level, 0.2)
+                sneakiness_score = risk_value * confidence
+                for cat in categories:
+                    area = cat.get('area', '')
+                    if area and re.search(re.escape(area), provision_text, re.IGNORECASE):
+                        prev = sneakiness_by_category.get(area, 0.0)
+                        sneakiness_by_category[area] = max(prev, sneakiness_score)
+        
+        for category_data in categories:
+            area = category_data.get('area')
+            if not area:
+                continue
+            try:
+                # Find or create policy category
+                policy_category = PolicyCategory.query.filter_by(name=area).first()
+                if not policy_category:
+                    policy_category = PolicyCategory(
+                        name=area,
+                        display_name=area.title(),
+                        description=f"Policy area: {area}",
+                        color='#007bff',
+                        icon='policy',
+                        is_active=True
+                    )
+                    db.session.add(policy_category)
+                    db.session.flush()
+                    logging.info(f"Created new policy category: {area}")
+                
+                mapping = BillCategoryMapping.query.filter_by(
+                    bill_id=bill.id,
+                    policy_category_id=policy_category.id
+                ).first()
+                
+                # Extract relevance score from category data or use default
+                relevance_score = category_data.get('impact_level', 'medium')
+                if relevance_score == 'high':
+                    score = 0.9
+                elif relevance_score == 'medium':
+                    score = 0.7
+                elif relevance_score == 'low':
+                    score = 0.5
+                else:
+                    score = 0.8
+                
+                sneakiness_score = sneakiness_by_category.get(area, 0.0)
+                
+                # Extract section reference and title information
+                section_reference = None
+                if 'section' in category_data:
+                    section_ref = category_data['section']
+                elif 'reasoning' in category_data:
+                    # Try to extract section info from reasoning text
+                    reasoning = category_data['reasoning']
+                    import re
+                    section_match = re.search(r'[Ss]ection\s+(\d+[\w\-\.]*)', reasoning)
+                    if section_match:
+                        section_reference = f"Section {section_match.group(1)}"
+                
+                # Include title in section reference if available
+                if category_data.get('title') and section_reference:
+                    section_reference = f"{section_reference}: {category_data['title'][:100]}"
+                elif category_data.get('title'):
+                    section_reference = category_data['title'][:150]
+                
+                if not mapping:
+                    mapping = BillCategoryMapping(
+                        bill_id=bill.id,
+                        policy_category_id=policy_category.id,
+                        relevance_score=score,
+                        category_specific_analysis=json.dumps(category_data),
+                        sneakiness_score=sneakiness_score,
+                        section_reference=section_reference
+                    )
+                    db.session.add(mapping)
+                    categories_stored += 1
+                    logging.info(f"Created category mapping: {bill.get_bill_identifier()} -> {area} (score: {score}, sneakiness: {sneakiness_score})")
+                else:
+                    mapping.category_specific_analysis = json.dumps(category_data)
+                    mapping.sneakiness_score = sneakiness_score
+                    mapping.section_reference = section_reference
+                    logging.info(f"Updated existing category mapping: {bill.get_bill_identifier()} -> {area} (sneakiness: {sneakiness_score})")
+                    
+            except Exception as category_error:
+                logging.error(f"Error processing category '{area}': {category_error}")
+                continue
+        
+        if categories_stored > 0:
+            db.session.commit()
+            logging.info(f"Successfully stored {categories_stored} policy category mappings for {bill.get_bill_identifier()}")
+        else:
+            logging.warning(f"No new policy category mappings were stored for {bill.get_bill_identifier()}")
+            
+    except Exception as e:
+        logging.error(f"Error storing policy categories for {bill.get_bill_identifier()}: {e}")
+        db.session.rollback()
+
+def _get_unique_recent_bills(limit=10):
+    """Get recent bills, using first record found for each unique bill (same logic as bill detail page)"""
+    try:
+        # Get all display-ready bills ordered by last_updated desc
+        all_bills = Bill.query.filter_by(display_ready=True).order_by(Bill.last_updated.desc()).limit(limit*3).all()
+        
+        # Use a dictionary to keep track of unique bills (first version found)
+        unique_bills = {}
+        bill_keys_seen = set()
+        
+        for bill in all_bills:
+            # Create unique key based on congress, type, and number
+            bill_key = f"{bill.congress}-{bill.bill_type}-{bill.bill_number}"
+            
+            # Only keep the first version of each unique bill (same as .first() logic)
+            if bill_key not in bill_keys_seen:
+                # Use the same logic as bill detail page: get first display-ready record for this bill
+                first_bill = Bill.query.filter_by(
+                    congress=bill.congress,
+                    bill_type=bill.bill_type,
+                    bill_number=bill.bill_number,
+                    display_ready=True
+                ).first()
+                unique_bills[bill_key] = first_bill
+                bill_keys_seen.add(bill_key)
+            
+            # Stop once we have enough unique bills
+            if len(unique_bills) >= limit:
+                break
+        
+        # Return the unique bills sorted by last_updated desc
+        result_bills = list(unique_bills.values())
+        result_bills.sort(key=lambda b: b.last_updated, reverse=True)
+        
+        logging.info(f"Returning {len(result_bills)} unique recent bills (first record for each bill)")
+        return result_bills[:limit]
+        
+    except Exception as e:
+        logging.error(f"Error getting unique recent bills: {e}")
+        # Fallback to active and display-ready bills only
+        return Bill.query.filter_by(active=True, display_ready=True).order_by(Bill.last_updated.desc()).limit(limit).all()
+
+def fetch_bill_actions_from_api(bill):
+    """Fetch and store bill actions from Congress API"""
+    try:
+        if not bill.actions:  # Only fetch if no actions exist
+            actions_data = congress_api.get_bill_actions(bill.congress, bill.bill_type, bill.bill_number)
+            if actions_data and 'actions' in actions_data:
+                for action_info in actions_data['actions']:
+                    # Parse action data
+                    action_date = None
+                    if action_info.get('actionDate'):
+                        try:
+                            action_date = datetime.strptime(action_info['actionDate'], '%Y-%m-%d')
+                        except:
+                            pass
+                    
+                    action = BillAction(
+                        bill_id=bill.id,
+                        action_date=action_date or datetime.utcnow(),
+                        action_type=action_info.get('type', 'Unknown'),
+                        action_text=action_info.get('text', ''),
+                        action_description=action_info.get('description', ''),
+                        source_system=action_info.get('sourceSystem', {}).get('code', ''),
+                        source_system_name=action_info.get('sourceSystem', {}).get('name', '')
+                    )
+                    db.session.add(action)
+                
+                db.session.commit()
+                logging.info(f"Fetched {len(actions_data['actions'])} actions for bill {bill.get_bill_identifier()}")
+    except Exception as e:
+        logging.error(f"Error fetching bill actions: {str(e)}")
+
+@app.route('/bill/<int:congress>/<bill_type>/<int:bill_number>')
+def bill_analysis(congress, bill_type, bill_number):
+    """Display detailed analysis of a specific bill"""
+    # Check if bill exists in database
+    bill = Bill.query.filter_by(
+        congress=congress, 
+        bill_type=bill_type.lower(), 
+        bill_number=bill_number
+    ).first()
+    
+    if not bill:
+        # Fetch from Congress API if not in database
+        try:
+            bill_data = congress_api.get_bill_details(congress, bill_type, bill_number)
+            if bill_data:
+                bill = bill_processor.process_bill_data(bill_data)
+            else:
+                flash('Bill not found', 'error')
+                return redirect(url_for('bill_search'))
+        except APIRateLimitError as e:
+            logging.warning(f"Congress API rate limit exceeded while fetching bill: {str(e)}")
+            flash('Unable to fetch new bill details due to API rate limits. Please try again later.', 'warning')
+            return redirect(url_for('bill_search'))
+        except Exception as e:
+            logging.error(f"Error fetching bill: {str(e)}")
+            flash('Error loading bill details', 'error')
+            return redirect(url_for('bill_search'))
+    
+    # Fetch bill actions if not already present
+    fetch_bill_actions_from_api(bill)
+    
+    # Perform AI analysis if not already done (use new database structure)
+    partial_analysis_warning = None
+    try:
+        active_analysis = bill.get_active_ai_analysis()
+        if active_analysis:
+            analysis = active_analysis.get_analysis_data()
+        elif bill.get_ai_analysis():
+            analysis = bill.get_ai_analysis()  # Fallback to old structure
+        else:
+            # No analysis exists, perform comprehensive analysis
+            logging.info(f"Performing AI analysis for bill analysis page: {bill.get_bill_identifier()}")
+            _perform_analysis_if_needed(bill)
+            
+            # Get the analysis that was just created
+            new_analysis = bill.get_active_ai_analysis()
+            if new_analysis:
+                analysis = new_analysis.get_analysis_data()
+            elif bill.get_ai_analysis():
+                analysis = bill.get_ai_analysis()  # Fallback
+            else:
+                analysis = {"error": "Unable to perform AI analysis at this time"}
+    except AIAnalysisPartialError as e:
+        logging.warning(f"AI analysis was partial for bill {bill.get_bill_identifier()}: {str(e)}")
+        # Still try to get the partial analysis that was stored
+        new_analysis = bill.get_active_ai_analysis()
+        if new_analysis:
+            analysis = new_analysis.get_analysis_data()
+        elif bill.get_ai_analysis():
+            analysis = bill.get_ai_analysis()  # Fallback
+        else:
+            analysis = {"error": "Unable to perform AI analysis at this time"}
+        
+        # Set warning message for the template
+        partial_analysis_warning = {
+            'message': f"Analysis is only {e.completion_percentage:.1f}% complete due to AI API rate limits.",
+            'completion_percentage': e.completion_percentage,
+            'completed_chunks': e.completed_chunks,
+            'total_chunks': e.total_chunks,
+            'remaining_chunks': e.total_chunks - e.completed_chunks
+        }
+    
+    # Calculate user alignment score if user is logged in
+    alignment_score = None
+    user_analysis = None
+    if current_user.is_authenticated:
+        user_prefs = current_user.get_policy_preferences()
+        if user_prefs and analysis:
+            try:
+                alignment_score = ai_analyzer.calculate_alignment_score(
+                    analysis, user_prefs
+                )
+                user_analysis = ai_analyzer.generate_user_specific_analysis(
+                    analysis, user_prefs, alignment_score
+                )
+            except Exception as e:
+                logging.error(f"Error calculating alignment: {str(e)}")
+    
+    # Get bill actions (refresh from database after potential fetch)
+    bill_actions = bill.actions
+    
+    return render_template('bill_analysis.html', 
+                         bill=bill, 
+                         analysis=analysis,
+                         alignment_score=alignment_score,
+                         user_analysis=user_analysis,
+                         bill_actions=bill_actions,
+                         partial_analysis_warning=partial_analysis_warning)
+
+@app.route('/profile', methods=['GET', 'POST'])
+def profile():
+    """User profile and policy preferences management"""
+    if 'user_id' not in session:
+        # Create a temporary user session for demo purposes
+        session['user_id'] = 1
+        user = User.query.get(1)
+        if not user:
+            user = User(username='demo_user', email='demo@example.com')
+            db.session.add(user)
+            db.session.commit()
+            session['user_id'] = user.id
+    
+    user = User.query.get(session['user_id'])
+    
+    if request.method == 'POST':
+        try:
+            # Update policy preferences
+            preferences = {}
+            policy_areas = [
+                'healthcare', 'environment', 'economy', 'education', 'defense',
+                'immigration', 'civil_rights', 'technology', 'agriculture',
+                'energy', 'transportation', 'housing', 'tax_policy',
+                'foreign_policy', 'criminal_justice', 'social_services'
+            ]
+            
+            for area in policy_areas:
+                importance = request.form.get(f'{area}_importance', 'medium')
+                stance = request.form.get(f'{area}_stance', 'neutral')
+                preferences[area] = {
+                    'importance': importance,
+                    'stance': stance
+                }
+            
+            user.set_policy_preferences(preferences)
+            
+            # Update alert preferences
+            user.alert_frequency = request.form.get('alert_frequency', 'weekly')
+            user.alert_enabled = 'alert_enabled' in request.form
+            
+            db.session.commit()
+            flash('Profile updated successfully!', 'success')
+            
+        except Exception as e:
+            logging.error(f"Error updating profile: {str(e)}")
+            flash('Error updating profile. Please try again.', 'error')
+        
+        return redirect(url_for('profile'))
+    
+    current_preferences = user.get_policy_preferences()
+    return render_template('profile.html', user=user, preferences=current_preferences)
+
+@app.route('/alerts')
+@login_required
+def alerts():
+    """Display user alerts and notifications"""
+    # Get all alerts for the user
+    alerts = Alert.query.filter_by(user_id=current_user.id)\
+                       .order_by(Alert.created_at.desc()).all()
+    
+    return render_template('alerts.html', alerts=alerts)
+
+@app.route('/mark_alert_read/<int:alert_id>')
+@login_required
+def mark_alert_read(alert_id):
+    """Mark an alert as read"""
+    alert = Alert.query.filter_by(id=alert_id, user_id=current_user.id).first()
+    if alert:
+        alert.is_read = True
+        db.session.commit()
+        flash('Alert marked as read', 'success')
+    else:
+        flash('Alert not found', 'error')
+    
+    return redirect(url_for('alerts'))
+
+@app.route('/add_to_watchlist/<int:bill_id>')
+@login_required
+def add_to_watchlist(bill_id):
+    """Add a bill to user's watchlist"""
+    bill = Bill.query.get(bill_id)
+    if not bill:
+        flash('Bill not found', 'error')
+        return redirect(url_for('bill_search'))
+    
+    # Check if already in watchlist
+    existing = WatchlistItem.query.filter_by(
+        user_id=current_user.id, 
+        bill_id=bill_id
+    ).first()
+    
+    if existing:
+        flash('Bill is already in your watchlist', 'info')
+    else:
+        watchlist_item = WatchlistItem(
+            user_id=current_user.id,
+            bill_id=bill_id
+        )
+        db.session.add(watchlist_item)
+        db.session.commit()
+        flash('Bill added to watchlist', 'success')
+    
+    return redirect(url_for('bill_analysis', 
+                          congress=bill.congress, 
+                          bill_type=bill.bill_type, 
+                          bill_number=bill.bill_number))
+
+@app.route('/api/generate_alerts')
+@login_required
+def generate_alerts():
+    """Generate alerts for the current user based on their policy preferences"""
+    try:
+        # This would typically be called by a background job
+        # For now, just return a success message
+        return jsonify({'status': 'success', 'message': 'Alerts generation initiated'})
+    except Exception as e:
+        logging.error(f"Error generating alerts: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Failed to generate alerts'}), 500
+
+@app.route('/api/bill/<int:congress>/<bill_type>/<int:bill_number>/text')
+def get_bill_text(congress, bill_type, bill_number):
+    """API endpoint to get bill text"""
+    try:
+        bill = Bill.query.filter_by(
+            congress=congress, 
+            bill_type=bill_type.lower(), 
+            bill_number=bill_number
+        ).first()
+        
+        if not bill:
+            return jsonify({'error': 'Bill not found'}), 404
+        
+        full_text = bill.get_full_text()
+        if not full_text:
+            return jsonify({'error': 'Bill text not available'}), 404
+        
+        return jsonify({
+            'congress': congress,
+            'bill_type': bill_type,
+            'bill_number': bill_number,
+            'title': bill.title,
+            'text': full_text
+        })
+        
+    except Exception as e:
+        logging.error(f"Error getting bill text: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/workflow/start', methods=['POST'])
+def start_workflow():
+    """Start the bill processing workflow"""
+    try:
+        orchestrator = get_workflow_orchestrator()
+        result = orchestrator.start_workflow_web()
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error starting workflow: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/workflow/stop', methods=['POST'])
+def stop_workflow():
+    """Stop the bill processing workflow"""
+    try:
+        orchestrator = get_workflow_orchestrator()
+        result = orchestrator.stop_workflow_web()
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Error stopping workflow: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/workflow/status')
+def get_workflow_status():
+    """Get the current workflow status"""
+    try:
+        orchestrator = get_workflow_orchestrator()
+        status = orchestrator.get_workflow_status()
+        return jsonify(status)
+    except Exception as e:
+        logging.error(f"Error getting workflow status: {str(e)}")
+        return jsonify({
+            'is_running': False,
+            'queue_size': 0,
+            'statistics': {
+                'bills_discovered': 0,
+                'bills_processed': 0,
+                'bills_analyzed': 0,
+                'alerts_generated': 0,
+                'errors': 0
+            },
+            'last_run': None,
+            'error_message': str(e)
+        })
+
+@app.route('/api/workflow/recent')
+def get_recent_workflow_items():
+    """Get recent workflow items"""
+    try:
+        orchestrator = get_workflow_orchestrator()
+        limit = request.args.get('limit', 10, type=int)
+        items = orchestrator.get_recent_workflow_items(limit)
+        return jsonify({'items': items})
+    except Exception as e:
+        logging.error(f"Error getting recent workflow items: {str(e)}")
+        # Return empty items list if there's an error
+        return jsonify({'items': [], 'error_message': str(e)})
+
+@app.route('/workflow')
+def workflow_dashboard():
+    """Workflow dashboard for monitoring bill processing"""
+    return render_template('workflow_dashboard.html')
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return render_template('500.html'), 500
