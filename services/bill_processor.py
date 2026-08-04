@@ -214,6 +214,20 @@ class BillProcessor:
                         cleaned_text = clean_bill_text(full_text)
                         if not self.ai_analyzer.client:
                             logging.warning(f"AI analyzer not available for bill {bill.get_bill_identifier()}. Skipping AI analysis.")
+                            try:
+                                from services.ops_alert_service import (
+                                    CLIENT_UNAVAILABLE,
+                                    notify_gemini_failure,
+                                )
+                                notify_gemini_failure(
+                                    CLIENT_UNAVAILABLE,
+                                    f"AI analyzer not available for bill {bill.get_bill_identifier()}. Skipping AI analysis.",
+                                    severity="error",
+                                    bill=bill,
+                                    source="bill_processor",
+                                )
+                            except Exception:
+                                pass
                             return bill
                         
                         # Import the partial analysis exception
@@ -225,8 +239,42 @@ class BillProcessor:
                             # Partial analysis was saved to database, log and continue
                             logging.info(f"⚠️ Partial AI analysis saved for {bill.get_bill_identifier()}: {e.completion_percentage:.1f}% complete")
                             logging.info(f"  📊 Partial analysis: {e.completed_chunks}/{e.total_chunks} chunks analyzed")
+                            try:
+                                from services.ops_alert_service import (
+                                    PARTIAL_ANALYSIS,
+                                    notify_gemini_failure,
+                                )
+                                notify_gemini_failure(
+                                    PARTIAL_ANALYSIS,
+                                    str(e),
+                                    severity="warning",
+                                    bill=bill,
+                                    completion_percentage=e.completion_percentage,
+                                    source="bill_processor",
+                                    extra={
+                                        "completed_chunks": e.completed_chunks,
+                                        "total_chunks": e.total_chunks,
+                                    },
+                                )
+                            except Exception:
+                                pass
                             # Return the bill - partial analysis is already stored in new database structure
                             return bill
+                        if analysis is not None and isinstance(analysis, dict) and len(analysis) == 0:
+                            try:
+                                from services.ops_alert_service import (
+                                    EMPTY_RESULT,
+                                    notify_gemini_failure,
+                                )
+                                notify_gemini_failure(
+                                    EMPTY_RESULT,
+                                    f"AI analysis returned empty result for {bill.get_bill_identifier()}",
+                                    severity="error",
+                                    bill=bill,
+                                    source="bill_processor",
+                                )
+                            except Exception:
+                                pass
                         if analysis and isinstance(analysis, dict) and len(analysis) > 0:
                             has_valid_data = False
                             for key, value in analysis.items():

@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_required, current_user
 from app import app
-from db_models import db, Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction, AIAnalysis, Summary
+from db_models import db, Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction, AIAnalysis, Summary, OpsAlert
 import logging
 from datetime import datetime
 from services.congress_api import CongressAPI, APIRateLimitError
@@ -35,8 +35,18 @@ def index():
     if current_user.is_authenticated:
         alerts = Alert.query.filter_by(user_id=current_user.id, is_read=False)\
                            .order_by(Alert.created_at.desc()).limit(5).all()
+
+    ops_unread_count = OpsAlert.query.filter_by(is_read=False).count()
+    ops_unread_preview = OpsAlert.query.filter_by(is_read=False)\
+        .order_by(OpsAlert.created_at.desc()).limit(5).all()
     
-    return render_template('index.html', recent_bills=recent_bills, alerts=alerts)
+    return render_template(
+        'index.html',
+        recent_bills=recent_bills,
+        alerts=alerts,
+        ops_unread_count=ops_unread_count,
+        ops_unread_preview=ops_unread_preview,
+    )
 
 @app.route('/bill_search', methods=['GET', 'POST'])
 def bill_search():
@@ -82,6 +92,26 @@ def bill_search():
                     error_message = f"Unable to search for new bills matching '{search_query}' due to API rate limits. Results shown are from our existing database only. Please try again later to include new bills from Congress.gov."
             except AIAnalysisPartialError as e:
                 logging.warning(f"AI analysis was partial during {search_type} search: {str(e)}")
+                try:
+                    from services.ops_alert_service import (
+                        PARTIAL_ANALYSIS,
+                        notify_gemini_failure,
+                    )
+                    notify_gemini_failure(
+                        PARTIAL_ANALYSIS,
+                        str(e),
+                        severity="warning",
+                        bill_identifier=search_query,
+                        completion_percentage=e.completion_percentage,
+                        source="routes",
+                        extra={
+                            "search_type": search_type,
+                            "completed_chunks": e.completed_chunks,
+                            "total_chunks": e.total_chunks,
+                        },
+                    )
+                except Exception:
+                    pass
                 if search_type == 'bill_number':
                     error_message = f"Bill '{search_query}' was found but analysis is only {e.completion_percentage:.1f}% complete due to AI API limits. You can view the partial analysis, or try again later for complete analysis."
                 else:
@@ -649,8 +679,41 @@ def bill_analysis(congress, bill_type, bill_number):
                 analysis = bill.get_ai_analysis()  # Fallback
             else:
                 analysis = {"error": "Unable to perform AI analysis at this time"}
+                try:
+                    from services.ops_alert_service import (
+                        EMPTY_RESULT,
+                        notify_gemini_failure,
+                    )
+                    notify_gemini_failure(
+                        EMPTY_RESULT,
+                        "Unable to perform AI analysis at this time",
+                        severity="error",
+                        bill=bill,
+                        source="routes",
+                    )
+                except Exception:
+                    pass
     except AIAnalysisPartialError as e:
         logging.warning(f"AI analysis was partial for bill {bill.get_bill_identifier()}: {str(e)}")
+        try:
+            from services.ops_alert_service import (
+                PARTIAL_ANALYSIS,
+                notify_gemini_failure,
+            )
+            notify_gemini_failure(
+                PARTIAL_ANALYSIS,
+                str(e),
+                severity="warning",
+                bill=bill,
+                completion_percentage=e.completion_percentage,
+                source="routes",
+                extra={
+                    "completed_chunks": e.completed_chunks,
+                    "total_chunks": e.total_chunks,
+                },
+            )
+        except Exception:
+            pass
         # Still try to get the partial analysis that was stored
         new_analysis = bill.get_active_ai_analysis()
         if new_analysis:
@@ -906,6 +969,90 @@ def get_recent_workflow_items():
 def workflow_dashboard():
     """Workflow dashboard for monitoring bill processing"""
     return render_template('workflow_dashboard.html')
+
+
+def _ops_alerts_query(unread_only=None, bill=None, failure_class=None):
+    """Build filtered OpsAlert query."""
+    q = OpsAlert.query
+    if unread_only:
+        q = q.filter_by(is_read=False)
+    if bill:
+        bill_q = bill.strip()
+        if bill_q:
+            q = q.filter(OpsAlert.bill_identifier.ilike(f"%{bill_q}%"))
+    if failure_class:
+        q = q.filter_by(failure_class=failure_class)
+    return q.order_by(OpsAlert.created_at.desc())
+
+
+@app.route('/ops/logs')
+def ops_logs():
+    """Programmer-facing ops logs (Gemini failures, etc.) with filters."""
+    view = request.args.get('view', 'unread')  # unread | all
+    bill = request.args.get('bill', '').strip()
+    failure_class = request.args.get('failure_class', '').strip() or None
+    unread_only = view != 'all'
+
+    alerts = _ops_alerts_query(
+        unread_only=unread_only,
+        bill=bill or None,
+        failure_class=failure_class,
+    ).limit(200).all()
+
+    unread_count = OpsAlert.query.filter_by(is_read=False).count()
+    failure_classes = [
+        row[0]
+        for row in db.session.query(OpsAlert.failure_class).distinct().order_by(OpsAlert.failure_class).all()
+    ]
+
+    return render_template(
+        'ops_logs.html',
+        alerts=alerts,
+        view=view,
+        bill=bill,
+        failure_class=failure_class or '',
+        failure_classes=failure_classes,
+        unread_count=unread_count,
+    )
+
+
+@app.route('/ops/logs/<int:alert_id>/read', methods=['POST'])
+def ops_log_mark_read(alert_id):
+    alert = OpsAlert.query.get_or_404(alert_id)
+    alert.is_read = True
+    db.session.commit()
+    if request.accept_mimetypes.best == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'ok': True, 'id': alert_id})
+    next_url = request.form.get('next') or request.referrer or url_for('ops_logs')
+    return redirect(next_url)
+
+
+@app.route('/ops/logs/read-all', methods=['POST'])
+def ops_logs_mark_all_read():
+    view = request.form.get('view', 'unread')
+    bill = request.form.get('bill', '').strip()
+    failure_class = request.form.get('failure_class', '').strip() or None
+    unread_only = view != 'all'
+    q = _ops_alerts_query(
+        unread_only=True if unread_only else False,
+        bill=bill or None,
+        failure_class=failure_class,
+    )
+    # Only mark currently unread rows
+    updated = q.filter_by(is_read=False).update({'is_read': True}, synchronize_session=False)
+    db.session.commit()
+    flash(f'Marked {updated} alert(s) as read.', 'success')
+    return redirect(url_for('ops_logs', view=view, bill=bill or None, failure_class=failure_class))
+
+
+@app.context_processor
+def inject_ops_unread_count():
+    try:
+        count = OpsAlert.query.filter_by(is_read=False).count()
+    except Exception:
+        count = 0
+    return {'ops_nav_unread_count': count}
+
 
 @app.errorhandler(404)
 def page_not_found(e):

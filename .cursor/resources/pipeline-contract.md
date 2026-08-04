@@ -69,6 +69,14 @@ If you rename or remove keys, update:
 
 See [display-ready-contract.md](display-ready-contract.md). Notifications and homepage listing assume this flag.
 
+## Gemini failure contingency
+
+- Do not fabricate analysis JSON or force `display_ready=True` when Gemini fails.
+- Structured ops log: logger `legislai.ops.gemini` (`GEMINI_FAILURE ...`).
+- Persist `OpsAlert` for in-app `/ops/logs` (unread filters by bill / class).
+- Optional programmer webhook: `OPS_ALERT_WEBHOOK_URL` via `services/ops_alert_service.py` (independent of user `NOTIFICATIONS_ENABLED`).
+- User-facing: preserve partial/quota messaging in bill analysis and search templates.
+
 ## Handoff packet (required)
 
 When finishing a layer change, leave a short note (PR comment, chat, or `.cursor/handoffs/<topic>.md`):

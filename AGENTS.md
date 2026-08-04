@@ -22,6 +22,14 @@ display_ready=True  →  routes / templates / alerts / notifications
 
 Any upstream schema or payload change **must** propagate through this chain via the handoff protocol.
 
+## Gemini contingency
+
+When Gemini analysis fails (missing key, model error, quota, partial, empty result):
+
+1. **Users** — keep existing UI warnings (`partial_analysis_warning` on bill analysis, search/API-limit messages). Do not invent analysis; leave `display_ready=False` unless real artifacts exist.
+2. **Logs** — emit structured lines via logger `legislai.ops.gemini` (`GEMINI_FAILURE class=... bill=...`) and **persist** `OpsAlert` rows for the in-app **Ops logs** UI (`/ops/logs`, unread card on the dashboard).
+3. **Programmer** — primary surface is dashboard / `/ops/logs` (unread + bill filters). Optional email: set `OPS_ALERT_WEBHOOK_URL` (Zapier/Make/n8n). Independent of `NOTIFICATIONS_ENABLED`. Webhook deduped per `(failure_class, bill)` for `OPS_ALERT_COOLDOWN_SECONDS` (default 1800).
+
 ## Agent roster
 
 | Agent | Focus | Primary paths |

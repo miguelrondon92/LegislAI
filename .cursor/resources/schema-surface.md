@@ -17,6 +17,7 @@ Authoritative definitions live in `db_models.py`. This is a navigation aid for s
 | `Alert` / `UserBillAlignment` | Personalization | Alignment scores |
 | `WatchlistItem` | User tracking | Per-user bill list |
 | `AnalysisSession` | Analysis session tracking | Used by analysis session scheduler |
+| `OpsAlert` | Programmer Gemini/ops failures | `is_read`, bill filters; UI at `/ops/logs` |
 
 ## Preferred Bill accessors
 

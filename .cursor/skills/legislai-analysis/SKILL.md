@@ -33,6 +33,7 @@ See `.cursor/resources/pipeline-contract.md`.
 - Schema changes require Database skill/agent first.
 - Never log API key values; never read `.env`.
 - Tolerate missing full text (fallback to summary) as existing code does.
+- On Gemini failure: do not invent analysis; keep `display_ready` false unless real artifacts exist; ensure `notify_gemini_failure` persists an `OpsAlert` and logs via `legislai.ops.gemini` (`services/ops_alert_service.py`). Webhook email is optional.
 
 ## Handoff
 

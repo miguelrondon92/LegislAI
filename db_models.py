@@ -696,4 +696,36 @@ class HiddenProvision(db.Model):
         return icon_map.get(self.risk_level.lower(), 'help-circle')
     
     def __repr__(self):
-        return f'<HiddenProvision {self.bill_id} {self.provision_type} {self.risk_level}>' 
+        return f'<HiddenProvision {self.bill_id} {self.provision_type} {self.risk_level}>'
+
+
+class OpsAlert(db.Model):
+    """Persisted programmer-facing ops alerts (e.g. Gemini failures)."""
+    __tablename__ = 'ops_alert'
+
+    id = db.Column(db.Integer, primary_key=True)
+    failure_class = db.Column(db.String(50), nullable=False, index=True)
+    severity = db.Column(db.String(20), nullable=False, default='error')
+    message = db.Column(db.Text, nullable=False)
+    bill_identifier = db.Column(db.String(50), nullable=True, index=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=True)
+    source = db.Column(db.String(50), nullable=False, default='analyzer')
+    completion_percentage = db.Column(db.Float, nullable=True)
+    extra_json = db.Column(db.Text, nullable=True)
+    is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    webhook_sent = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    bill = db.relationship('Bill', backref=db.backref('ops_alerts', lazy=True))
+
+    def get_extra(self):
+        try:
+            return json.loads(self.extra_json) if self.extra_json else {}
+        except Exception:
+            return {}
+
+    def set_extra(self, data):
+        self.extra_json = json.dumps(data) if data is not None else None
+
+    def __repr__(self):
+        return f'<OpsAlert {self.id} {self.failure_class} bill={self.bill_identifier}>'

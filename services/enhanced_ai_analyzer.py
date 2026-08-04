@@ -29,6 +29,19 @@ class EnhancedAIAnalyzer:
         if not self.api_key:
             logging.warning("GEMINI_API_KEY not found. AI analysis will be disabled.")
             self.client = None
+            try:
+                from services.ops_alert_service import (
+                    CLIENT_UNAVAILABLE,
+                    notify_gemini_failure,
+                )
+                notify_gemini_failure(
+                    CLIENT_UNAVAILABLE,
+                    "GEMINI_API_KEY not found. AI analysis will be disabled.",
+                    severity="error",
+                    source="analyzer",
+                )
+            except Exception:
+                pass
         else:
             genai.configure(api_key=self.api_key)
             # gemini-1.5-flash is no longer available on many API keys; 2.0 is used elsewhere in repo
@@ -179,6 +192,21 @@ class EnhancedAIAnalyzer:
         
         if not self.client:
             logging.warning("Gemini client not available")
+            try:
+                from services.ops_alert_service import (
+                    CLIENT_UNAVAILABLE,
+                    notify_gemini_failure,
+                )
+                bill_obj = bill_or_text if hasattr(bill_or_text, "get_bill_identifier") else None
+                notify_gemini_failure(
+                    CLIENT_UNAVAILABLE,
+                    "Gemini client not available",
+                    severity="error",
+                    bill=bill_obj,
+                    source="analyzer",
+                )
+            except Exception:
+                pass
             return {}
         
         try:
@@ -472,8 +500,37 @@ class EnhancedAIAnalyzer:
                 remaining_chunks = analysis_results.get('remaining_chunks', 0)
                 completed_chunks = analysis_results.get('chunks_analyzed', 0)
                 total_chunks = analysis_results.get('total_chunks_available', 0)
+                partial_msg = (
+                    f"Bill analysis was only {completion_percentage:.1f}% complete due to AI API rate limits. "
+                    f"{remaining_chunks} chunks remaining."
+                )
+                try:
+                    from services.ops_alert_service import (
+                        PARTIAL_ANALYSIS,
+                        notify_gemini_failure,
+                    )
+                    bill_obj = bill_or_text if hasattr(bill_or_text, "get_bill_identifier") else None
+                    notify_gemini_failure(
+                        PARTIAL_ANALYSIS,
+                        partial_msg,
+                        severity="warning",
+                        bill=bill_obj,
+                        completion_percentage=completion_percentage,
+                        source="analyzer",
+                        extra={
+                            "completed_chunks": completed_chunks,
+                            "total_chunks": total_chunks,
+                            "quota_limited": bool(
+                                analysis_results.get("quota_usage", {}).get(
+                                    "analysis_was_limited_by_quota"
+                                )
+                            ),
+                        },
+                    )
+                except Exception:
+                    pass
                 raise AIAnalysisPartialError(
-                    f"Bill analysis was only {completion_percentage:.1f}% complete due to AI API rate limits. {remaining_chunks} chunks remaining.",
+                    partial_msg,
                     completion_percentage=completion_percentage,
                     completed_chunks=completed_chunks,
                     total_chunks=total_chunks
@@ -486,6 +543,22 @@ class EnhancedAIAnalyzer:
             raise
         except Exception as e:
             logger.error(f"[AI] Exception during analysis: {e}")
+            try:
+                from services.ops_alert_service import (
+                    EMPTY_RESULT,
+                    classify_gemini_error,
+                    notify_gemini_failure,
+                )
+                bill_obj = bill_or_text if hasattr(bill_or_text, "get_bill_identifier") else None
+                notify_gemini_failure(
+                    classify_gemini_error(str(e)),
+                    f"Exception during analysis: {e}",
+                    severity="error",
+                    bill=bill_obj,
+                    source="analyzer",
+                )
+            except Exception:
+                pass
             return {}
     
     def _detect_hidden_provisions(self, chunks: List[BillChunk], title: str) -> Optional[Dict]:
