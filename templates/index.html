@@ -177,6 +177,50 @@
             </div>
         </div>
 
+        <!-- System / Ops Alerts (programmer-facing) -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i data-feather="alert-octagon" class="me-2"></i>
+                    System alerts
+                    {% if ops_unread_count %}
+                    <span class="badge bg-danger ms-1">{{ ops_unread_count }}</span>
+                    {% endif %}
+                </h6>
+                <a href="{{ url_for('ops_logs', view='unread') }}" class="btn btn-outline-secondary btn-sm">
+                    View logs
+                </a>
+            </div>
+            <div class="card-body">
+                {% if ops_unread_preview %}
+                    {% for alert in ops_unread_preview %}
+                    <div class="alert alert-{{ 'warning' if alert.severity == 'warning' else 'danger' }} alert-sm mb-2 py-2" role="alert">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div class="small">
+                                <strong>{{ alert.failure_class }}</strong>
+                                {% if alert.bill_identifier %}
+                                <span class="text-muted">· {{ alert.bill_identifier }}</span>
+                                {% endif %}
+                                <p class="mb-0 mt-1">{{ alert.message[:120] }}{% if alert.message|length > 120 %}…{% endif %}</p>
+                            </div>
+                            <form method="post" action="{{ url_for('ops_log_mark_read', alert_id=alert.id) }}" class="m-0">
+                                <input type="hidden" name="next" value="{{ url_for('index') }}">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Mark read">
+                                    <i data-feather="check" style="width: 14px; height: 14px;"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-3">
+                        <i data-feather="check-circle" class="mb-2 text-muted" style="width: 32px; height: 32px;"></i>
+                        <p class="text-muted small mb-0">No unread system alerts</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
         <!-- Quick Actions -->
         <div class="card">
             <div class="card-header">

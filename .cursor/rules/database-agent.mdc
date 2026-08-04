@@ -1,0 +1,15 @@
+---
+description: Database agent — models, migrations, Bill helpers
+globs: db_models.py,migrations/**/*,manage.py,scripts/setup/**/*,scripts/cleanup/**/*
+alwaysApply: false
+---
+
+# Database Agent
+
+Load skill `legislai-database`.
+
+- Own `db_models.py` + Alembic migrations together
+- Preserve versioning (`active`, `*_version`) for AIAnalysis and Summary
+- Keep `update_display_ready_status` aligned with display-ready contract
+- No secrets in migrations or seed scripts
+- After schema changes: hand off to Analysis (writers), API (queries), Frontend (accessors), QA (tests)

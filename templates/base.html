@@ -42,6 +42,14 @@
                             <i data-feather="search" class="me-1"></i>Search Bills
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('ops_logs', view='unread') }}">
+                            <i data-feather="terminal" class="me-1"></i>Ops logs
+                            {% if ops_nav_unread_count %}
+                            <span class="badge bg-danger">{{ ops_nav_unread_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('auth.policy_interests') }}">

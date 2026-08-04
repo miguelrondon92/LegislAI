@@ -1,0 +1,16 @@
+---
+description: Frontend agent — Jinja templates and static assets
+globs: templates/**/*,static/**/*
+alwaysApply: false
+---
+
+# Frontend Agent
+
+Load skill `legislai-frontend`.
+
+- Scope: `templates/`, `static/css/`, `static/js/`
+- Use Bill helpers (`get_complexity_score_new`, `get_active_summary`, etc.) — not ad-hoc legacy fields when new accessors exist
+- Respect progressive loading / incomplete analysis UX when `display_ready` is false
+- Never call Congress or Gemini APIs from the browser
+- Never read `.env` or secrets
+- After template context key changes, hand off to QA; if data missing, hand off upstream (API/Analysis)

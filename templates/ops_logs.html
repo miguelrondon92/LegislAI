@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Ops Logs - Legislative Analysis Platform{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2 class="card-title mb-2">
+                            <i data-feather="terminal" class="me-2"></i>
+                            Ops logs
+                        </h2>
+                        <p class="mb-0 opacity-75">
+                            Programmer-facing system alerts (Gemini failures, quota, empty analysis).
+                            Email webhook remains optional via <code>OPS_ALERT_WEBHOOK_URL</code>.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <span class="badge bg-danger fs-6">{{ unread_count }} unread</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" action="{{ url_for('ops_logs') }}" class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">View</label>
+                        <select name="view" class="form-select">
+                            <option value="unread" {% if view == 'unread' %}selected{% endif %}>Unread alerts</option>
+                            <option value="all" {% if view == 'all' %}selected{% endif %}>All logs</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Bill</label>
+                        <input type="text" name="bill" class="form-control" placeholder="e.g. 119-HR23 or all"
+                               value="{{ bill }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Failure class</label>
+                        <select name="failure_class" class="form-select">
+                            <option value="">All classes</option>
+                            {% for fc in failure_classes %}
+                            <option value="{{ fc }}" {% if failure_class == fc %}selected{% endif %}>{{ fc }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i data-feather="filter" class="me-1"></i>Filter
+                        </button>
+                        <a href="{{ url_for('ops_logs', view='unread') }}" class="btn btn-outline-secondary">Reset</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <p class="text-muted mb-0 small">Showing {{ alerts|length }} log(s)</p>
+        <div class="d-flex gap-2">
+            {% if alerts %}
+            <form method="post" action="{{ url_for('ops_logs_mark_all_read') }}">
+                <input type="hidden" name="view" value="{{ view }}">
+                <input type="hidden" name="bill" value="{{ bill }}">
+                <input type="hidden" name="failure_class" value="{{ failure_class }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <i data-feather="check-circle" class="me-1"></i>Mark filtered unread as read
+                </button>
+            </form>
+            {% if view == 'all' %}
+            <form method="post" action="{{ url_for('ops_logs_mark_all_unread') }}">
+                <input type="hidden" name="view" value="{{ view }}">
+                <input type="hidden" name="bill" value="{{ bill }}">
+                <input type="hidden" name="failure_class" value="{{ failure_class }}">
+                <button type="submit" class="btn btn-sm btn-outline-warning">
+                    <i data-feather="mail" class="me-1"></i>Mark filtered read as unread
+                </button>
+            </form>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Class</th>
+                            <th>Bill</th>
+                            <th>Source</th>
+                            <th>Message</th>
+                            <th>Webhook</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if alerts %}
+                            {% for alert in alerts %}
+                            <tr class="{% if not alert.is_read %}table-active{% endif %}">
+                                <td class="text-nowrap small">
+                                    {% if alert.created_at %}
+                                    {{ alert.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% endif %}
+                                    {% if not alert.is_read %}
+                                    <span class="badge bg-danger">unread</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'warning' if alert.severity == 'warning' else 'danger' }}">
+                                        {{ alert.failure_class }}
+                                    </span>
+                                </td>
+                                <td class="text-nowrap">
+                                    {% if alert.bill %}
+                                    <a href="{{ url_for('bill_analysis', congress=alert.bill.congress, bill_type=alert.bill.bill_type, bill_number=alert.bill.bill_number) }}">
+                                        {{ alert.bill_identifier or alert.bill.get_bill_identifier() }}
+                                    </a>
+                                    {% elif alert.bill_identifier %}
+                                    {{ alert.bill_identifier }}
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small">{{ alert.source }}</td>
+                                <td class="small">
+                                    {{ alert.message }}
+                                    {% if alert.completion_percentage is not none %}
+                                    <span class="text-muted">({{ "%.1f"|format(alert.completion_percentage) }}%)</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small">
+                                    {% if alert.webhook_sent %}
+                                    <span class="text-success">sent</span>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not alert.is_read %}
+                                    <form method="post" action="{{ url_for('ops_log_mark_read', alert_id=alert.id) }}">
+                                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Mark read</button>
+                                    </form>
+                                    {% else %}
+                                    <form method="post" action="{{ url_for('ops_log_mark_unread', alert_id=alert.id) }}">
+                                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-warning">Mark unread</button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-5">
+                                    No ops logs match these filters.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
