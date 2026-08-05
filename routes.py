@@ -193,23 +193,20 @@ def _get_or_fetch_bill_by_number(search_query, congress):
             elif active_analysis:
                 # Resume Tier B map-reduce partials only (clear stale rows instead of legacy hardcode)
                 analysis_data = active_analysis.get_analysis_data()
-                if analysis_data and _is_tier_b_partial(analysis_data):
+                if analysis_data and _tier_b_needs_resume(analysis_data):
                     completion = analysis_data.get('completion_percentage', 0)
-                    if completion < 100:
-                        can_analyze = _can_continue_tier_b_wave()
-                        if can_analyze:
-                            logging.info(
-                                f"Partial AI analysis found ({completion:.1f}% complete), "
-                                "sufficient quota available, performing continued analysis..."
-                            )
-                            needs_analysis = True
-                        else:
-                            logging.info(
-                                f"Partial AI analysis found ({completion:.1f}% complete), "
-                                "but insufficient API quota remaining. Try again later."
-                            )
+                    can_analyze = _can_continue_tier_b_wave()
+                    if can_analyze:
+                        logging.info(
+                            f"Tier B needs resume ({completion:.1f}% / map recovery), "
+                            "sufficient quota available, performing continued analysis..."
+                        )
+                        needs_analysis = True
                     else:
-                        logging.info(f"Sufficient AI analysis found ({completion:.1f}% complete)")
+                        logging.info(
+                            f"Tier B needs resume ({completion:.1f}% / map recovery), "
+                            "but insufficient API quota remaining. Try again later."
+                        )
                 elif analysis_data and analysis_data.get('is_partial'):
                     logging.info(
                         "Non-Tier-B partial on file; skipping auto-resume "
@@ -219,11 +216,11 @@ def _get_or_fetch_bill_by_number(search_query, congress):
                     logging.info("Complete AI analysis found")
             
             if needs_analysis:
-                # Partial resume needs force_continue so analyze_bill re-runs despite existing AIAnalysis
+                # Resume needs force_continue so analyze_bill re-runs despite existing AIAnalysis
                 force = bool(
                     active_analysis
                     and active_analysis.get_analysis_data()
-                    and active_analysis.get_analysis_data().get('is_partial')
+                    and _tier_b_needs_resume(active_analysis.get_analysis_data())
                 )
                 if _analysis_is_in_flight(getattr(existing_bill, "id", None)):
                     logging.info(
@@ -539,11 +536,45 @@ def _enrichment_pending_flags(analysis_data) -> dict:
 
 
 def _is_tier_b_partial(analysis_data) -> bool:
+    """True when analysis is an incomplete Tier B map-reduce (safe to resume)."""
     if not analysis_data or not analysis_data.get("is_partial"):
         return False
     method = analysis_data.get("analysis_method") or ""
     tier = analysis_data.get("analysis_tier")
     return tier == "B" or method == "map_reduce_macro_chunks"
+
+
+def _tier_b_needs_resume(analysis_data) -> bool:
+    """Incomplete Tier B, or fake-complete with map_failed / garbage summary (recovery contract)."""
+    if not analysis_data:
+        return False
+    method = analysis_data.get("analysis_method") or ""
+    tier = analysis_data.get("analysis_tier")
+    if not (tier == "B" or method == "map_reduce_macro_chunks"):
+        return False
+    if analysis_data.get("is_partial"):
+        return True
+    findings = analysis_data.get("tier_b_map_findings") or []
+    if not findings:
+        return False
+    usable = 0
+    for f in findings:
+        if not isinstance(f, dict) or f.get("map_failed"):
+            continue
+        if (f.get("summary") or "").strip() or (f.get("key_provisions") or []):
+            usable += 1
+    total = int(analysis_data.get("total_chunks_available") or len(findings))
+    if usable == 0 or usable < total:
+        return True
+    sm = ((analysis_data.get("summary") or {}).get("main_summary") or "").lower()
+    needles = (
+        "mapping error",
+        "failed to extract",
+        "across all provided chunks",
+        "across all chunks",
+        "portions failed",
+    )
+    return any(n in sm for n in needles)
 
 
 def _can_continue_tier_b_wave() -> bool:
@@ -579,7 +610,7 @@ def _schedule_next_analysis_wave(bill_id, delay_seconds=None):
                     return
                 active = bill.get_active_ai_analysis()
                 data = active.get_analysis_data() if active else {}
-                if not _is_tier_b_partial(data):
+                if not _tier_b_needs_resume(data):
                     return
                 logging.info(
                     f"Scheduling delayed Tier B wave for {bill.get_bill_identifier()} "
@@ -813,7 +844,7 @@ def _perform_analysis_async(bill, force_continue=False):
                         "total_chars": data.get("total_chars"),
                     },
                 )
-                if _is_tier_b_partial(data):
+                if _tier_b_needs_resume(data):
                     _schedule_next_analysis_wave(bill_id)
                 elif not is_partial:
                     from services.analysis_enrichers import enrichments_need_work
@@ -1081,8 +1112,10 @@ def bill_analysis(congress, bill_type, bill_number):
         active_analysis = bill.get_active_ai_analysis()
         if active_analysis:
             analysis = active_analysis.get_analysis_data()
-            # Resume incomplete Tier B partials (async). Clear non-Tier-B partials and re-ingest instead.
-            if analysis and analysis.get('is_partial', False):
+            # Resume incomplete Tier B (including fake-complete with map_failed).
+            if analysis and (
+                analysis.get('is_partial', False) or _tier_b_needs_resume(analysis)
+            ):
                 completion = analysis.get('completion_percentage', 0)
                 completed_chunks = analysis.get('chunks_analyzed', 0)
                 total_chunks = analysis.get(
@@ -1097,7 +1130,7 @@ def bill_analysis(congress, bill_type, bill_number):
                 model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
                 chars_analyzed = analysis.get('chars_analyzed', 0)
                 total_chars = analysis.get('total_chars', 0)
-                is_tier_b = _is_tier_b_partial(analysis)
+                needs_tier_b_resume = _tier_b_needs_resume(analysis)
 
                 coverage_note = (
                     f"{chars_analyzed:,}/{total_chars:,} characters"
@@ -1108,6 +1141,12 @@ def bill_analysis(congress, bill_type, bill_number):
                     'message': (
                         f"Analysis is only {completion:.1f}% complete "
                         f"({coverage_note}; model={model_name}, limit_cause={limit_cause})."
+                        if analysis.get('is_partial')
+                        else (
+                            f"Tier B map recovery needed "
+                            f"({coverage_note}; model={model_name}, "
+                            f"limit_cause={limit_cause or 'map_failures'})."
+                        )
                     ),
                     'completion_percentage': completion,
                     'completed_chunks': completed_chunks,
@@ -1121,7 +1160,7 @@ def bill_analysis(congress, bill_type, bill_number):
                     'continuation_queued': False,
                 }
 
-                if is_tier_b and completion < 100:
+                if needs_tier_b_resume:
                     can_analyze = _can_continue_tier_b_wave()
                     if _analysis_is_in_flight(getattr(bill, "id", None)):
                         # Already running — keep UI "queued" state without new OpsAlert spam

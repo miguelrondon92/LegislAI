@@ -274,6 +274,188 @@ class TestTierRouting(unittest.TestCase):
         self.assertIn(k0, out_keys)
         self.assertIn(k1, out_keys)
 
+    def test_failed_map_not_in_analyzed_chunk_keys(self):
+        """map_failed stubs must not count as done (failed ≠ done)."""
+        analyzer = self._make_analyzer()
+        analyzer.macro_chunk_target_tokens = 50
+        parts = []
+        for i in range(1, 6):
+            parts.append(f"SEC. {i}. Section {i}.\n" + ("legislation text " * 40) + "\n")
+        text = "\n".join(parts)
+        total_chars = len(text)
+
+        def fail_map(chunk, title, index):
+            return {
+                "chunk_key": chunk.ensure_key(),
+                "summary": "",
+                "key_provisions": [],
+                "map_failed": True,
+            }
+
+        with patch.object(analyzer, "_map_macro_chunk", side_effect=fail_map), patch.object(
+            analyzer,
+            "_select_tier_b_wave",
+            side_effect=lambda rem, allow_budget_waits=True: rem[:2],
+        ), patch.object(
+            analyzer, "_reduce_tier_b", return_value={"summary": {"main_summary": "should not run"}}
+        ):
+            out = analyzer._analyze_tier_b(
+                text, "Big Act", "", total_chars, prior_analysis=None, allow_budget_waits=False
+            )
+
+        self.assertTrue(out["is_partial"])
+        self.assertLess(out["completion_percentage"], 100.0)
+        self.assertEqual(out.get("analyzed_chunk_keys") or [], [])
+        self.assertEqual(out.get("tier_b_map_findings") or [], [])
+        self.assertIn(out.get("limit_cause"), ("map_failures", "gemini_api_429", "local_minute_budget"))
+
+    def test_map_failed_prior_is_remapped(self):
+        """Prior map_failed keys are remapped on the next wave."""
+        analyzer = self._make_analyzer()
+        analyzer.macro_chunk_target_tokens = 50
+        parts = []
+        for i in range(1, 6):
+            parts.append(f"SEC. {i}. Section {i}.\n" + ("legislation text " * 40) + "\n")
+        text = "\n".join(parts)
+        total_chars = len(text)
+        macros = analyzer.bill_chunker.build_macro_chunks(
+            text, max_chars=analyzer._macro_chunk_max_chars()
+        )
+        self.assertGreaterEqual(len(macros), 2)
+        k0 = macros[0].ensure_key()
+        k1 = macros[1].ensure_key()
+        prior = {
+            "analyzed_chunk_keys": [k0, k1],
+            "tier_b_map_findings": [
+                {
+                    "chunk_key": k0,
+                    "summary": "",
+                    "map_failed": True,
+                },
+                {
+                    "chunk_key": k1,
+                    "summary": "",
+                    "map_failed": True,
+                },
+            ],
+            "is_partial": False,
+            "completion_percentage": 100.0,
+        }
+        mapped = []
+
+        def fake_map(chunk, title, index):
+            mapped.append(chunk.ensure_key())
+            return {"chunk_key": chunk.ensure_key(), "summary": "recovered", "key_provisions": ["p"]}
+
+        with patch.object(analyzer, "_map_macro_chunk", side_effect=fake_map), patch.object(
+            analyzer,
+            "_select_tier_b_wave",
+            side_effect=lambda rem, allow_budget_waits=True: rem[:2],
+        ), patch.object(
+            analyzer, "_reduce_tier_b", return_value={"summary": {"main_summary": "ok"}}
+        ):
+            out = analyzer._analyze_tier_b(
+                text,
+                "Big Act",
+                "",
+                total_chars,
+                prior_analysis=prior,
+                allow_budget_waits=False,
+            )
+
+        self.assertIn(k0, mapped)
+        self.assertIn(k1, mapped)
+        usable = out.get("tier_b_map_findings") or []
+        self.assertTrue(all(not m.get("map_failed") for m in usable))
+        self.assertIn(k0, out.get("analyzed_chunk_keys") or [])
+
+    def test_all_failed_maps_refuse_complete(self):
+        """All-failed maps stay partial — never fake 100% / garbage reduce."""
+        analyzer = self._make_analyzer()
+        analyzer.macro_chunk_target_tokens = 50
+        parts = []
+        for i in range(1, 5):
+            parts.append(f"SEC. {i}. Section {i}.\n" + ("legislation text " * 40) + "\n")
+        text = "\n".join(parts)
+        total_chars = len(text)
+        macros = analyzer.bill_chunker.build_macro_chunks(
+            text, max_chars=analyzer._macro_chunk_max_chars()
+        )
+        keys = [m.ensure_key() for m in macros]
+        prior = {
+            "analyzed_chunk_keys": keys,
+            "tier_b_map_findings": [
+                {"chunk_key": k, "summary": "", "map_failed": True} for k in keys
+            ],
+            "is_partial": False,
+            "completion_percentage": 100.0,
+        }
+
+        # No remaining keys after stripping map_failed — must refuse complete
+        with patch.object(analyzer, "_select_tier_b_wave", return_value=[]), patch.object(
+            analyzer,
+            "_reduce_tier_b",
+            return_value={
+                "summary": {
+                    "main_summary": "mapping errors across all provided chunks",
+                }
+            },
+        ) as reduce_mock:
+            # Remap path: remaining macros after clearing failed keys
+            with patch.object(
+                analyzer,
+                "_map_macro_chunk",
+                return_value={"summary": "", "map_failed": True},
+            ):
+                # Force remaining by using prior that will strip all keys
+                out = analyzer._analyze_tier_b(
+                    text,
+                    "Big Act",
+                    "",
+                    total_chars,
+                    prior_analysis=prior,
+                    allow_budget_waits=False,
+                )
+
+        self.assertTrue(out["is_partial"])
+        self.assertLess(out.get("completion_percentage", 0), 100.0)
+        self.assertNotEqual(out.get("analysis_completeness"), "full")
+        # Reduce must not produce a shipped complete from empty usable maps
+        if reduce_mock.called:
+            self.assertTrue(out["is_partial"])
+
+    def test_tier_b_needs_resume_fake_complete(self):
+        import routes as routes_mod
+
+        fake = {
+            "is_partial": False,
+            "analysis_method": "map_reduce_macro_chunks",
+            "analysis_tier": "B",
+            "completion_percentage": 100.0,
+            "total_chunks_available": 6,
+            "tier_b_map_findings": [
+                {"chunk_key": f"k{i}", "summary": "", "map_failed": True}
+                for i in range(6)
+            ],
+            "summary": {
+                "main_summary": "mapping errors across all provided chunks",
+            },
+        }
+        self.assertTrue(routes_mod._tier_b_needs_resume(fake))
+        self.assertFalse(
+            routes_mod._tier_b_needs_resume(
+                {
+                    "is_partial": False,
+                    "analysis_method": "map_reduce_macro_chunks",
+                    "tier_b_map_findings": [
+                        {"chunk_key": "k0", "summary": "real content", "key_provisions": ["a"]}
+                    ],
+                    "total_chunks_available": 1,
+                    "summary": {"main_summary": "A defense authorization bill."},
+                }
+            )
+        )
+
 
 class TestInFlightDedupe(unittest.TestCase):
     def test_second_acquire_fails(self):

@@ -336,6 +336,39 @@ class EnhancedAIAnalyzer:
                 pass
             return {}
 
+    def _is_usable_map_finding(self, finding: Optional[Dict]) -> bool:
+        """True when a Tier B map finding has real content (recovery contract)."""
+        if not isinstance(finding, dict) or finding.get("map_failed"):
+            return False
+        summary = (finding.get("summary") or "").strip()
+        provisions = finding.get("key_provisions") or []
+        return bool(summary) or bool(provisions)
+
+    def _usable_map_findings(self, findings: List) -> List[Dict]:
+        return [m for m in findings if self._is_usable_map_finding(m)]
+
+    def _summary_looks_like_map_failure(self, results: Dict) -> bool:
+        """Detect reduce narrating empty/failed maps instead of bill content."""
+        summary = results.get("summary") if isinstance(results, dict) else None
+        if isinstance(summary, dict):
+            text = (
+                (summary.get("main_summary") or "")
+                + " "
+                + (summary.get("plain_language_explanation") or "")
+            )
+        else:
+            text = str(summary or "")
+        lower = text.lower()
+        needles = (
+            "mapping error",
+            "map failed",
+            "failed to extract",
+            "portions failed",
+            "across all provided chunks",
+            "across all chunks",
+        )
+        return any(n in lower for n in needles)
+
     def _load_prior_partial(self, bill) -> Optional[Dict]:
         if not bill or not hasattr(bill, "get_active_ai_analysis"):
             return None
@@ -349,44 +382,74 @@ class EnhancedAIAnalyzer:
 
             healed = self._heal_tier_b_map_findings(bill, data)
             keys = set(healed.get("analyzed_chunk_keys") or [])
+            findings = list(healed.get("tier_b_map_findings") or [])
+            usable = self._usable_map_findings(findings)
+            usable_keys = {
+                m.get("chunk_key") for m in usable if m.get("chunk_key")
+            }
             map_keys = {
                 m.get("chunk_key")
-                for m in (healed.get("tier_b_map_findings") or [])
+                for m in findings
                 if isinstance(m, dict) and m.get("chunk_key")
             }
             raw_maps = len(data.get("tier_b_map_findings") or [])
-            healed_maps = len(healed.get("tier_b_map_findings") or [])
+            healed_maps = len(findings)
 
             if data.get("is_partial"):
                 return healed
 
-            # Complete but missing map payloads for some keys → remapped via orphan logic
+            # Complete but missing / failed map payloads → remapped
+            if keys and not keys.issubset(usable_keys):
+                out = dict(healed)
+                out["is_partial"] = True
+                out["analyzed_chunk_keys"] = sorted(usable_keys)
+                out["tier_b_map_findings"] = usable
+                return out
+
             if keys and not keys.issubset(map_keys):
                 out = dict(healed)
                 out["is_partial"] = True
                 return out
 
             # Complete but history heal restored more map findings → re-reduce only
-            if healed_maps > raw_maps and keys and keys.issubset(map_keys):
+            if healed_maps > raw_maps and keys and keys.issubset(usable_keys):
                 out = dict(healed)
                 out["is_partial"] = True
                 out["_needs_rereduce"] = True
+                return out
+
+            # Fake-complete with failure-narration summary → force remapped
+            if self._summary_looks_like_map_failure(healed) or (
+                findings and not usable
+            ):
+                out = dict(healed)
+                out["is_partial"] = True
+                out["analyzed_chunk_keys"] = sorted(usable_keys)
+                out["tier_b_map_findings"] = usable
                 return out
         except Exception as e:
             logger.debug(f"Could not load prior partial: {e}")
         return None
 
     def _heal_tier_b_map_findings(self, bill, data: Dict) -> Dict:
-        """Restore tier_b_map_findings wiped by empty-wave minimal persists."""
+        """Restore tier_b_map_findings; prefer usable findings over map_failed stubs."""
         findings = list(data.get("tier_b_map_findings") or [])
-        by_key = {
-            f.get("chunk_key"): f
-            for f in findings
-            if isinstance(f, dict) and f.get("chunk_key")
-        }
+        by_key: Dict[str, Dict] = {}
+        for f in findings:
+            if not isinstance(f, dict) or not f.get("chunk_key"):
+                continue
+            ck = f["chunk_key"]
+            if ck not in by_key or (
+                not self._is_usable_map_finding(by_key[ck])
+                and self._is_usable_map_finding(f)
+            ):
+                by_key[ck] = f
         keys = set(data.get("analyzed_chunk_keys") or [])
-        if keys and keys.issubset(by_key.keys()):
-            return data
+        if keys and keys.issubset(
+            {k for k, v in by_key.items() if self._is_usable_map_finding(v)}
+        ):
+            if len(by_key) == len(findings):
+                return data
         try:
             from db_models import AIAnalysis
 
@@ -401,15 +464,28 @@ class EnhancedAIAnalyzer:
                     if not isinstance(f, dict):
                         continue
                     ck = f.get("chunk_key")
-                    if ck and ck not in by_key:
+                    if not ck:
+                        continue
+                    if ck not in by_key:
                         by_key[ck] = f
-            if len(by_key) > len(findings):
+                    elif not self._is_usable_map_finding(by_key[ck]) and self._is_usable_map_finding(
+                        f
+                    ):
+                        by_key[ck] = f
+            healed_list = list(by_key.values())
+            if len(healed_list) != len(findings) or any(
+                self._is_usable_map_finding(by_key.get(k, {}))
+                != self._is_usable_map_finding(
+                    next((x for x in findings if x.get("chunk_key") == k), {})
+                )
+                for k in by_key
+            ):
                 logger.info(
-                    f"[AI] Healed Tier B map findings {len(findings)} → {len(by_key)} "
-                    f"from analysis history"
+                    f"[AI] Healed Tier B map findings {len(findings)} → {len(healed_list)} "
+                    f"from analysis history (prefer usable over map_failed)"
                 )
                 healed = dict(data)
-                healed["tier_b_map_findings"] = list(by_key.values())
+                healed["tier_b_map_findings"] = healed_list
                 return healed
         except Exception as e:
             logger.debug(f"Could not heal Tier B map findings: {e}")
@@ -594,54 +670,109 @@ Return JSON with keys:
 
         prior_keys = set((prior_analysis or {}).get("analyzed_chunk_keys") or [])
         prior_maps = list((prior_analysis or {}).get("tier_b_map_findings") or [])
-        map_keys_present = {
-            m.get("chunk_key") for m in prior_maps if isinstance(m, dict) and m.get("chunk_key")
+        # Keep only usable findings as "done"; map_failed / empty summaries remapped
+        usable_prior = self._usable_map_findings(prior_maps)
+        usable_prior_keys = {
+            m.get("chunk_key") for m in usable_prior if m.get("chunk_key")
         }
-        # Keys marked done but missing map payloads (empty-wave wipe) must be remapped
-        orphan_keys = prior_keys - map_keys_present
-        if orphan_keys:
+        failed_or_orphan = prior_keys - usable_prior_keys
+        # Also remap keys present only as map_failed stubs
+        for m in prior_maps:
+            if isinstance(m, dict) and m.get("chunk_key") and not self._is_usable_map_finding(m):
+                failed_or_orphan.add(m["chunk_key"])
+        if failed_or_orphan:
             logger.warning(
-                f"[AI] Tier B: {len(orphan_keys)} chunk keys lack map findings — remapping"
+                f"[AI] Tier B: {len(failed_or_orphan)} chunk keys need remapping "
+                f"(missing or map_failed)"
             )
-            prior_keys = prior_keys - orphan_keys
-            prior_maps = [
-                m for m in prior_maps
-                if isinstance(m, dict) and m.get("chunk_key") in prior_keys
-            ]
+            prior_keys = usable_prior_keys
+            prior_maps = usable_prior
 
         remaining = self.bill_chunker.filter_unanalyzed(macros, prior_keys)
 
         if not remaining:
-            logger.info("[AI] Tier B: no remaining macro-chunks — marking complete")
-            covered_map_keys = {
-                m.get("chunk_key")
-                for m in prior_maps
-                if isinstance(m, dict) and m.get("chunk_key")
-            }
-            # Re-reduce when we have map findings for every macro (incl. history heal)
-            if prior_maps and len(covered_map_keys) >= len(macros):
-                merged = self._reduce_tier_b(prior_maps, title, text)
-            else:
-                merged = dict(prior_analysis or {})
-            merged.update(
+            logger.info("[AI] Tier B: no remaining macro-chunks — checking usable reduce")
+            usable = self._usable_map_findings(prior_maps)
+            usable_keys = {m.get("chunk_key") for m in usable if m.get("chunk_key")}
+            all_macro_keys = {m.ensure_key() for m in macros}
+            if usable and usable_keys >= all_macro_keys:
+                merged = self._reduce_tier_b(usable, title, text)
+                if self._summary_looks_like_map_failure(merged):
+                    logger.warning(
+                        "[AI] Tier B: reduce narrated map failures — keeping partial"
+                    )
+                    merged = self._merge_partial_tier_b(prior_analysis, usable, title)
+                    merged.update(
+                        {
+                            "analysis_method": "map_reduce_macro_chunks",
+                            "analysis_tier": "B",
+                            "is_partial": True,
+                            "completion_percentage": self._char_completion(
+                                usable_keys, macros, total_chars
+                            ),
+                            "analyzed_chunk_keys": sorted(usable_keys),
+                            "chunks_analyzed": len(usable_keys),
+                            "total_chunks_available": len(macros),
+                            "remaining_chunks": max(0, len(macros) - len(usable_keys)),
+                            "chars_analyzed": self._chars_for_keys(usable_keys, macros),
+                            "total_chars": total_chars,
+                            "tier_b_map_findings": usable,
+                            "analysis_completeness": "partial",
+                            "limit_cause": "map_failures",
+                            "provider_model": self.model_name,
+                        }
+                    )
+                    return merged
+                merged.update(
+                    {
+                        "is_partial": False,
+                        "completion_percentage": 100.0,
+                        "remaining_chunks": 0,
+                        "chars_analyzed": total_chars,
+                        "total_chars": total_chars,
+                        "chunks_analyzed": len(macros),
+                        "total_chunks_available": len(macros),
+                        "analyzed_chunk_keys": sorted(all_macro_keys),
+                        "tier_b_map_findings": usable,
+                        "analysis_completeness": "full",
+                        "limit_cause": None,
+                        "analysis_method": "map_reduce_macro_chunks",
+                        "analysis_tier": "B",
+                        "provider_model": self.model_name,
+                    }
+                )
+                return merged
+
+            # No remaining keys but insufficient usable maps — stay partial
+            limit_cause = (
+                "gemini_api_429" if self._hit_gemini_api_429 else "map_failures"
+            )
+            partial = self._merge_partial_tier_b(prior_analysis, usable, title)
+            partial.update(
                 {
-                    "is_partial": False,
-                    "completion_percentage": 100.0,
-                    "remaining_chunks": 0,
-                    "chars_analyzed": total_chars,
-                    "total_chars": total_chars,
-                    "chunks_analyzed": len(macros),
-                    "total_chunks_available": len(macros),
-                    "analyzed_chunk_keys": sorted(m.ensure_key() for m in macros),
-                    "tier_b_map_findings": prior_maps,
-                    "analysis_completeness": "full",
-                    "limit_cause": None,
                     "analysis_method": "map_reduce_macro_chunks",
                     "analysis_tier": "B",
+                    "is_partial": True,
+                    "completion_percentage": self._char_completion(
+                        usable_keys, macros, total_chars
+                    ),
+                    "analyzed_chunk_keys": sorted(usable_keys),
+                    "chunks_analyzed": len(usable_keys),
+                    "total_chunks_available": len(macros),
+                    "remaining_chunks": max(0, len(macros) - len(usable_keys)),
+                    "chars_analyzed": self._chars_for_keys(usable_keys, macros),
+                    "total_chars": total_chars,
+                    "tier_b_map_findings": usable,
+                    "analysis_completeness": "partial",
+                    "limit_cause": limit_cause,
                     "provider_model": self.model_name,
                 }
             )
-            return merged
+            logger.warning(
+                f"[AI] Tier B: refusing complete — usable maps "
+                f"{len(usable)}/{len(macros)} (limit_cause={limit_cause})"
+            )
+            return partial
 
         wave = self._select_tier_b_wave(remaining, allow_budget_waits=allow_budget_waits)
         if not wave:
@@ -665,7 +796,8 @@ Return JSON with keys:
                         "total_chars": total_chars,
                         "limit_cause": "local_minute_budget",
                         "tier_b_map_findings": prior_maps
-                        or list(prior_analysis.get("tier_b_map_findings") or []),
+                        if prior_maps is not None
+                        else list(prior_analysis.get("tier_b_map_findings") or []),
                         "provider_model": self.model_name,
                         "_no_progress": True,
                     }
@@ -705,26 +837,71 @@ Return JSON with keys:
                 else:
                     finding = dict(finding)
                 finding.setdefault("chunk_key", chunk.ensure_key())
-                map_findings.append(finding)
-            newly_done.append(chunk.ensure_key())
+                if self._is_usable_map_finding(finding):
+                    map_findings.append(finding)
+                    newly_done.append(chunk.ensure_key())
+                else:
+                    logger.warning(
+                        f"[AI] Tier B: map failed for {chunk.ensure_key()} — "
+                        "key left for remapping (failed ≠ done)"
+                    )
+                    # Do not mark done; stop wave if Google 429'd
+                    if self._hit_gemini_api_429:
+                        logger.info(
+                            "[AI] Tier B: early-stop wave after gemini_api_429"
+                        )
+                        break
+            else:
+                logger.warning(
+                    f"[AI] Tier B: map returned None for {chunk.ensure_key()}"
+                )
+                if self._hit_gemini_api_429:
+                    logger.info("[AI] Tier B: early-stop wave after gemini_api_429")
+                    break
 
         all_keys = prior_keys | set(newly_done)
-        # Use healed/filtered prior_maps from above (not raw prior_analysis)
         combined_maps = prior_maps + map_findings
+        usable_combined = self._usable_map_findings(combined_maps)
+        usable_keys = {m.get("chunk_key") for m in usable_combined if m.get("chunk_key")}
+        all_macro_keys = {m.ensure_key() for m in macros}
 
-        is_complete = len(all_keys) >= len(macros)
+        is_complete = usable_keys >= all_macro_keys and len(usable_combined) >= len(macros)
         if is_complete:
-            results = self._reduce_tier_b(combined_maps, title, text)
+            results = self._reduce_tier_b(usable_combined, title, text)
+            if self._summary_looks_like_map_failure(results):
+                logger.warning(
+                    "[AI] Tier B: reduce narrated map failures — keeping partial"
+                )
+                is_complete = False
+                results = self._merge_partial_tier_b(
+                    prior_analysis, usable_combined, title
+                )
         else:
-            results = self._merge_partial_tier_b(prior_analysis, combined_maps, title)
+            results = self._merge_partial_tier_b(
+                prior_analysis, usable_combined, title
+            )
 
-        chars_done = self._chars_for_keys(all_keys, macros)
-        completion = min(100.0, (chars_done / total_chars) * 100.0) if total_chars else 100.0
-        limit_cause = (
-            "gemini_api_429"
-            if self._hit_gemini_api_429
-            else ("local_minute_budget" if not is_complete else None)
+        chars_done = self._chars_for_keys(usable_keys, macros)
+        completion = (
+            min(100.0, (chars_done / total_chars) * 100.0) if total_chars else 100.0
         )
+        if is_complete:
+            limit_cause = None
+        elif self._hit_gemini_api_429:
+            limit_cause = "gemini_api_429"
+        elif newly_done or usable_keys:
+            # Had some progress or prior usable; remaining due to map failures / budget
+            limit_cause = (
+                "map_failures"
+                if len(usable_keys) < len(macros) and not newly_done
+                else "local_minute_budget"
+            )
+        else:
+            limit_cause = "map_failures" if self._hit_gemini_api_429 is False else "gemini_api_429"
+            if not newly_done and wave:
+                limit_cause = (
+                    "gemini_api_429" if self._hit_gemini_api_429 else "map_failures"
+                )
 
         results.update(
             {
@@ -734,11 +911,11 @@ Return JSON with keys:
                 "completion_percentage": 100.0 if is_complete else completion,
                 "chars_analyzed": total_chars if is_complete else chars_done,
                 "total_chars": total_chars,
-                "chunks_analyzed": len(all_keys),
+                "chunks_analyzed": len(usable_keys),
                 "total_chunks_available": len(macros),
-                "remaining_chunks": max(0, len(macros) - len(all_keys)),
-                "analyzed_chunk_keys": sorted(all_keys),
-                "tier_b_map_findings": combined_maps,
+                "remaining_chunks": max(0, len(macros) - len(usable_keys)),
+                "analyzed_chunk_keys": sorted(usable_keys),
+                "tier_b_map_findings": usable_combined,
                 "analysis_completeness": "full" if is_complete else "partial",
                 "limit_cause": limit_cause,
                 "provider_model": self.model_name,

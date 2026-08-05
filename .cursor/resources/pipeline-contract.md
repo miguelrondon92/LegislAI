@@ -101,8 +101,26 @@ Progress keys (API + Frontend may rely on):
 - `chars_analyzed`, `total_chars`
 - `analyzed_chunk_keys` (Tier B resume; stable chunk ids)
 - `chunks_analyzed`, `total_chunks_available`, `remaining_chunks`
-- `limit_cause` (`local_minute_budget` | `gemini_api_429` | null)
+- `limit_cause` (`local_minute_budget` | `gemini_api_429` | `map_failures` | null)
 - `provider_model`, `analysis_tier` (`A` | `B` | `C`)
+- `tier_b_map_findings` (Tier B map payloads; usable findings only count toward completion)
+
+### Tier B 429 recovery (required)
+
+Hitting Gemini **429 is OK** on free tier. Local RPM/TPM only approximate our side; they do not guarantee Google accepts every call.
+
+**What must never happen:** treat a failed map as progress, then reduce empty stubs into `is_partial=False` / `display_ready` with a “mapping errors” summary.
+
+Contract:
+
+1. **Usable map only** — A chunk counts as analyzed only if the finding is usable: not `map_failed`, and non-empty `summary` (or non-empty `key_provisions`).
+2. **Failed ≠ done** — On map call → `None` / empty / `map_failed`: do **not** add the chunk key to `analyzed_chunk_keys`. Leave it for remapping.
+3. **Early-stop on 429** — If `_hit_gemini_api_429` during a wave, stop further map calls that wave; persist partial with `limit_cause=gemini_api_429`.
+4. **Resume is the recovery path** — Later waves (bill detail / search `force_continue`, delayed wave after minute reset) remap failed keys when quota allows. Completion comes from delayed waves, not from marking failures done.
+5. **No garbage complete** — Do not reduce / claim 100% until usable findings cover all macros. Never reduce when every finding is `map_failed`. If reduce text narrates map failure (“mapping errors”, “failed to extract”), treat as incomplete (`limit_cause=map_failures`) and keep partial.
+6. **Ops** — Real `continuation_queued` when a wave is spawned; `continuation_finished` partial with `limit_cause=gemini_api_429|map_failures` when still incomplete; complete only after a usable reduce. Do not persist in-flight refresh spam.
+
+Routes: `_tier_b_needs_resume` covers incomplete Tier B **and** fake-complete rows (all `map_failed` / failure-narration summary) so bill detail and search remapped them.
 
 ### Policy areas vs enrichments (2026-08-04)
 
