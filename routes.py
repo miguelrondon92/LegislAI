@@ -1638,8 +1638,8 @@ def workflow_dashboard():
     return render_template('workflow_dashboard.html')
 
 
-def _ops_alerts_query(unread_only=None, bill=None, failure_class=None):
-    """Build filtered OpsAlert query."""
+def _ops_alerts_query(unread_only=None, bill=None, failure_class=None, ordered=True):
+    """Build filtered OpsAlert query. Skip order_by when used with Query.update()."""
     q = OpsAlert.query
     if unread_only:
         q = q.filter_by(is_read=False)
@@ -1649,7 +1649,9 @@ def _ops_alerts_query(unread_only=None, bill=None, failure_class=None):
             q = q.filter(OpsAlert.bill_identifier.ilike(f"%{bill_q}%"))
     if failure_class:
         q = q.filter_by(failure_class=failure_class)
-    return q.order_by(OpsAlert.created_at.desc())
+    if ordered:
+        q = q.order_by(OpsAlert.created_at.desc())
+    return q
 
 
 @app.route('/ops/logs')
@@ -1719,6 +1721,7 @@ def ops_logs_mark_all_read():
         unread_only=True if unread_only else False,
         bill=bill or None,
         failure_class=failure_class,
+        ordered=False,
     )
     # Only mark currently unread rows
     updated = q.filter_by(is_read=False).update({'is_read': True}, synchronize_session=False)
@@ -1738,6 +1741,7 @@ def ops_logs_mark_all_unread():
         unread_only=False,
         bill=bill or None,
         failure_class=failure_class,
+        ordered=False,
     )
     updated = q.filter_by(is_read=True).update({'is_read': False}, synchronize_session=False)
     db.session.commit()
