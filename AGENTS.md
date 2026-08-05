@@ -23,7 +23,7 @@ display_ready=True  →  routes / templates / alerts / notifications
 analysis_enrichers (async, RPM-gated) → stakeholders + deep policy_analysis
 ```
 
-Core analysis owns summary + category labels (`policy_areas` / `policy_implications.categories`). **Stakeholder Analysis** and deep **Policy Analysis** are separate async Gemini enrichers (`services/analysis_enrichers.py`); they must not block `display_ready`. Bill detail UI: **Policy Areas** (badges) ≠ **Policy Analysis** (narrative).
+Core analysis owns summary + category labels (`policy_areas` / `policy_implications.categories`) and **sneaky riders** (`hidden_provisions` → `HiddenProvision` table; UI reads the table only). **Stakeholder Analysis** and deep **Policy Analysis** are separate async Gemini enrichers (`services/analysis_enrichers.py`); they must not block `display_ready`. Bill detail UI: **Policy Areas** (badges) ≠ **Policy Analysis** (narrative) ≠ **N sneaky riders detected** (collapsible, DB-backed).
 
 Any upstream schema or payload change **must** propagate through this chain via the handoff protocol. Contract: [`.cursor/resources/pipeline-contract.md`](.cursor/resources/pipeline-contract.md).
 

@@ -1205,6 +1205,24 @@ Return a single JSON object with:
                             bill_or_text, policy_data["categories"], analysis_results
                         )
 
+                # Persist sneaky riders / hidden provisions to HiddenProvision table
+                # (canonical UI source). Skip while Tier B partial.
+                if not analysis_results.get("is_partial"):
+                    try:
+                        from services.hidden_provisions import store_hidden_provisions
+
+                        hidden_payload = analysis_results.get("hidden_provisions")
+                        if isinstance(hidden_payload, dict):
+                            store_hidden_provisions(
+                                bill_or_text,
+                                hidden_payload,
+                                full_analysis=analysis_results,
+                                replace=True,
+                                provider_model_fallback=self.model_name,
+                            )
+                    except Exception as e:
+                        logger.warning(f"Could not store hidden provisions: {e}")
+
                 if hasattr(bill_or_text, "update_display_ready_status"):
                     status_changed = bill_or_text.update_display_ready_status()
                     if status_changed and hasattr(bill_or_text, "id"):
@@ -1225,6 +1243,21 @@ Return a single JSON object with:
                     self._store_policy_categories(
                         bill_or_text, policy_data["categories"], analysis_results
                     )
+            if not analysis_results.get("is_partial"):
+                try:
+                    from services.hidden_provisions import store_hidden_provisions
+
+                    hidden_payload = analysis_results.get("hidden_provisions")
+                    if isinstance(hidden_payload, dict):
+                        store_hidden_provisions(
+                            bill_or_text,
+                            hidden_payload,
+                            full_analysis=analysis_results,
+                            replace=True,
+                            provider_model_fallback=self.model_name,
+                        )
+                except Exception as e:
+                    logger.warning(f"Could not store hidden provisions: {e}")
             if hasattr(bill_or_text, "update_display_ready_status"):
                 bill_or_text.update_display_ready_status()
 

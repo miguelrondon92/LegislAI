@@ -1362,6 +1362,19 @@ def bill_analysis(congress, bill_type, bill_number):
     # Get bill actions (refresh from database after potential fetch)
     bill_actions = bill.actions
 
+    # Heal: JSON has sneaky riders but HiddenProvision table empty (legacy live path)
+    try:
+        from services.hidden_provisions import heal_hidden_provisions_from_analysis
+
+        healed = heal_hidden_provisions_from_analysis(bill)
+        if healed:
+            logging.info(
+                f"Healed {healed} hidden provisions from analysis JSON for "
+                f"{bill.get_bill_identifier()}"
+            )
+    except Exception as e:
+        logging.warning(f"Hidden provisions heal failed: {e}")
+
     # Queue downstream enrichments when core is done but stakeholders/policy_analysis pending
     enrichment_flags = _enrichment_pending_flags(
         analysis if isinstance(analysis, dict) else None

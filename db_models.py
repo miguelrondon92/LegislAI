@@ -238,20 +238,27 @@ class Bill(db.Model):
         return analysis.get_analysis_data() if analysis else None
     
     def get_complexity_score_new(self):
-        """Get complexity score from AIAnalysis table (0-1 scale for template compatibility)"""
+        """Get complexity score from AIAnalysis (0-1 scale for template compatibility)."""
         analysis = self.get_active_ai_analysis()
-        if analysis:
-            # First try to get from analysis_data JSON (which has 0-100 scale)
-            analysis_data = analysis.get_analysis_data()
-            if analysis_data and 'complexity_assessment' in analysis_data:
-                complexity_data = analysis_data['complexity_assessment']
-                if 'complexity_score' in complexity_data:
-                    # Convert from 0-100 scale to 0-1 scale for template compatibility
-                    return complexity_data['complexity_score'] / 100.0
-            
-            # Fallback to complexity_score field (already 0-1 scale)
-            return analysis.complexity_score
-        return None
+        if not analysis:
+            return None
+
+        analysis_data = analysis.get_analysis_data()
+        if analysis_data and isinstance(analysis_data.get("complexity_assessment"), dict):
+            raw = analysis_data["complexity_assessment"].get("complexity_score")
+            if raw is not None:
+                try:
+                    score = float(raw)
+                except (TypeError, ValueError):
+                    score = None
+                if score is not None:
+                    # Analyzer contract is 0.0–1.0; legacy rows may use 0–100
+                    if score > 1.0:
+                        return score / 100.0
+                    return score
+
+        # Fallback to column (already 0-1)
+        return analysis.complexity_score
     
     def get_controversy_score_new(self):
         """Get controversy score from AIAnalysis table"""

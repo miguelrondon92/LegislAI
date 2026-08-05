@@ -992,106 +992,26 @@ class BackfillOrchestrator:
             db.session.rollback()
     
     def _store_hidden_provisions(self, bill: Bill, hidden_provisions_data: Dict, full_analysis: Dict):
-        """Store detected hidden provisions with detailed reasoning in the database"""
+        """Store detected hidden provisions (sneaky riders) via shared helper."""
         try:
-            from db_models import HiddenProvision
-            
-            # Clear existing hidden provisions for this bill
-            with app.app_context():
-                existing_provisions = HiddenProvision.query.filter_by(bill_id=bill.id).all()
-                for provision in existing_provisions:
-                    db.session.delete(provision)
-                
-                provisions_stored = 0
-                detected_provisions = hidden_provisions_data.get('detected_provisions', [])
-                
-                # Get analysis version to link provisions to specific analysis
-                analysis_version = 1
-                provider_model = None
-                if hasattr(bill, 'get_active_ai_analysis'):
-                    ai_analysis = bill.get_active_ai_analysis()
-                    if ai_analysis:
-                        analysis_version = ai_analysis.analysis_version
-                        provider_model = getattr(ai_analysis, 'provider_model', None)
+            from services.hidden_provisions import store_hidden_provisions
 
-                if not provider_model:
-                    provider_model = (
-                        (full_analysis or {}).get('provider_model')
-                        or (full_analysis or {}).get('model')
-                        or getattr(self.ai_analyzer, 'model_name', None)
-                    )
-                if not provider_model:
-                    from utils.constants import GEMINI_MODEL
-                    provider_model = GEMINI_MODEL
-                
-                logger.info(f"Processing {len(detected_provisions)} hidden provisions for {bill.get_bill_identifier()}")
-                
-                for provision_data in detected_provisions:
-                    try:
-                        # Extract provision details
-                        suspicious_provisions = provision_data.get('suspicious_provisions', [])
-                        chunk_index = provision_data.get('chunk_index', 0)
-                        chunk_type = provision_data.get('chunk_type', 'unknown')
-                        overall_assessment = provision_data.get('overall_assessment', '')
-                        risk_level = provision_data.get('risk_level', 'low')
-                        confidence_score = provision_data.get('confidence_score', 0.0)
-                        
-                        # Create a provision record for each suspicious provision found
-                        for suspicious_provision in suspicious_provisions:
-                            provision = HiddenProvision(
-                                bill_id=bill.id,
-                                provision_type=suspicious_provision.get('type', 'Unknown'),
-                                provision_text=suspicious_provision.get('text', '')[:2000],  # Limit text length
-                                risk_level=risk_level,
-                                confidence_score=confidence_score,
-                                potential_impact=suspicious_provision.get('potential_impact', ''),
-                                recommendation=suspicious_provision.get('recommendation', ''),
-                                overall_assessment=overall_assessment,
-                                chunk_index=chunk_index,
-                                chunk_type=chunk_type,
-                                analysis_version=analysis_version,
-                                detection_method='ai_enhanced',
-                                provider_model=provider_model,
-                            )
-                            
-                            # Store risk factors as JSON
-                            risk_factors = suspicious_provision.get('risk_factors', [])
-                            provision.set_risk_factors(risk_factors)
-                            
-                            db.session.add(provision)
-                            provisions_stored += 1
-                            
-                            logger.debug(f"Stored hidden provision: {provision.provision_type} "
-                                       f"(risk: {risk_level}, confidence: {confidence_score:.2f})")
-                        
-                    except Exception as provision_error:
-                        logger.error(f"Error processing individual provision: {provision_error}")
-                        continue
-                
-                if provisions_stored > 0:
-                    db.session.commit()
-                    logger.info(f"✅ Successfully stored {provisions_stored} hidden provisions for {bill.get_bill_identifier()}")
-                    
-                    # Log summary of risk levels
-                    risk_summary = {}
-                    for provision_data in detected_provisions:
-                        risk_level = provision_data.get('risk_level', 'low')
-                        risk_summary[risk_level] = risk_summary.get(risk_level, 0) + len(provision_data.get('suspicious_provisions', []))
-                    
-                    if risk_summary:
-                        summary_str = ", ".join([f"{count} {level}" for level, count in risk_summary.items()])
-                        logger.info(f"   📊 Risk distribution: {summary_str}")
-                        
-                        # Log high-risk provisions for immediate attention
-                        high_risk_count = risk_summary.get('high', 0)
-                        if high_risk_count > 0:
-                            logger.warning(f"   ⚠️ {high_risk_count} HIGH-RISK provisions detected - requires immediate review")
-                else:
-                    logger.info(f"No hidden provisions to store for {bill.get_bill_identifier()}")
-                    
+            with app.app_context():
+                store_hidden_provisions(
+                    bill,
+                    hidden_provisions_data,
+                    full_analysis=full_analysis,
+                    replace=True,
+                    provider_model_fallback=getattr(self.ai_analyzer, "model_name", None),
+                )
         except Exception as e:
-            logger.error(f"Error storing hidden provisions for {bill.get_bill_identifier()}: {e}")
-            db.session.rollback()
+            logger.error(
+                f"Error storing hidden provisions for {bill.get_bill_identifier()}: {e}"
+            )
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
 
     def _create_category_mappings(self, bill: Bill, analysis: Dict):
         """Create category mappings from analysis results"""
