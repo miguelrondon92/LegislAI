@@ -1,8 +1,8 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.security import generate_password_hash
 from db_models import db
 from utils.constants import FEDERAL_POLICY_CATEGORIES
+import os
 import re
 
 auth = Blueprint('auth', __name__)
@@ -23,6 +23,46 @@ def validate_password(password):
     if not re.search(r'\d', password):
         return False, "Password must contain at least one number"
     return True, "Password is valid"
+
+
+def is_env_admin_credentials(username, password):
+    """True when credentials exactly match LEGISLAI_ADMIN_* env vars (never log values)."""
+    admin_username = os.environ.get('LEGISLAI_ADMIN_USERNAME') or ''
+    admin_password = os.environ.get('LEGISLAI_ADMIN_PASSWORD') or ''
+    if not admin_username or not admin_password:
+        return False
+    return username == admin_username and password == admin_password
+
+
+def ensure_admin_user(username, password):
+    """Find or create a User row for the env admin so Flask-Login works."""
+    from db_models import User
+
+    user = User.query.filter_by(username=username).first()
+    if user:
+        if not user.check_password(password):
+            user.set_password(password)
+            db.session.commit()
+        return user
+
+    # Stable unique email derived from username; local-only placeholder domain
+    email = f"{username}@legislai.admin.local"
+    existing_email = User.query.filter_by(email=email).first()
+    if existing_email:
+        return existing_email
+
+    user = User(
+        username=username,
+        email=email,
+        first_name='Admin',
+        last_name='',
+        is_active=True,
+        email_verified=True,
+    )
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    return user
 
 @auth.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -87,6 +127,7 @@ def signup():
             
             # Log in the user
             login_user(user)
+            session['is_admin'] = False
             flash('Account created successfully! Welcome to LegislAI.', 'success')
             return redirect(url_for('policy_interests'))
             
@@ -113,6 +154,28 @@ def signin():
         if not username_or_email or not password:
             flash('Please enter both username/email and password', 'error')
             return render_template('auth/signin.html')
+
+        def _redirect_after_login():
+            next_page = request.args.get('next')
+            if next_page and next_page.startswith('/'):
+                return redirect(next_page)
+            return redirect(url_for('index'))
+
+        # Env admin credentials take precedence (ops / workflow access)
+        if is_env_admin_credentials(username_or_email, password):
+            try:
+                user = ensure_admin_user(username_or_email, password)
+            except Exception:
+                db.session.rollback()
+                flash('An error occurred while signing in. Please try again.', 'error')
+                return render_template('auth/signin.html')
+            if not user.is_active:
+                flash('Your account has been deactivated. Please contact support.', 'error')
+                return render_template('auth/signin.html')
+            login_user(user, remember=remember)
+            session['is_admin'] = True
+            flash(f'Welcome back, {user.get_full_name()}!', 'success')
+            return _redirect_after_login()
         
         # Try to find user by username or email
         user = User.query.filter(
@@ -125,13 +188,9 @@ def signin():
                 return render_template('auth/signin.html')
             
             login_user(user, remember=remember)
+            session['is_admin'] = False
             flash(f'Welcome back, {user.get_full_name()}!', 'success')
-            
-            # Redirect to next page if specified
-            next_page = request.args.get('next')
-            if next_page and next_page.startswith('/'):
-                return redirect(next_page)
-            return redirect(url_for('index'))
+            return _redirect_after_login()
         else:
             flash('Invalid username/email or password', 'error')
     
@@ -141,6 +200,7 @@ def signin():
 @login_required
 def signout():
     """User logout"""
+    session.pop('is_admin', None)
     logout_user()
     flash('You have been signed out successfully.', 'info')
     return redirect(url_for('index'))

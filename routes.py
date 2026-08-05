@@ -6,6 +6,7 @@ import logging
 import threading
 import time as _time_module
 from datetime import datetime
+from functools import wraps
 from services.congress_api import CongressAPI, APIRateLimitError, get_shared_congress_api
 from services.enhanced_ai_analyzer import EnhancedAIAnalyzer, AIAnalysisPartialError
 from services.bill_processor import BillProcessor
@@ -36,6 +37,24 @@ def get_workflow_orchestrator():
         from services.workflow_orchestrator import WorkflowOrchestrator
         workflow_orchestrator = WorkflowOrchestrator()
     return workflow_orchestrator
+
+
+def admin_required(f):
+    """Require Flask-Login session plus env-granted admin flag (session['is_admin'])."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        wants_json = (
+            request.accept_mimetypes.best == 'application/json'
+            or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            or request.path.startswith('/api/')
+        )
+        if not current_user.is_authenticated or not session.get('is_admin'):
+            if wants_json:
+                return jsonify({'error': 'Admin access required'}), 403
+            flash('Admin access required.', 'error')
+            return redirect(url_for('auth.signin', next=request.path))
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/')
 def index():
@@ -1551,6 +1570,7 @@ def get_bill_text(congress, bill_type, bill_number):
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/workflow/start', methods=['POST'])
+@admin_required
 def start_workflow():
     """Start the bill processing workflow"""
     try:
@@ -1562,6 +1582,7 @@ def start_workflow():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/workflow/stop', methods=['POST'])
+@admin_required
 def stop_workflow():
     """Stop the bill processing workflow"""
     try:
@@ -1573,6 +1594,7 @@ def stop_workflow():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/workflow/status')
+@admin_required
 def get_workflow_status():
     """Get the current workflow status"""
     try:
@@ -1596,6 +1618,7 @@ def get_workflow_status():
         })
 
 @app.route('/api/workflow/recent')
+@admin_required
 def get_recent_workflow_items():
     """Get recent workflow items"""
     try:
@@ -1609,6 +1632,7 @@ def get_recent_workflow_items():
         return jsonify({'items': [], 'error_message': str(e)})
 
 @app.route('/workflow')
+@admin_required
 def workflow_dashboard():
     """Workflow dashboard for monitoring bill processing"""
     return render_template('workflow_dashboard.html')
@@ -1629,6 +1653,7 @@ def _ops_alerts_query(unread_only=None, bill=None, failure_class=None):
 
 
 @app.route('/ops/logs')
+@admin_required
 def ops_logs():
     """Programmer-facing ops logs (Gemini failures, etc.) with filters."""
     view = request.args.get('view', 'unread')  # unread | all
@@ -1660,6 +1685,7 @@ def ops_logs():
 
 
 @app.route('/ops/logs/<int:alert_id>/read', methods=['POST'])
+@admin_required
 def ops_log_mark_read(alert_id):
     alert = OpsAlert.query.get_or_404(alert_id)
     alert.is_read = True
@@ -1671,6 +1697,7 @@ def ops_log_mark_read(alert_id):
 
 
 @app.route('/ops/logs/<int:alert_id>/unread', methods=['POST'])
+@admin_required
 def ops_log_mark_unread(alert_id):
     alert = OpsAlert.query.get_or_404(alert_id)
     alert.is_read = False
@@ -1682,6 +1709,7 @@ def ops_log_mark_unread(alert_id):
 
 
 @app.route('/ops/logs/read-all', methods=['POST'])
+@admin_required
 def ops_logs_mark_all_read():
     view = request.form.get('view', 'unread')
     bill = request.form.get('bill', '').strip()
@@ -1700,6 +1728,7 @@ def ops_logs_mark_all_read():
 
 
 @app.route('/ops/logs/unread-all', methods=['POST'])
+@admin_required
 def ops_logs_mark_all_unread():
     """Mark filtered alerts as unread again (typically used from All view)."""
     view = request.form.get('view', 'all')
@@ -1718,6 +1747,8 @@ def ops_logs_mark_all_unread():
 
 @app.context_processor
 def inject_ops_unread_count():
+    if not session.get('is_admin'):
+        return {'ops_nav_unread_count': 0}
     try:
         count = OpsAlert.query.filter_by(is_read=False).count()
     except Exception:

@@ -42,6 +42,7 @@
                             <i data-feather="search" class="me-1"></i>Search Bills
                         </a>
                     </li>
+                    {% if session.get('is_admin') %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('ops_logs', view='unread') }}">
                             <i data-feather="terminal" class="me-1"></i>Ops logs
@@ -50,6 +51,7 @@
                             {% endif %}
                         </a>
                     </li>
+                    {% endif %}
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('auth.policy_interests') }}">
@@ -61,11 +63,13 @@
                             <i data-feather="bell" class="me-1"></i>Alerts
                         </a>
                     </li>
+                    {% if session.get('is_admin') %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('workflow_dashboard') }}">
                             <i data-feather="activity" class="me-1"></i>Workflow
                         </a>
                     </li>
+                    {% endif %}
                     {% endif %}
                 </ul>
                 
