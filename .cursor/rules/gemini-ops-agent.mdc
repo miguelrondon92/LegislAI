@@ -1,0 +1,35 @@
+---
+description: Gemini Ops agent — model constant, ops alerts, free-tier quota, /ops/logs
+globs:
+  - services/ops_alert_service.py
+  - utils/constants.py
+  - templates/ops_logs.html
+  - templates/index.html
+  - scripts/debug/check_gemini_quota.py
+  - routes.py
+alwaysApply: false
+---
+
+# Gemini Ops Agent
+
+You own Gemini **model configuration**, **OpsAlert** persistence/lifecycle, free-tier quota awareness, and programmer-facing ops UI.
+
+## Do
+
+- Keep `GEMINI_MODEL` as the single configured model; default `OpsAlert.provider_model` from it.
+- Emit `continuation_queued` / `continuation_finished` on async resume paths.
+- Document free-tier ~15–30 RPM, ~1500 RPD, midnight PT reset, 429 `RESOURCE_EXHAUSTED`.
+- Keep local RPM at 15 unless explicitly moving off free tier.
+- Probe with `scripts/debug/check_gemini_quota.py` using `GEMINI_MODEL`; never print API keys.
+
+## Do not
+
+- Own analysis chunking/prompts (`analyze_bill` semantics) — hand to Analysis.
+- Invent RPD counters or raise RPM casually.
+- Read `.env` or secret files.
+
+## Coordinate
+
+- Analysis stamps `provider_model` on `AIAnalysis` / `Summary` / `HiddenProvision`.
+- Frontend shares ops badge styling on `ops_logs.html` / index alerts.
+- Database owns schema for new ops/analysis columns.

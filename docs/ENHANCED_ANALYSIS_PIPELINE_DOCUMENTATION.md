@@ -1,8 +1,24 @@
 # Enhanced Legislative Analysis Pipeline Documentation
 
+## Current architecture (2026-08) — start here
+
+Authoritative agent contract: [`.cursor/resources/pipeline-contract.md`](../.cursor/resources/pipeline-contract.md) and [`AGENTS.md`](../AGENTS.md).
+
+| Stage | Behavior |
+|-------|----------|
+| **Tier A** | `single_pass_full_text` — bills ≤ ~150k tokens; ~2 Gemini calls (core summary/categories + integrity). Sets `display_ready` inputs. |
+| **Tier B** | `map_reduce_macro_chunks` — oversized bills; resume via `analyzed_chunk_keys`; UI waves use `allow_budget_waits=False`. |
+| **Enrichers** | `services/analysis_enrichers.py` — async **stakeholders** + deep **policy_analysis** after core; RPM-gated via `enrichment_quota_ok()`. Does not block `display_ready`. |
+| **UI** | `templates/bill_analysis.html` — **Policy Areas** (badges) separate from **Policy Analysis** (narrative); Stakeholder card uses `affected_groups` / `winners_losers`. |
+| **Ops** | `continuation_*` for Tier B resume; `enrichment_queued` / `enrichment_finished` for enrichers; `limit_cause` = `local_minute_budget` \| `gemini_api_429`. |
+
+Historical sections below describe earlier multi-pipeline / hidden-provision work; prefer the contract + `enhanced_ai_analyzer.py` / `analysis_enrichers.py` when they disagree.
+
+---
+
 ## Overview
 
-The LegislAI system implements a comprehensive, three-pipeline architecture for processing congressional bills with advanced AI analysis capabilities. This documentation covers the enhanced analysis features including hidden provision detection, sneakiness scoring, and comprehensive risk assessment.
+The LegislAI system implements a comprehensive architecture for processing congressional bills with advanced AI analysis capabilities. This documentation covers enhanced analysis features including hidden provision detection, sneakiness scoring, and comprehensive risk assessment.
 
 ## System Architecture
 

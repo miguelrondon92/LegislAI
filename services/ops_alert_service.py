@@ -18,6 +18,8 @@ from typing import Any, Dict, Optional
 
 import requests
 
+from utils.constants import GEMINI_MODEL
+
 ops_logger = logging.getLogger("legislai.ops.gemini")
 
 # failure_class values
@@ -27,6 +29,10 @@ QUOTA_EXHAUSTED = "quota_exhausted"
 PARTIAL_ANALYSIS = "partial_analysis"
 EMPTY_RESULT = "empty_result"
 UNKNOWN = "unknown"
+CONTINUATION_QUEUED = "continuation_queued"
+CONTINUATION_FINISHED = "continuation_finished"
+ENRICHMENT_QUEUED = "enrichment_queued"
+ENRICHMENT_FINISHED = "enrichment_finished"
 
 _lock = threading.Lock()
 _last_sent: Dict[str, float] = {}
@@ -101,6 +107,7 @@ def _persist_ops_alert(
     bill_id: Optional[int],
     source: str,
     completion_percentage: Optional[float],
+    provider_model: Optional[str],
     extra: Optional[Dict[str, Any]],
     webhook_sent: bool = False,
 ) -> Optional[int]:
@@ -118,6 +125,7 @@ def _persist_ops_alert(
                 bill_id=bill_id,
                 source=source or "analyzer",
                 completion_percentage=completion_percentage,
+                provider_model=provider_model,
                 is_read=False,
                 webhook_sent=bool(webhook_sent),
             )
@@ -165,6 +173,7 @@ def report_gemini_failure(
     bill_identifier: Optional[str] = None,
     bill_id: Optional[int] = None,
     completion_percentage: Optional[float] = None,
+    provider_model: Optional[str] = None,
     source: str = "analyzer",
     extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -174,6 +183,13 @@ def report_gemini_failure(
     Returns status dict for tests.
     """
     clean_extra = _sanitize_extra(extra)
+    # Prefer explicit arg; fall back to extra; finally the shared Gemini constant
+    model = provider_model
+    if not model and clean_extra:
+        model = clean_extra.get("provider_model") or clean_extra.get("model")
+    if not model:
+        model = GEMINI_MODEL
+
     event = {
         "event": "gemini_failure",
         "severity": severity,
@@ -182,6 +198,7 @@ def report_gemini_failure(
         "bill_id": bill_id,
         "message": message,
         "completion_percentage": completion_percentage,
+        "provider_model": model,
         "source": source,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
@@ -194,9 +211,13 @@ def report_gemini_failure(
     )
     if completion_percentage is not None:
         log_line += f" completion={completion_percentage:.1f}%"
+    if model:
+        log_line += f" model={model}"
 
     if severity == "warning":
         ops_logger.warning(log_line)
+    elif severity == "info":
+        ops_logger.info(log_line)
     else:
         ops_logger.error(log_line)
 
@@ -208,6 +229,7 @@ def report_gemini_failure(
         "webhook_sent": False,
         "skipped_dedup": False,
         "alerts_disabled": False,
+        "provider_model": model,
     }
 
     # Always persist for in-app dashboard (even if OPS_ALERTS_ENABLED=false kills webhook)
@@ -219,6 +241,7 @@ def report_gemini_failure(
         bill_id=bill_id,
         source=source,
         completion_percentage=completion_percentage,
+        provider_model=model,
         extra=clean_extra,
         webhook_sent=False,
     )
@@ -272,6 +295,7 @@ def notify_gemini_failure(
     bill_identifier: Optional[str] = None,
     bill_id: Optional[int] = None,
     completion_percentage: Optional[float] = None,
+    provider_model: Optional[str] = None,
     source: str = "analyzer",
     extra: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -293,6 +317,7 @@ def notify_gemini_failure(
         bill_identifier=ident,
         bill_id=bid,
         completion_percentage=completion_percentage,
+        provider_model=provider_model,
         source=source,
         extra=extra,
     )

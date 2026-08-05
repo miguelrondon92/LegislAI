@@ -1,3 +1,9 @@
+# Gemini model used by EnhancedAIAnalyzer; also default for OpsAlert.provider_model.
+# Prefer a model with free-tier quota for this API key. As of 2026-08-04 probe:
+# gemini-2.0-flash → 429 limit:0; gemini-2.5-flash* → 404 for new users;
+# gemini-3.5-flash-lite → PASS (good fit for high-volume chunked analysis).
+GEMINI_MODEL = "gemini-3.5-flash-lite"
+
 FEDERAL_POLICY_CATEGORIES = [
   "Agriculture and Food",
   "Arts and Culture",

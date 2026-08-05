@@ -4,6 +4,8 @@ import unittest
 from unittest import mock
 
 from services.ops_alert_service import (
+    CONTINUATION_FINISHED,
+    CONTINUATION_QUEUED,
     PARTIAL_ANALYSIS,
     QUOTA_EXHAUSTED,
     classify_gemini_error,
@@ -39,6 +41,46 @@ class OpsAlertServiceTest(unittest.TestCase):
             classify_gemini_error("404 models/gemini-1.5-flash is not found"),
             "model_error",
         )
+        self.assertEqual(
+            classify_gemini_error("429 RESOURCE_EXHAUSTED"),
+            QUOTA_EXHAUSTED,
+        )
+
+    def test_continuation_classes_defined(self):
+        self.assertEqual(CONTINUATION_QUEUED, "continuation_queued")
+        self.assertEqual(CONTINUATION_FINISHED, "continuation_finished")
+
+    @mock.patch("services.ops_alert_service.ops_logger")
+    @mock.patch("services.ops_alert_service.requests.post")
+    def test_info_severity_logs_info(self, mock_post, mock_logger):
+        with mock.patch.dict(os.environ, {"OPS_ALERT_WEBHOOK_URL": ""}, clear=False):
+            status = report_gemini_failure(
+                failure_class=CONTINUATION_QUEUED,
+                message="queued",
+                severity="info",
+                bill_identifier="119-HR30",
+                source="routes",
+            )
+        self.assertTrue(status["persisted"])
+        mock_logger.info.assert_called()
+        mock_logger.error.assert_not_called()
+        persist_kwargs = self.mock_persist.call_args.kwargs
+        self.assertEqual(persist_kwargs["failure_class"], CONTINUATION_QUEUED)
+        self.assertEqual(persist_kwargs["severity"], "info")
+
+    @mock.patch("services.ops_alert_service.requests.post")
+    def test_continuation_finished_defaults_provider_model(self, mock_post):
+        from utils.constants import GEMINI_MODEL
+
+        with mock.patch.dict(os.environ, {"OPS_ALERT_WEBHOOK_URL": ""}, clear=False):
+            status = report_gemini_failure(
+                failure_class=CONTINUATION_FINISHED,
+                message="done",
+                severity="info",
+                bill_identifier="119-HR31",
+                source="routes",
+            )
+        self.assertEqual(status["provider_model"], GEMINI_MODEL)
 
     @mock.patch("services.ops_alert_service.requests.post")
     def test_webhook_posted_once_then_deduped(self, mock_post):
@@ -54,6 +96,7 @@ class OpsAlertServiceTest(unittest.TestCase):
                 bill_identifier="119-HR23",
                 bill_id=1,
                 completion_percentage=18.2,
+                provider_model="gemini-2.0-flash",
                 source="analyzer",
             )
             second = report_gemini_failure(
@@ -63,12 +106,14 @@ class OpsAlertServiceTest(unittest.TestCase):
                 bill_identifier="119-HR23",
                 bill_id=1,
                 completion_percentage=18.2,
+                provider_model="gemini-2.0-flash",
                 source="routes",
             )
 
         self.assertTrue(first["logged"])
         self.assertTrue(first["persisted"])
         self.assertEqual(first["ops_alert_id"], 42)
+        self.assertEqual(first["provider_model"], "gemini-2.0-flash")
         self.assertTrue(first["webhook_attempted"])
         self.assertTrue(first["webhook_sent"])
         self.assertFalse(first["skipped_dedup"])
@@ -87,8 +132,50 @@ class OpsAlertServiceTest(unittest.TestCase):
         self.assertEqual(payload["event"], "gemini_failure")
         self.assertEqual(payload["failure_class"], PARTIAL_ANALYSIS)
         self.assertEqual(payload["bill_identifier"], "119-HR23")
+        self.assertEqual(payload["provider_model"], "gemini-2.0-flash")
         self.assertNotIn("api_key", str(payload).lower())
         self.assertEqual(kwargs["timeout"], 5)
+
+        persist_kwargs = self.mock_persist.call_args_list[0].kwargs
+        self.assertEqual(persist_kwargs["provider_model"], "gemini-2.0-flash")
+
+    @mock.patch("services.ops_alert_service.requests.post")
+    def test_provider_model_from_extra_fallback(self, mock_post):
+        mock_resp = mock.Mock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+        with mock.patch("services.ops_alert_service._mark_webhook_sent"):
+            status = report_gemini_failure(
+                failure_class=PARTIAL_ANALYSIS,
+                message="model=gemini-2.0-flash, chunks=2/15, limit_cause=local_minute_budget",
+                bill_identifier="119-HR22",
+                source="analyzer",
+                extra={
+                    "provider_model": "gemini-2.0-flash",
+                    "limit_cause": "local_minute_budget",
+                    "chunks": "2/15",
+                },
+            )
+        self.assertEqual(status["provider_model"], "gemini-2.0-flash")
+        persist_kwargs = self.mock_persist.call_args.kwargs
+        self.assertEqual(persist_kwargs["provider_model"], "gemini-2.0-flash")
+        self.assertEqual(persist_kwargs["extra"]["limit_cause"], "local_minute_budget")
+
+    @mock.patch("services.ops_alert_service.requests.post")
+    def test_defaults_provider_model_constant(self, mock_post):
+        """When callers omit provider_model, OpsAlert still stores GEMINI_MODEL."""
+        from utils.constants import GEMINI_MODEL
+
+        with mock.patch.dict(os.environ, {"OPS_ALERT_WEBHOOK_URL": ""}, clear=False):
+            status = report_gemini_failure(
+                failure_class=PARTIAL_ANALYSIS,
+                message="no model arg",
+                bill_identifier="119-HR26",
+                source="analyzer",
+            )
+        self.assertEqual(status["provider_model"], GEMINI_MODEL)
+        persist_kwargs = self.mock_persist.call_args.kwargs
+        self.assertEqual(persist_kwargs["provider_model"], GEMINI_MODEL)
 
     @mock.patch("services.ops_alert_service.requests.post")
     def test_persist_without_webhook_url(self, mock_post):

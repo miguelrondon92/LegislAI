@@ -6,18 +6,18 @@ Authoritative definitions live in `db_models.py`. This is a navigation aid for s
 
 | Model | Purpose | Key fields / notes |
 |-------|---------|-------------------|
-| `Bill` | Legislative bill | Natural key `congress,bill_type,bill_number`; `active`, `version`, `display_ready`; legacy JSON columns still exist — prefer related tables |
+| `Bill` | Legislative bill | Natural key `congress,bill_type,bill_number`; `full_text` (persisted Congress text), `full_text_fetched_at`, `content_hash`; `active`, `version`, `display_ready`; legacy JSON columns still exist — prefer related tables |
 | `BillAction` | Timeline events | Ordered by `action_date` |
-| `AIAnalysis` | Versioned AI results | `analysis_data` JSON text; `complexity_score`, `controversy_score`; `active`, `analysis_version` |
-| `Summary` | Versioned summaries | `summary_text`, `plain_language_summary`, `key_provisions` JSON; `active` |
+| `AIAnalysis` | Versioned AI results | `analysis_data` JSON text; `complexity_score`, `controversy_score`; `provider_model` (Gemini at write time); `active`, `analysis_version`. Enrichment fields live **inside** JSON (`policy_areas`, `policy_analysis`, `stakeholders`) — no separate table |
+| `Summary` | Versioned summaries | `summary_text`, `plain_language_summary`, `key_provisions` JSON; `provider_model`; `active` |
 | `BillCategoryMapping` | Bill ↔ policy | Relevance + `sneakiness_score` |
-| `HiddenProvision` | Risk findings | Linked to bill; sneakiness/risk metadata |
+| `HiddenProvision` | Risk findings | Linked to bill; sneakiness/risk metadata; `provider_model` |
 | `PolicyCategory` | 36 federal categories | Seed via `scripts/setup/create_policy_categories.py`; names in `utils/constants.py` |
 | `User` / `UserPolicySubscription` | Auth + prefs | Interest levels, notification settings |
 | `Alert` / `UserBillAlignment` | Personalization | Alignment scores |
 | `WatchlistItem` | User tracking | Per-user bill list |
 | `AnalysisSession` | Analysis session tracking | Used by analysis session scheduler |
-| `OpsAlert` | Programmer Gemini/ops failures | `is_read`, bill filters; UI at `/ops/logs` |
+| `OpsAlert` | Programmer Gemini/ops failures | `is_read`, `provider_model`, bill filters; UI at `/ops/logs` |
 
 ## Preferred Bill accessors
 
@@ -28,6 +28,14 @@ Use these instead of raw legacy columns when possible:
 - `get_complexity_score_new()`, `get_controversy_score_new()`
 - `create_new_analysis_version(...)`, `create_new_summary_version(...)`
 - `update_display_ready_status()`
+
+## Analysis JSON enrichments (no migration)
+
+Downstream stakeholder + policy narrative are stored on the active `AIAnalysis.analysis_data`:
+
+- Written as `pending` stubs by core Tier A/B completion
+- Filled by `services/analysis_enrichers.run_downstream_enrichments` when RPM allows
+- Canonical shapes: see [pipeline-contract.md](pipeline-contract.md) (§ Policy areas vs enrichments)
 
 ## Migrations
 

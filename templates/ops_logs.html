@@ -102,6 +102,7 @@
                         <tr>
                             <th>When</th>
                             <th>Class</th>
+                            <th>Model</th>
                             <th>Bill</th>
                             <th>Source</th>
                             <th>Message</th>
@@ -122,9 +123,16 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge bg-{{ 'warning' if alert.severity == 'warning' else 'danger' }}">
+                                    <span class="badge bg-{{ 'secondary' if alert.severity == 'info' else 'warning' if alert.severity == 'warning' else 'danger' }}">
                                         {{ alert.failure_class }}
                                     </span>
+                                </td>
+                                <td class="small text-nowrap">
+                                    {% if alert.provider_model %}
+                                    <code>{{ alert.provider_model }}</code>
+                                    {% else %}
+                                    <span class="text-muted">—</span>
+                                    {% endif %}
                                 </td>
                                 <td class="text-nowrap">
                                     {% if alert.bill %}
@@ -142,6 +150,10 @@
                                     {{ alert.message }}
                                     {% if alert.completion_percentage is not none %}
                                     <span class="text-muted">({{ "%.1f"|format(alert.completion_percentage) }}%)</span>
+                                    {% endif %}
+                                    {% set extra = alert.get_extra() %}
+                                    {% if extra.get('limit_cause') %}
+                                    <span class="badge bg-secondary">{{ extra.limit_cause }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="small">
@@ -168,7 +180,7 @@
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td colspan="7" class="text-center text-muted py-5">
+                                <td colspan="8" class="text-center text-muted py-5">
                                     No ops logs match these filters.
                                 </td>
                             </tr>

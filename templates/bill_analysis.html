@@ -101,7 +101,9 @@
 
 {% if partial_analysis_warning %}
 <!-- Partial Analysis Warning -->
-<div class="row mb-4">
+<div class="row mb-4" id="partial-analysis-banner"
+     data-continuation-queued="{{ 'true' if partial_analysis_warning.continuation_queued else 'false' }}"
+     data-remaining-chunks="{{ partial_analysis_warning.remaining_chunks or 0 }}">
     <div class="col-12">
         <div class="alert alert-warning border-warning" role="alert">
             <div class="d-flex align-items-start">
@@ -111,7 +113,11 @@
                 <div class="flex-grow-1">
                     <h5 class="alert-heading mb-2">
                         <i data-feather="zap" class="me-2" style="width: 18px; height: 18px;"></i>
+                        {% if partial_analysis_warning.continuation_queued and partial_analysis_warning.completion_percentage == 0 %}
+                        Analysis Running
+                        {% else %}
                         Partial Analysis Complete
+                        {% endif %}
                     </h5>
                     <p class="mb-2">{{ partial_analysis_warning.message }}</p>
                     
@@ -127,14 +133,27 @@
                                 </div>
                             </div>
                             <small class="text-muted">
+                                {% if partial_analysis_warning.total_chars %}
+                                {{ partial_analysis_warning.chars_analyzed }} of {{ partial_analysis_warning.total_chars }} characters covered
+                                {% else %}
                                 {{ partial_analysis_warning.completed_chunks }} of {{ partial_analysis_warning.total_chunks }} sections analyzed
+                                {% endif %}
+                                {% if partial_analysis_warning.limit_cause %}
+                                · limit: {{ partial_analysis_warning.limit_cause }}
+                                {% endif %}
                             </small>
                         </div>
                         <div class="col-md-6">
                             <p class="mb-0 text-muted">
-                                <strong>What this means:</strong> The analysis below includes insights from 
-                                {{ partial_analysis_warning.completed_chunks }} sections. 
+                                <strong>What this means:</strong>
+                                {% if partial_analysis_warning.total_chars %}
+                                Coverage so far: {{ partial_analysis_warning.chars_analyzed }} characters.
+                                Remaining text will be analyzed in later waves under free-tier rate limits.
+                                {% else %}
+                                The analysis below includes insights from
+                                {{ partial_analysis_warning.completed_chunks }} sections.
                                 {{ partial_analysis_warning.remaining_chunks }} sections could not be analyzed due to API limits.
+                                {% endif %}
                             </p>
                         </div>
                     </div>
@@ -142,8 +161,13 @@
                     <div class="alert alert-light border-0 mb-0">
                         <small class="text-muted">
                             <i data-feather="info" class="me-1" style="width: 14px; height: 14px;"></i>
-                            <strong>Tip:</strong> Try refreshing this page later to complete the remaining analysis, 
-                            or contact support if this issue persists.
+                            {% if partial_analysis_warning.continuation_queued %}
+                            <strong>Status:</strong> Background analysis is running (free-tier rate limits).
+                            This page auto-refreshes a few times; each wave adds more coverage.
+                            {% else %}
+                            <strong>Tip:</strong> Refresh this page later to continue remaining analysis,
+                            or check Ops logs if progress stalls.
+                            {% endif %}
                         </small>
                     </div>
                 </div>
@@ -151,6 +175,35 @@
         </div>
     </div>
 </div>
+{% if partial_analysis_warning.continuation_queued %}
+<script>
+(function () {
+  var banner = document.getElementById('partial-analysis-banner');
+  if (!banner || banner.getAttribute('data-continuation-queued') !== 'true') return;
+  var key = 'legislai_poll_' + (window.location.pathname || '');
+  var n = parseInt(sessionStorage.getItem(key) || '0', 10);
+  var remaining = parseInt(banner.getAttribute('data-remaining-chunks') || '0', 10);
+  // Tier B waves often need ~1 minute each; poll every 18s with room for large bills
+  var maxPolls = Math.min(40, Math.max(12, remaining * 5 + 8));
+  if (n >= maxPolls) return;
+  sessionStorage.setItem(key, String(n + 1));
+  setTimeout(function () { window.location.reload(); }, 18000);
+})();
+</script>
+{% endif %}
+{% endif %}
+
+{% if enrichment_flags is defined and enrichment_flags.any_enrichment_pending and enrichment_flags.enrichment_queued %}
+<script>
+(function () {
+  var key = 'legislai_enrich_poll_' + (window.location.pathname || '');
+  var n = parseInt(sessionStorage.getItem(key) || '0', 10);
+  var maxPolls = 8;
+  if (n >= maxPolls) return;
+  sessionStorage.setItem(key, String(n + 1));
+  setTimeout(function () { window.location.reload(); }, 18000);
+})();
+</script>
 {% endif %}
 
 {% if alignment_score is not none %}
@@ -209,7 +262,13 @@
     <!-- Bill Analysis -->
     <div class="col-lg-8 mb-4">
         <!-- Bill Summary -->
-        {% if analysis and analysis.summary %}
+        {% set ai_summary = analysis.summary if analysis and analysis.summary else none %}
+        {% set db_summary = bill.get_active_summary() %}
+        {% set db_summary_text = (db_summary.summary_text if db_summary else none) %}
+        {# Prefer AI analysis JSON; else Summary table; else Congress.gov text #}
+        {% set has_ai_summary = ai_summary and (ai_summary.main_summary or ai_summary.plain_language_explanation) %}
+        {% set has_db_summary = db_summary_text and db_summary_text|length > 40 and not db_summary_text.startswith('SEC.') %}
+        {% if has_ai_summary %}
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -218,9 +277,9 @@
                 </h5>
             </div>
             <div class="card-body">
-                {% set summary = analysis.summary %}
+                {% set summary = ai_summary %}
                 <h6>Overview</h6>
-                <p>{{ summary.main_summary }}</p>
+                <p>{{ summary.main_summary or summary.plain_language_explanation }}</p>
                 
                 {% if summary.key_provisions %}
                 <h6>Key Provisions</h6>
@@ -253,10 +312,24 @@
                 
             </div>
         </div>
-        {% endif %}
-
-        <!-- Fallback Summary for Non-Display-Ready Bills -->
-        {% if not bill.display_ready and bill.summary and not (analysis and analysis.summary) %}
+        {% elif has_db_summary %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="file-text" class="me-2"></i>
+                    Bill Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>Overview</h6>
+                <p>{{ db_summary_text }}</p>
+                {% if db_summary.plain_language_summary and db_summary.plain_language_summary != db_summary_text %}
+                <h6>Plain language</h6>
+                <p class="text-muted">{{ db_summary.plain_language_summary }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% elif bill.summary and not has_ai_summary %}
         <div class="card mb-4">
             <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
@@ -271,19 +344,62 @@
                 </div>
             </div>
             <div class="card-body">
+                {% if not bill.display_ready %}
                 <div class="alert alert-info border-info mb-3">
                     <small>
                         <i data-feather="info" class="me-1" style="width: 14px; height: 14px;"></i>
                         <strong>Note:</strong> This is the original summary from Congress.gov. Our enhanced AI analysis is still in progress and will provide additional insights when complete.
                     </small>
                 </div>
+                {% else %}
+                <div class="alert alert-info border-info mb-3">
+                    <small>
+                        <i data-feather="info" class="me-1" style="width: 14px; height: 14px;"></i>
+                        <strong>Note:</strong> AI summary is missing from the stored analysis; showing the Congress.gov summary.
+                    </small>
+                </div>
+                {% endif %}
                 <p>{{ bill.summary | clean_summary }}</p>
             </div>
         </div>
         {% endif %}
 
-        <!-- Policy Analysis -->
-        {% if analysis and analysis.policy_implications %}
+        <!-- Policy Areas (labels only) -->
+        {% set policy_areas = (analysis.policy_areas if analysis else none) or (analysis.policy_implications if analysis else none) %}
+        {% if analysis and policy_areas and (policy_areas.primary_category or policy_areas.secondary_categories) %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="tag" class="me-2"></i>
+                    Policy Areas
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if policy_areas.primary_category %}
+                <div class="mb-3">
+                    <h6>Primary Policy Area</h6>
+                    <span class="badge bg-primary fs-6">{{ policy_areas.primary_category.title() }}</span>
+                </div>
+                {% endif %}
+                {% if policy_areas.secondary_categories %}
+                <div class="mb-0">
+                    <h6>Secondary Policy Areas</h6>
+                    {% for area in policy_areas.secondary_categories %}
+                    <span class="badge bg-secondary me-1">{{ area.title() }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Policy Analysis (deep — downstream enricher) -->
+        {% set policy_deep = analysis.policy_analysis if analysis else none %}
+        {% set policy_legacy = analysis.policy_implications if analysis else none %}
+        {% set pa_pending = enrichment_flags is defined and enrichment_flags.policy_analysis_pending %}
+        {% set pa_ready = policy_deep and policy_deep.status == 'ready' %}
+        {% set pa_has_content = pa_ready or (policy_deep and (policy_deep.overall_assessment or policy_deep.category_breakdown)) or (policy_legacy and policy_legacy.category_breakdown) %}
+        {% if analysis and (pa_has_content or pa_pending or (policy_deep and policy_deep.status in ['pending', 'skipped'])) %}
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -292,40 +408,37 @@
                 </h5>
             </div>
             <div class="card-body">
-                {% set policy = analysis.policy_implications %}
-                
-                <div class="row mb-3">
-                    {% if policy.primary_category %}
-                    <div class="col-md-6">
-                        <h6>Primary Policy Area</h6>
-                        <span class="badge bg-primary fs-6">{{ policy.primary_category.title() }}</span>
-                    </div>
-                    {% endif %}
-                    
-                    {% if policy.bipartisan_potential %}
-                    <div class="col-md-6">
-                        <h6>Bipartisan Potential</h6>
-                        <span class="badge bg-info fs-6 bipartisan-potential-value">{{ policy.bipartisan_potential }}</span>
-                    </div>
-                    {% endif %}
+                {% if pa_pending or (policy_deep and policy_deep.status == 'pending') %}
+                <div class="alert alert-info border-0 mb-0" role="status">
+                    <small>
+                        <i data-feather="loader" class="me-1" style="width: 14px; height: 14px;"></i>
+                        Policy analysis is queued and will run when free-tier rate limits allow.
+                        {% if enrichment_flags is defined and enrichment_flags.enrichment_queued %}
+                        Refresh shortly for deeper assessment and category impact.
+                        {% endif %}
+                    </small>
                 </div>
-                
-                {% if policy.secondary_categories %}
-                <div class="mb-3">
-                    <h6>Secondary Policy Areas</h6>
-                    {% for area in policy.secondary_categories %}
-                    <span class="badge bg-secondary me-1">{{ area.title() }}</span>
-                    {% endfor %}
+                {% elif policy_deep and policy_deep.status == 'skipped' %}
+                <div class="alert alert-secondary border-0 mb-0" role="status">
+                    <small>Policy analysis was skipped due to API rate limits. Refresh later to retry.</small>
                 </div>
-                {% endif %}
-                
+                {% else %}
+                {% set policy = policy_deep if policy_deep else policy_legacy %}
+
                 {% if policy.overall_assessment %}
                 <div class="mb-3">
                     <h6>Overall Assessment</h6>
                     <p class="mb-0">{{ policy.overall_assessment }}</p>
                 </div>
                 {% endif %}
-                
+
+                {% if policy.bipartisan_potential %}
+                <div class="mb-3">
+                    <h6>Bipartisan Potential</h6>
+                    <span class="badge bg-info fs-6 bipartisan-potential-value">{{ policy.bipartisan_potential }}</span>
+                </div>
+                {% endif %}
+
                 {% if policy.category_breakdown %}
                 <h6>Policy Impact by Area</h6>
                 <div class="table-responsive">
@@ -353,8 +466,30 @@
                         </tbody>
                     </table>
                 </div>
+                {% elif policy_legacy and policy_legacy.categories %}
+                <h6>Policy Impact by Area</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Policy Area</th>
+                                <th>Impact</th>
+                                <th>Reasoning</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cat in policy_legacy.categories %}
+                            <tr>
+                                <td>{{ cat.area }}</td>
+                                <td>{{ cat.impact_level }}</td>
+                                <td>{{ cat.reasoning }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
                 {% endif %}
-                
+
                 {% if policy.controversial_aspects %}
                 <div class="alert alert-warning" role="alert">
                     <h6 class="alert-heading">Potentially Controversial Aspects</h6>
@@ -365,12 +500,16 @@
                     </ul>
                 </div>
                 {% endif %}
+                {% endif %}
             </div>
         </div>
         {% endif %}
 
         <!-- Stakeholder Analysis -->
-        {% if analysis and analysis.stakeholders %}
+        {% set stakeholders = analysis.stakeholders if analysis else none %}
+        {% set st_pending = enrichment_flags is defined and enrichment_flags.stakeholders_pending %}
+        {% set st_has_ui = stakeholders and (stakeholders.affected_groups or (stakeholders.winners_losers and (stakeholders.winners_losers.potential_winners or stakeholders.winners_losers.potential_losers))) %}
+        {% if analysis and (st_has_ui or st_pending or (stakeholders and stakeholders.status in ['pending', 'skipped', 'ready'])) %}
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -379,8 +518,22 @@
                 </h5>
             </div>
             <div class="card-body">
-                {% set stakeholders = analysis.stakeholders %}
-                
+                {% if st_pending or (stakeholders and stakeholders.status == 'pending') %}
+                <div class="alert alert-info border-0 mb-0" role="status">
+                    <small>
+                        <i data-feather="loader" class="me-1" style="width: 14px; height: 14px;"></i>
+                        Stakeholder analysis is queued and will run when free-tier rate limits allow.
+                        {% if enrichment_flags is defined and enrichment_flags.enrichment_queued %}
+                        Refresh shortly for results.
+                        {% endif %}
+                    </small>
+                </div>
+                {% elif stakeholders and stakeholders.status == 'skipped' and not st_has_ui %}
+                <div class="alert alert-secondary border-0 mb-0" role="status">
+                    <small>Stakeholder analysis was skipped due to API rate limits. Refresh later to retry.</small>
+                </div>
+                {% else %}
+
                 {% if stakeholders.affected_groups %}
                 <h6>Affected Groups</h6>
                 <div class="table-responsive mb-3">
@@ -408,7 +561,7 @@
                     </table>
                 </div>
                 {% endif %}
-                
+
                 {% if stakeholders.winners_losers %}
                 <div class="row">
                     {% if stakeholders.winners_losers.potential_winners %}
@@ -421,7 +574,7 @@
                         </ul>
                     </div>
                     {% endif %}
-                    
+
                     {% if stakeholders.winners_losers.potential_losers %}
                     <div class="col-md-4">
                         <h6 class="text-danger">Potential Losers</h6>
@@ -432,7 +585,7 @@
                         </ul>
                     </div>
                     {% endif %}
-                    
+
                     {% if stakeholders.winners_losers.neutral_parties %}
                     <div class="col-md-4">
                         <h6 class="text-muted">Neutral Impact</h6>
@@ -445,11 +598,12 @@
                     {% endif %}
                 </div>
                 {% endif %}
-                
+
                 {% if stakeholders.geographic_impact %}
                 <div class="alert alert-info" role="alert">
                     <strong>Geographic Impact:</strong> {{ stakeholders.geographic_impact }}
                 </div>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -633,6 +787,7 @@
             </div>
             <div class="card-body">
                 {% set complexity = bill.get_complexity_score_new() %}
+                {% set complexity_details = analysis.complexity_assessment %}
                 
                 {% if complexity is not none %}
                 {% set complexity_100 = (complexity * 100)|round %}
@@ -651,28 +806,28 @@
                 {% endif %}
                 
                 <table class="table table-sm table-borderless">
-                    {% if complexity.reading_level %}
+                    {% if complexity_details.reading_level %}
                     <tr>
                         <td><strong>Reading Level:</strong></td>
-                        <td>{{ complexity.reading_level }}</td>
+                        <td>{{ complexity_details.reading_level }}</td>
                     </tr>
                     {% endif %}
-                    {% if complexity.implementation_difficulty %}
+                    {% if complexity_details.implementation_difficulty %}
                     <tr>
                         <td><strong>Implementation:</strong></td>
-                        <td>{{ complexity.implementation_difficulty }}</td>
+                        <td>{{ complexity_details.implementation_difficulty }}</td>
                     </tr>
                     {% endif %}
-                    {% if complexity.scope_of_impact %}
+                    {% if complexity_details.scope_of_impact %}
                     <tr>
                         <td><strong>Scope:</strong></td>
-                        <td>{{ complexity.scope_of_impact }}</td>
+                        <td>{{ complexity_details.scope_of_impact }}</td>
                     </tr>
                     {% endif %}
-                    {% if complexity.urgency_level %}
+                    {% if complexity_details.urgency_level %}
                     <tr>
                         <td><strong>Urgency:</strong></td>
-                        <td>{{ complexity.urgency_level }}</td>
+                        <td>{{ complexity_details.urgency_level }}</td>
                     </tr>
                     {% endif %}
                 </table>
@@ -680,128 +835,137 @@
         </div>
         {% endif %}
 
-        <!-- Hidden Provisions Analysis -->
+        <!-- Hidden provisions; DB-backed via HiddenProvision -->
         {% set hidden_provisions = bill.get_hidden_provisions() %}
-        {% set filtered_provisions = hidden_provisions | selectattr('risk_level', 'ne', 'low') | list %}
-        {% if filtered_provisions %}
+        {% set provision_counts = bill.get_hidden_provisions_count() %}
+        {% if provision_counts.total > 0 %}
         <div class="card mb-4">
             <div class="card-header">
-                <h6 class="mb-0">
-                    <i data-feather="eye" class="me-2"></i>
-                    Hidden Provisions Analysis
-                    {% set provision_counts = bill.get_hidden_provisions_count() %}
-                    {% if provision_counts.high > 0 %}
-                    <span class="badge bg-danger ms-2">{{ provision_counts.high }} High Risk</span>
-                    {% endif %}
-                    {% if provision_counts.medium > 0 %}
-                    <span class="badge bg-warning ms-2">{{ provision_counts.medium }} Medium Risk</span>
-                    {% endif %}
-                </h6>
+                <button class="btn btn-link text-decoration-none text-body w-100 text-start p-0 d-flex align-items-center justify-content-between"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#hiddenProvisionsCollapse"
+                        aria-expanded="false"
+                        aria-controls="hiddenProvisionsCollapse">
+                    <h6 class="mb-0">
+                        <i data-feather="eye" class="me-2"></i>
+                        {{ provision_counts.total }} hidden provision{{ 's' if provision_counts.total != 1 else '' }} detected
+                        {% if provision_counts.high > 0 %}
+                        <span class="badge bg-danger ms-2">{{ provision_counts.high }} High</span>
+                        {% endif %}
+                        {% if provision_counts.medium > 0 %}
+                        <span class="badge bg-warning text-dark ms-1">{{ provision_counts.medium }} Medium</span>
+                        {% endif %}
+                        {% if provision_counts.low > 0 %}
+                        <span class="badge bg-secondary ms-1">{{ provision_counts.low }} Low</span>
+                        {% endif %}
+                    </h6>
+                    <i data-feather="chevron-down" style="width: 18px; height: 18px;"></i>
+                </button>
             </div>
-            <div class="card-body">
-                {% set overall_risk = bill.get_overall_hidden_risk_score() %}
-                {% if overall_risk > 0 %}
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span>Overall Hidden Risk Score</span>
-                        <span class="badge bg-{{ 'danger' if overall_risk > 0.6 else 'warning' if overall_risk > 0.3 else 'info' }}">
-                            {{ (overall_risk * 100)|round }}/100
-                        </span>
+            <div id="hiddenProvisionsCollapse" class="collapse">
+                <div class="card-body">
+                    {% set overall_risk = bill.get_overall_hidden_risk_score() %}
+                    {% if overall_risk > 0 %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span>Overall risk score</span>
+                            <span class="badge bg-{{ 'danger' if overall_risk > 0.6 else 'warning' if overall_risk > 0.3 else 'info' }}">
+                                {{ (overall_risk * 100)|round }}/100
+                            </span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-{{ 'danger' if overall_risk > 0.6 else 'warning' if overall_risk > 0.3 else 'info' }}"
+                                 style="width: {{ (overall_risk * 100)|round }}%"></div>
+                        </div>
                     </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-{{ 'danger' if overall_risk > 0.6 else 'warning' if overall_risk > 0.3 else 'info' }}" 
-                             style="width: {{ (overall_risk * 100)|round }}%"></div>
-                    </div>
-                </div>
-                {% endif %}
-                
-                <div class="accordion" id="hiddenProvisionsAccordion">
-                    {% for provision in filtered_provisions %}
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button {{ 'collapsed' if loop.index > 1 else '' }}" type="button" 
-                                    data-bs-toggle="collapse" data-bs-target="#provision{{ loop.index }}" 
-                                    aria-expanded="{{ 'true' if loop.index == 1 else 'false' }}">
-                                <span class="me-2">
-                                    <i data-feather="{{ provision.get_risk_icon() }}" 
-                                       class="text-{{ provision.get_risk_color() }}" 
-                                       style="width: 16px; height: 16px;"></i>
-                                </span>
-                                <strong>{{ provision.provision_type }}</strong>
-                                <span class="badge bg-{{ provision.get_risk_color() }} ms-auto me-2">
-                                    {{ provision.risk_level.title() }} Risk
-                                </span>
-                                <small class="text-muted">{{ (provision.confidence_score * 100)|round }}% confidence</small>
-                            </button>
-                        </h2>
-                        <div id="provision{{ loop.index }}" 
-                             class="accordion-collapse collapse {{ 'show' if loop.index == 1 else '' }}" 
-                             data-bs-parent="#hiddenProvisionsAccordion">
-                            <div class="accordion-body">
-                                <div class="row">
-                                    <div class="col-md-8">
-                                        <h6>Provision Text:</h6>
-                                        <p class="text-muted">{{ provision.provision_text }}</p>
-                                        
-                                        {% if provision.potential_impact %}
-                                        <h6>Potential Impact:</h6>
-                                        <p class="text-muted">{{ provision.potential_impact }}</p>
-                                        {% endif %}
-                                        
-                                        {% if provision.recommendation %}
-                                        <h6>Recommendation:</h6>
-                                        <p class="text-warning">{{ provision.recommendation }}</p>
-                                        {% endif %}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <h6>Risk Details:</h6>
-                                        <table class="table table-sm table-borderless">
-                                                    <tr>
-                                                <td><strong>Risk Level:</strong></td>
-                                                        <td><span class="badge bg-{{ provision.get_risk_color() }}">{{ provision.risk_level.title() }}</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                <td><strong>Confidence:</strong></td>
-                                                        <td>{{ (provision.confidence_score * 100)|round }}%</td>
-                                                    </tr>
-                                                    <tr>
-                                                <td><strong>Risk Score:</strong></td>
-                                                        <td>{{ (provision.get_risk_score() * 100)|round }}/100</td>
-                                                    </tr>
-                                                    {% if provision.chunk_type %}
-                                                    <tr>
-                                                <td><strong>Location:</strong></td>
-                                                        <td>{{ provision.chunk_type.title() }}</td>
-                                                    </tr>
-                                                    {% endif %}
-                                                </table>
-                                            
+                    {% endif %}
+
+                    <div class="accordion" id="hiddenProvisionsAccordion">
+                        {% for provision in hidden_provisions %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#hiddenProvision{{ loop.index }}"
+                                        aria-expanded="false">
+                                    <span class="me-2">
+                                        <i data-feather="{{ provision.get_risk_icon() }}"
+                                           class="text-{{ provision.get_risk_color() }}"
+                                           style="width: 16px; height: 16px;"></i>
+                                    </span>
+                                    <strong>{{ provision.provision_type }}</strong>
+                                    <span class="badge bg-{{ provision.get_risk_color() }} ms-auto me-2">
+                                        {{ provision.risk_level.title() }} Risk
+                                    </span>
+                                    <small class="text-muted">{{ (provision.confidence_score * 100)|round }}% confidence</small>
+                                </button>
+                            </h2>
+                            <div id="hiddenProvision{{ loop.index }}"
+                                 class="accordion-collapse collapse"
+                                 data-bs-parent="#hiddenProvisionsAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6>Provision text</h6>
+                                            <p class="text-muted">{{ provision.provision_text }}</p>
+                                            {% if provision.potential_impact %}
+                                            <h6>Potential impact</h6>
+                                            <p class="text-muted">{{ provision.potential_impact }}</p>
+                                            {% endif %}
+                                            {% if provision.recommendation %}
+                                            <h6>Recommendation</h6>
+                                            <p class="text-warning">{{ provision.recommendation }}</p>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <h6>Risk details</h6>
+                                            <table class="table table-sm table-borderless">
+                                                <tr>
+                                                    <td><strong>Risk level:</strong></td>
+                                                    <td><span class="badge bg-{{ provision.get_risk_color() }}">{{ provision.risk_level.title() }}</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Confidence:</strong></td>
+                                                    <td>{{ (provision.confidence_score * 100)|round }}%</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Risk score:</strong></td>
+                                                    <td>{{ (provision.get_risk_score() * 100)|round }}/100</td>
+                                                </tr>
+                                                {% if provision.chunk_type %}
+                                                <tr>
+                                                    <td><strong>Location:</strong></td>
+                                                    <td>{{ provision.chunk_type.title() }}</td>
+                                                </tr>
+                                                {% endif %}
+                                            </table>
                                             {% set risk_factors = provision.get_risk_factors() %}
                                             {% if risk_factors %}
-                                        <h6>Risk Factors:</h6>
-                                        <ul class="list-unstyled">
-                                                    {% for factor in risk_factors %}
-                                            <li><small class="text-muted">• {{ factor }}</small></li>
-                                                    {% endfor %}
-                                                </ul>
+                                            <h6>Risk factors</h6>
+                                            <ul class="list-unstyled">
+                                                {% for factor in risk_factors %}
+                                                <li><small class="text-muted">• {{ factor }}</small></li>
+                                                {% endfor %}
+                                            </ul>
                                             {% endif %}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    {% endfor %}
+                        {% endfor %}
+                    </div>
+
+                    {% if provision_counts.total > 3 %}
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <a href="#" onclick="expandAllProvisions(); return false;">Expand all</a> |
+                            <a href="#" onclick="collapseAllProvisions(); return false;">Collapse all</a>
+                        </small>
+                    </div>
+                    {% endif %}
                 </div>
-                
-                {% if filtered_provisions|length > 3 %}
-                <div class="text-center mt-3">
-                    <small class="text-muted">
-                        {{ filtered_provisions|length }} medium/high risk provisions detected. 
-                        <a href="#" onclick="expandAllProvisions()">Expand all</a> | 
-                        <a href="#" onclick="collapseAllProvisions()">Collapse all</a>
-                    </small>
-                </div>
-                {% endif %}
             </div>
         </div>
         {% endif %}

@@ -8,9 +8,11 @@ alwaysApply: false
 
 Load skill `legislai-analysis`.
 
+- Before analysis work, read current `GEMINI_MODEL` / `EnhancedAIAnalyzer.model_name`
 - Write to `AIAnalysis` / `Summary` / `BillCategoryMapping` / `HiddenProvision`
+- Stamp `provider_model` on every analysis artifact write (column + JSON)
 - Keep analysis JSON compatible with pipeline contract category formats
 - Call `update_display_ready_status` after successful artifact writes
 - Policy category names must match `utils/constants.py` / `PolicyCategory`
 - Never log or read raw API keys; never open `.env`
-- Schema needs → Database first; UI needs → Frontend handoff
+- Schema needs → Database first; UI needs → Frontend handoff; model constant → Gemini Ops

@@ -33,3 +33,12 @@ Allowed references: `.env.example`, `config/*.template`, `config/*.example`.
 ## Orchestration
 
 Use skill **legislai-orchestrate** for cross-layer work. Subagent completion triggers a pipeline follow-up reminder via `subagentStop`.
+
+Shared contracts under `resources/`:
+
+- `pipeline-contract.md` — analysis JSON, Tier A/B, enrichments, ops classes
+- `display-ready-contract.md` — what gates homepage (enrichments are **not** required)
+- `schema-surface.md` — tables + enrichment JSON note
+- `agent-roster.md` — owners and file globs
+
+After analysis/route/template changes: restart Flask and verify `/bill/...` + `/ops/logs` before closing a handoff.

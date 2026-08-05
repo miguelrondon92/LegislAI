@@ -2,6 +2,7 @@ import requests
 import os
 import time
 import logging
+import threading
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 import json
@@ -12,6 +13,19 @@ class APIRateLimitError(Exception):
     pass
 
 CURRENT_CONGRESS = 119
+
+_shared_congress_api = None
+_shared_congress_lock = threading.Lock()
+
+
+def get_shared_congress_api():
+    """Process-wide CongressAPI so rate-limit spacing is shared across callers."""
+    global _shared_congress_api
+    with _shared_congress_lock:
+        if _shared_congress_api is None:
+            _shared_congress_api = CongressAPI()
+        return _shared_congress_api
+
 
 class CongressAPI:
     """Client for interacting with the Congress.gov API"""

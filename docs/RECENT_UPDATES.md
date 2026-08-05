@@ -1,5 +1,21 @@
 # Recent Updates and Implementations
 
+## Size-aware analysis + downstream enrichers (August 4, 2026)
+
+**Status:** ✅ Completed
+
+**Summary:**
+- **Tier A / Tier B routing** in `EnhancedAIAnalyzer` — small/medium bills complete in ~2 full-text Gemini calls (`single_pass_full_text`); oversized bills use map-reduce with chunk-key resume.
+- **UI waves** use `allow_budget_waits=False` (no multi-minute sleeps on request path); Tier B schedules delayed next waves.
+- **Downstream enrichers** (`services/analysis_enrichers.py`) fill Stakeholder Analysis + deep Policy Analysis asynchronously after core; `display_ready` does not wait.
+- **Bill UI** splits **Policy Areas** (badges) from **Policy Analysis** (narrative); stakeholders use template-canonical `affected_groups` / `winners_losers`.
+- **Ops:** `enrichment_queued` / `enrichment_finished`; fixed false `local_minute_budget` skips caused by reading `safe_remaining_requests` from the wrong `get_quota_info` nest (use `enrichment_quota_ok` / `get_rate_limit_status`).
+
+**Tests:** `test/test_size_aware_analysis.py`, `test/test_downstream_enrichers.py`  
+**Contract:** `.cursor/resources/pipeline-contract.md`, handoff `.cursor/handoffs/2026-08-04-downstream-enrichers.md`
+
+---
+
 ## Asynchronous Operation Implementation (July 16, 2025)
 
 ### Background Processing for Bill Analysis and Workflow Orchestration

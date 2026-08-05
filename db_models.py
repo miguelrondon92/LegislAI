@@ -153,6 +153,9 @@ class Bill(db.Model):
     policy_categories = db.Column(db.Text)
     stakeholder_analysis = db.Column(db.Text)
     complexity_score = db.Column(db.Float)
+    full_text = db.Column(db.Text, nullable=True)
+    full_text_fetched_at = db.Column(db.DateTime, nullable=True)
+    content_hash = db.Column(db.String(64), nullable=True)
     version = db.Column(db.Integer, nullable=False, default=1)
     active = db.Column(db.Boolean, nullable=False, default=True)
     display_ready = db.Column(db.Boolean, nullable=False, default=False)
@@ -162,22 +165,46 @@ class Bill(db.Model):
     actions = db.relationship('BillAction', backref='bill', lazy=True, cascade='all, delete-orphan', order_by='BillAction.action_date.desc()')
     def get_bill_identifier(self):
         return f"{self.congress}-{self.bill_type.upper()}{self.bill_number}"
-    def get_full_text(self):
-        """Get full text from Congress API"""
+    def get_full_text(self, *, fetch_if_missing=True, persist=True):
+        """Return persisted full text, optionally fetching once from Congress and storing it."""
+        if self.full_text:
+            return self.full_text
+
+        if not fetch_if_missing:
+            return self.summary or ''
+
         try:
-            # Import here to avoid circular imports
-            from services.congress_api import CongressAPI
-            
-            congress_api = CongressAPI()
+            from services.congress_api import get_shared_congress_api
+
+            congress_api = get_shared_congress_api()
             full_text = congress_api.get_bill_text(self.congress, self.bill_type, self.bill_number)
-            
+
             if full_text:
-                logging.info(f"Successfully fetched {len(full_text)} characters for {self.get_bill_identifier()}")
+                logging.info(
+                    f"Successfully fetched {len(full_text)} characters for {self.get_bill_identifier()}"
+                )
+                if persist:
+                    self.full_text = full_text
+                    self.full_text_fetched_at = datetime.utcnow()
+                    try:
+                        import hashlib
+                        content = (self.title or '') + (self.summary or '') + (full_text or '')
+                        self.content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+                    except Exception:
+                        pass
+                    try:
+                        db.session.add(self)
+                        db.session.commit()
+                    except Exception as commit_err:
+                        logging.warning(
+                            f"Could not persist full text for {self.get_bill_identifier()}: {commit_err}"
+                        )
+                        db.session.rollback()
                 return full_text
-            else:
-                logging.warning(f"No full text available for {self.get_bill_identifier()}, returning summary")
-                return self.summary or ''
-                
+
+            logging.warning(f"No full text available for {self.get_bill_identifier()}, returning summary")
+            return self.summary or ''
+
         except Exception as e:
             logging.error(f"Error fetching full text for {self.get_bill_identifier()}: {e}")
             return self.summary or ''
@@ -211,20 +238,27 @@ class Bill(db.Model):
         return analysis.get_analysis_data() if analysis else None
     
     def get_complexity_score_new(self):
-        """Get complexity score from AIAnalysis table (0-1 scale for template compatibility)"""
+        """Get complexity score from AIAnalysis (0-1 scale for template compatibility)."""
         analysis = self.get_active_ai_analysis()
-        if analysis:
-            # First try to get from analysis_data JSON (which has 0-100 scale)
-            analysis_data = analysis.get_analysis_data()
-            if analysis_data and 'complexity_assessment' in analysis_data:
-                complexity_data = analysis_data['complexity_assessment']
-                if 'complexity_score' in complexity_data:
-                    # Convert from 0-100 scale to 0-1 scale for template compatibility
-                    return complexity_data['complexity_score'] / 100.0
-            
-            # Fallback to complexity_score field (already 0-1 scale)
-            return analysis.complexity_score
-        return None
+        if not analysis:
+            return None
+
+        analysis_data = analysis.get_analysis_data()
+        if analysis_data and isinstance(analysis_data.get("complexity_assessment"), dict):
+            raw = analysis_data["complexity_assessment"].get("complexity_score")
+            if raw is not None:
+                try:
+                    score = float(raw)
+                except (TypeError, ValueError):
+                    score = None
+                if score is not None:
+                    # Analyzer contract is 0.0–1.0; legacy rows may use 0–100
+                    if score > 1.0:
+                        return score / 100.0
+                    return score
+
+        # Fallback to column (already 0-1)
+        return analysis.complexity_score
     
     def get_controversy_score_new(self):
         """Get controversy score from AIAnalysis table"""
@@ -247,11 +281,20 @@ class Bill(db.Model):
         return summary.get_key_provisions() if summary else []
     
     def create_new_analysis_version(self, analysis_data, complexity_score=None, controversy_score=None, 
-                                   analysis_method='chunked', chunks_analyzed=None, processing_time=None):
+                                   analysis_method='chunked', chunks_analyzed=None, processing_time=None,
+                                   provider_model=None):
         """Create a new version of AI analysis"""
+        from utils.constants import GEMINI_MODEL
+
         # Get the next version number
         latest_analysis = AIAnalysis.query.filter_by(bill_id=self.id).order_by(AIAnalysis.analysis_version.desc()).first()
         next_version = (latest_analysis.analysis_version + 1) if latest_analysis else 1
+
+        model = provider_model
+        if not model and isinstance(analysis_data, dict):
+            model = analysis_data.get('provider_model') or analysis_data.get('model')
+        if not model:
+            model = GEMINI_MODEL
         
         # Create new analysis
         new_analysis = AIAnalysis(
@@ -262,6 +305,7 @@ class Bill(db.Model):
             analysis_method=analysis_method,
             chunks_analyzed=chunks_analyzed,
             processing_time=processing_time,
+            provider_model=model,
             active=True
         )
         new_analysis.set_analysis_data(analysis_data)
@@ -277,8 +321,11 @@ class Bill(db.Model):
     
     def create_new_summary_version(self, summary_text, plain_language_summary=None, 
                                   key_provisions=None, funding_amounts=None, 
-                                  implementation_timeline=None, summary_type='ai_generated'):
+                                  implementation_timeline=None, summary_type='ai_generated',
+                                  provider_model=None):
         """Create a new version of summary"""
+        from utils.constants import GEMINI_MODEL
+
         # Get the next version number
         latest_summary = Summary.query.filter_by(bill_id=self.id).order_by(Summary.summary_version.desc()).first()
         next_version = (latest_summary.summary_version + 1) if latest_summary else 1
@@ -292,6 +339,7 @@ class Bill(db.Model):
             funding_amounts=funding_amounts,
             implementation_timeline=implementation_timeline,
             summary_type=summary_type,
+            provider_model=provider_model or GEMINI_MODEL,
             active=True
         )
         
@@ -523,6 +571,7 @@ class AIAnalysis(db.Model):
     analysis_method = db.Column(db.String(50), default='chunked')  # 'chunked', 'simple', 'enhanced'
     chunks_analyzed = db.Column(db.Integer)
     processing_time = db.Column(db.Float)  # Time in seconds
+    provider_model = db.Column(db.String(80), nullable=True, index=True)  # Gemini model at write time
     
     # Versioning and status
     analysis_version = db.Column(db.Integer, nullable=False, default=1)
@@ -579,6 +628,7 @@ class Summary(db.Model):
     
     # Summary metadata
     summary_type = db.Column(db.String(50), default='ai_generated')  # 'ai_generated', 'congressional', 'user_submitted'
+    provider_model = db.Column(db.String(80), nullable=True, index=True)  # Gemini model at write time
     
     # Versioning and status
     summary_version = db.Column(db.Integer, nullable=False, default=1)
@@ -646,6 +696,7 @@ class HiddenProvision(db.Model):
     # Analysis metadata
     analysis_version = db.Column(db.Integer, nullable=False, default=1)  # Links to AIAnalysis version
     detection_method = db.Column(db.String(50), default='ai_enhanced')  # How it was detected
+    provider_model = db.Column(db.String(80), nullable=True, index=True)  # Gemini model at write time
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -711,6 +762,7 @@ class OpsAlert(db.Model):
     bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=True)
     source = db.Column(db.String(50), nullable=False, default='analyzer')
     completion_percentage = db.Column(db.Float, nullable=True)
+    provider_model = db.Column(db.String(80), nullable=True, index=True)
     extra_json = db.Column(db.Text, nullable=True)
     is_read = db.Column(db.Boolean, nullable=False, default=False, index=True)
     webhook_sent = db.Column(db.Boolean, nullable=False, default=False)

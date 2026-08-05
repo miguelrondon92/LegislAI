@@ -1,5 +1,7 @@
 # Enhanced Limit Enforcement System
 
+> **2026-08 note:** Size-aware Tier A/B + TPM governor supersede parts of this doc (e.g. “max 15 chunks”, front-of-bill importance bias). For current behavior see `AGENTS.md` and `.cursor/resources/pipeline-contract.md`. Enrichment RPM checks use `enrichment_quota_ok()` → `get_rate_limit_status()["remaining_requests"]`, **not** `get_quota_info()["status"]["safe_remaining_requests"]` (that nest is wrong and caused false skips).
+
 ## Overview
 
 The workflow system now includes comprehensive limit enforcement to ensure it **never exceeds** API rate limits. This prevents API abuse, maintains system stability, and provides predictable behavior.

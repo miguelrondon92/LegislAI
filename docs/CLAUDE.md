@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Agent / pipeline source of truth (2026-08):** root [`AGENTS.md`](../AGENTS.md) and [`.cursor/resources/pipeline-contract.md`](../.cursor/resources/pipeline-contract.md). Prefer those for Tier A/B analysis, async enrichers (`analysis_enrichers.py`), ops classes, and `display_ready` semantics when this file disagrees.
+
 ## Overview
 
 LegislAI is a Python-based Flask web application that analyzes U.S. legislative bills using AI to provide policy insights and user-specific alerts. The system fetches bills from the Congress API, performs AI analysis to identify policy implications and hidden provisions, and notifies users based on their policy preferences.
@@ -20,7 +22,8 @@ LegislAI is a Python-based Flask web application that analyzes U.S. legislative 
 
 ### Key Services
 - **WorkflowOrchestrator** (`services/workflow_orchestrator.py`): Main processing pipeline that coordinates RSS monitoring, bill fetching, AI analysis, and alert generation
-- **EnhancedAIAnalyzer** (`services/enhanced_ai_analyzer.py`): AI analysis using Google Gemini with chunked processing for large bills
+- **EnhancedAIAnalyzer** (`services/enhanced_ai_analyzer.py`): Size-aware Gemini analysis (Tier A full-text / Tier B map-reduce)
+- **Analysis enrichers** (`services/analysis_enrichers.py`): Async stakeholder + deep policy_analysis after core (RPM-gated)
 - **CongressAPI** (`services/congress_api.py`): Interface to Congress.gov API for fetching bill data
 - **BillProcessor** (`services/bill_processor.py`): Processes and stores bill data in the database
 - **NotificationService** (`services/notification_service.py`): Manages email notifications and alerts
