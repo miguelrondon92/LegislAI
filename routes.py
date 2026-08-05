@@ -49,16 +49,10 @@ def index():
         alerts = Alert.query.filter_by(user_id=current_user.id, is_read=False)\
                            .order_by(Alert.created_at.desc()).limit(5).all()
 
-    ops_unread_count = OpsAlert.query.filter_by(is_read=False).count()
-    ops_unread_preview = OpsAlert.query.filter_by(is_read=False)\
-        .order_by(OpsAlert.created_at.desc()).limit(5).all()
-    
     return render_template(
         'index.html',
         recent_bills=recent_bills,
         alerts=alerts,
-        ops_unread_count=ops_unread_count,
-        ops_unread_preview=ops_unread_preview,
     )
 
 @app.route('/bill_search', methods=['GET', 'POST'])
