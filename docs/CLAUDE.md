@@ -241,7 +241,7 @@ The `WorkflowOrchestrator` coordinates:
 ### Database and Data Consistency
 - SQLite by default, PostgreSQL support via `DATABASE_URL`
 - **New Database Structure**: AI analysis data moved to separate AIAnalysis table with proper versioning
-- Bill complexity scores stored as 0-100 scale in analysis JSON, converted to 0-1 scale by new methods for template compatibility
+- Bill complexity scores stored as **0–1** in analysis JSON and on `AIAnalysis.complexity_score`; `get_complexity_score_new()` returns 0–1 (legacy values `>1` are ÷100). Homepage and bill detail display as X/100 via ×100 in templates.
 - Both homepage and bill detail pages display as X/100 scale for consistency using `get_complexity_score_new()` method
 - Bill queries use consistent `.first()` pattern to ensure same records across pages
 - Comprehensive migration system with Alembic

@@ -17,7 +17,7 @@ Update this file when a layer changes the data shape; then run `legislai-pipelin
         │  → AIAnalysis (analysis_data JSON, scores, versioning, active)
         │  → Summary (summary_text, plain_language, key_provisions, …)
         │  → BillCategoryMapping (relevance, sneakiness_score)
-        │  → HiddenProvision (canonical sneaky riders / hidden provisions for UI)
+        │  → HiddenProvision (canonical hidden provisions for UI)
         │  → pending stubs: policy_analysis.status, stakeholders.status
         ▼
 [Database] Bill.update_display_ready_status()
@@ -29,7 +29,7 @@ Update this file when a layer changes the data shape; then run `legislai-pipelin
         │  + queue analysis_enrichers when pending and RPM allows
         │  + heal HiddenProvision from analysis JSON when table empty
         ▼
-[Frontend] Policy Areas | Policy Analysis | Stakeholders | **N sneaky riders detected** (collapsible; reads HiddenProvision only)
+[Frontend] Policy Areas | Policy Analysis | Stakeholders | **N hidden provisions detected** (collapsible; reads HiddenProvision only)
         ▼
 [Analysis enrichers] async Gemini → stakeholders + policy_analysis ready
 ```
@@ -79,10 +79,12 @@ Critical shapes (core + enrichments):
     },
     "geographic_impact": "..."
   },
-  "complexity_assessment": {"complexity_score": 0},
+  "complexity_assessment": {"complexity_score": 0.0},
   "key_provisions": []
 }
 ```
+
+`complexity_assessment.complexity_score` is a float **0.0–1.0** (analyzer contract). `Bill.get_complexity_score_new()` returns 0–1 (only divides by 100 if a legacy value is `>1`). Templates display as X/100 via ×100.
 
 Do **not** use legacy template keys alone (`winners` / `losers` at top level of `stakeholders`, or `stakeholder_analysis`). Enrichers normalize flat Gemini shapes into the template shape above.
 
@@ -142,14 +144,14 @@ API: separate `_enriching_bill_ids` lock (must not block Tier B resume). Templat
 
 Tests: `test/test_downstream_enrichers.py`, `test/test_size_aware_analysis.py`.
 
-### Hidden provisions / sneaky riders (DB source of truth)
+### Hidden provisions (DB source of truth)
 
-Product name in UI: **sneaky riders**. Pipeline names: `hidden_provisions` (analysis JSON snapshot) → **`HiddenProvision` rows** (canonical).
+Product name in UI: **hidden provisions**. Pipeline names: `hidden_provisions` (analysis JSON snapshot) → **`HiddenProvision` rows** (canonical).
 
 - On **complete** live analysis persist (`EnhancedAIAnalyzer._persist_analysis_results`), call `services.hidden_provisions.store_hidden_provisions` (replace prior rows for the bill; stamp `provider_model`). Skip while `is_partial`.
 - Bill detail **heals** empty tables from active analysis JSON via `heal_hidden_provisions_from_analysis`.
 - Frontend (`bill_analysis.html`, search, home, notifications) reads **only** `Bill.get_hidden_provisions*` — never analysis JSON for this card.
-- Collapsible profile header: **“N sneaky riders detected”**.
+- Collapsible profile header: **“N hidden provisions detected”**.
 
 Tests: `test/test_hidden_provisions_store.py`.
 
