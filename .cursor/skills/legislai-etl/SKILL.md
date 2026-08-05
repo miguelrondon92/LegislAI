@@ -1,13 +1,13 @@
 ---
 name: legislai-etl
-description: Ingest and normalize congressional data for LegislAI via Congress.gov API, RSS monitoring, bill processors, and backfill. Use when working on services/congress_*, rss_*, *bill_processor*, backfill, backend_feed, or ingestion bugs.
+description: Ingest and normalize congressional data for LegislAI via Congress.gov API, RSS monitoring, bill processors, and backfill. Use when working on services/congress_*, rss_*, *bill_processor*, backfill, or ingestion bugs.
 ---
 
 # LegislAI ETL
 
 ## Scope
 
-`services/congress_api.py`, `services/congress_rss.py`, `services/rss_monitoring.py`, `services/bill_processor.py`, `services/enhanced_bill_processor.py`, `services/workflow_bill_processor.py`, `services/backfill_orchestrator.py`, `services/backend_feed.py`, related scripts under `scripts/monitoring/` and Congress debug scripts.
+`services/congress_api.py`, `services/congress_rss.py`, `services/rss_monitoring.py`, `services/bill_processor.py`, `services/workflow_bill_processor.py`, `services/backfill_orchestrator.py`, related scripts under `scripts/monitoring/` and Congress debug scripts.
 
 ## Responsibilities
 

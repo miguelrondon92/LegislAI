@@ -44,7 +44,7 @@ When Gemini analysis fails (missing key, model error, quota, partial, empty resu
 | Agent | Focus | Primary paths |
 |-------|--------|----------------|
 | **Orchestrator** | Cross-cutting features, handoffs, conflict resolution | whole repo (coordination only) |
-| **ETL** | Ingestion, Congress API, RSS, bill processors, backfill | `services/congress_*`, `services/rss_*`, `services/*bill_processor*`, `services/backfill_*`, `services/backend_feed.py` |
+| **ETL** | Ingestion, Congress API, RSS, bill processors, backfill | `services/congress_*`, `services/rss_*`, `services/*bill_processor*`, `services/backfill_*` |
 | **Database** | Models, migrations, indexes, versioning | `db_models.py`, `migrations/`, `manage.py` |
 | **Analysis** | Gemini analysis, chunking, categories, enrichers, hidden provisions | `services/enhanced_ai_analyzer.py`, `services/analysis_enrichers.py`, `services/analysis_*`, `utils/bill_chunker.py`, `utils/text_processing.py` |
 | **Gemini Ops** | `GEMINI_MODEL`, OpsAlert lifecycle, quota probes, `/ops/logs` | `services/ops_alert_service.py`, `utils/constants.py` (`GEMINI_MODEL`), `templates/ops_logs.html`, `scripts/debug/check_gemini_quota.py` |
