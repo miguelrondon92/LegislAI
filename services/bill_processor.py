@@ -4,15 +4,15 @@ import os
 from datetime import datetime
 from app import db
 from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
-from services.congress_api import CongressAPI
+from services.congress_api import get_shared_congress_api
 from utils.text_processing import clean_bill_text, extract_sections
 
 class BillProcessor:
     """Service for processing bill data and generating user alerts"""
     
-    def __init__(self):
-        self.ai_analyzer = EnhancedAIAnalyzer()
-        self.congress_api = CongressAPI()
+    def __init__(self, congress_api=None, ai_analyzer=None):
+        self.ai_analyzer = ai_analyzer or EnhancedAIAnalyzer()
+        self.congress_api = congress_api or get_shared_congress_api()
         self.seen_items_file = "seen_items.json"
     
     def read_seen_items(self):
@@ -100,17 +100,21 @@ class BillProcessor:
     
     def process_bill_data(self, bill_data):
         """
-        Process raw bill data from Congress API and save to database
+        Process raw bill data from Congress API and save to database.
+        Persists full text when present. Does NOT run Gemini analysis — callers
+        must queue analysis asynchronously after ingest.
         Returns the processed Bill object
         """
         try:
+            import hashlib
             # Extract basic bill information
             congress = bill_data.get('congress')
             bill_type = bill_data.get('type', '').lower()
             bill_number = bill_data.get('number')
             title = bill_data.get('title', '')
             summary = bill_data.get('summary', '')
-            full_text = bill_data.get('full_text', '')
+            full_text = bill_data.get('full_text', '') or ''
+            cleaned_text = clean_bill_text(full_text) if full_text else ''
 
             if not all([congress, bill_type, bill_number]):
                 logging.error("Missing required bill data fields")
@@ -127,14 +131,23 @@ class BillProcessor:
             latest_bill = bill_versions[0] if bill_versions else None
             is_new_version = False
 
-            # Define a function to compare bill content (title + summary + full_text)
-            def bill_content_hash(title, summary, full_text):
-                import hashlib
-                content = (title or '') + (summary or '') + (full_text or '')
+            def bill_content_hash(title, summary, text):
+                content = (title or '') + (summary or '') + (text or '')
                 return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
-            new_content_hash = bill_content_hash(title, summary, full_text)
-            latest_content_hash = bill_content_hash(latest_bill.title, latest_bill.summary, latest_bill.get_full_text()) if latest_bill else None
+            text_for_hash = cleaned_text or full_text
+            new_content_hash = bill_content_hash(title, summary, text_for_hash)
+            if latest_bill:
+                if latest_bill.content_hash:
+                    latest_content_hash = latest_bill.content_hash
+                else:
+                    latest_content_hash = bill_content_hash(
+                        latest_bill.title,
+                        latest_bill.summary,
+                        latest_bill.full_text or '',
+                    )
+            else:
+                latest_content_hash = None
 
             if latest_bill:
                 if new_content_hash != latest_content_hash:
@@ -146,7 +159,11 @@ class BillProcessor:
                     db.session.commit()  # Commit deactivation before adding new version
                     new_version = latest_bill.version + 1
                 else:
-                    # No change, update timestamp and return latest
+                    # No change — backfill stored text if we have it and row does not
+                    if text_for_hash and not latest_bill.full_text:
+                        latest_bill.full_text = text_for_hash
+                        latest_bill.full_text_fetched_at = datetime.utcnow()
+                        latest_bill.content_hash = new_content_hash
                     latest_bill.last_updated = datetime.utcnow()
                     db.session.commit()
                     return latest_bill
@@ -165,8 +182,12 @@ class BillProcessor:
                     summary=summary,
                     version=new_version,
                     active=True,
-                    last_updated=datetime.utcnow()
+                    last_updated=datetime.utcnow(),
                 )
+                if text_for_hash:
+                    bill.full_text = text_for_hash
+                    bill.full_text_fetched_at = datetime.utcnow()
+                    bill.content_hash = new_content_hash
                 # Set sponsor info
                 sponsors = bill_data.get('sponsors', [])
                 if sponsors:
@@ -179,12 +200,13 @@ class BillProcessor:
                 if introduced_date:
                     try:
                         bill.introduced_date = datetime.fromisoformat(introduced_date.replace('Z', '+00:00')).replace(tzinfo=None)
-                    except:
+                    except Exception:
                         pass
                 # Set actions
+                action_list = []
                 actions = bill_data.get('actions', {})
                 if actions and 'actions' in actions:
-                    action_list = actions['actions']
+                    action_list = actions['actions'] or []
                     if action_list:
                         latest_action = action_list[0]
                         bill.status = latest_action.get('text', '')
@@ -192,123 +214,25 @@ class BillProcessor:
                         if action_date:
                             try:
                                 bill.last_action_date = datetime.fromisoformat(action_date + 'T00:00:00')
-                            except:
+                            except Exception:
                                 pass
                 # Set Congress API URL
                 bill.congress_api_url = f"https://api.congress.gov/v3/bill/{congress}/{bill_type}/{bill_number}"
                 # Set summary if not present
-                if not bill.summary:
-                    if full_text:
-                        cleaned_text = clean_bill_text(full_text)
-                        sections = extract_sections(cleaned_text)
-                        if sections:
-                            bill.summary = sections[0][:500] + "..." if len(sections[0]) > 500 else sections[0]
+                if not bill.summary and text_for_hash:
+                    sections = extract_sections(text_for_hash)
+                    if sections:
+                        bill.summary = sections[0][:500] + "..." if len(sections[0]) > 500 else sections[0]
                 db.session.add(bill)
                 db.session.commit()  # Commit bill first to get the ID
                 
                 # Now process actions after bill has been committed and has an ID
                 self._process_bill_actions(bill, action_list)
-                # Perform AI analysis if full text is available
-                if full_text:
-                    try:
-                        cleaned_text = clean_bill_text(full_text)
-                        if not self.ai_analyzer.client:
-                            logging.warning(f"AI analyzer not available for bill {bill.get_bill_identifier()}. Skipping AI analysis.")
-                            try:
-                                from services.ops_alert_service import (
-                                    CLIENT_UNAVAILABLE,
-                                    notify_gemini_failure,
-                                )
-                                notify_gemini_failure(
-                                    CLIENT_UNAVAILABLE,
-                                    f"AI analyzer not available for bill {bill.get_bill_identifier()}. Skipping AI analysis.",
-                                    severity="error",
-                                    bill=bill,
-                                    source="bill_processor",
-                                )
-                            except Exception:
-                                pass
-                            return bill
-                        
-                        # Import the partial analysis exception
-                        from services.enhanced_ai_analyzer import AIAnalysisPartialError
-                        
-                        try:
-                            analysis = self.ai_analyzer.analyze_bill(bill)
-                        except AIAnalysisPartialError as e:
-                            # Partial analysis was saved to database, log and continue
-                            logging.info(f"⚠️ Partial AI analysis saved for {bill.get_bill_identifier()}: {e.completion_percentage:.1f}% complete")
-                            logging.info(f"  📊 Partial analysis: {e.completed_chunks}/{e.total_chunks} chunks analyzed")
-                            try:
-                                from services.ops_alert_service import (
-                                    PARTIAL_ANALYSIS,
-                                    notify_gemini_failure,
-                                )
-                                notify_gemini_failure(
-                                    PARTIAL_ANALYSIS,
-                                    str(e),
-                                    severity="warning",
-                                    bill=bill,
-                                    completion_percentage=e.completion_percentage,
-                                    source="bill_processor",
-                                    extra={
-                                        "completed_chunks": e.completed_chunks,
-                                        "total_chunks": e.total_chunks,
-                                    },
-                                )
-                            except Exception:
-                                pass
-                            # Return the bill - partial analysis is already stored in new database structure
-                            return bill
-                        if analysis is not None and isinstance(analysis, dict) and len(analysis) == 0:
-                            try:
-                                from services.ops_alert_service import (
-                                    EMPTY_RESULT,
-                                    notify_gemini_failure,
-                                )
-                                notify_gemini_failure(
-                                    EMPTY_RESULT,
-                                    f"AI analysis returned empty result for {bill.get_bill_identifier()}",
-                                    severity="error",
-                                    bill=bill,
-                                    source="bill_processor",
-                                )
-                            except Exception:
-                                pass
-                        if analysis and isinstance(analysis, dict) and len(analysis) > 0:
-                            has_valid_data = False
-                            for key, value in analysis.items():
-                                if value and value != "Unknown" and value != "Unable to generate summary due to technical error":
-                                    if isinstance(value, list) and len(value) > 0:
-                                        has_valid_data = True
-                                        break
-                                    elif isinstance(value, dict) and len(value) > 0:
-                                        has_valid_data = True
-                                        break
-                                    elif isinstance(value, str) and len(value) > 10:
-                                        has_valid_data = True
-                                        break
-                                    elif isinstance(value, (int, float)) and value != 0:
-                                        has_valid_data = True
-                                        break
-                            if has_valid_data:
-                                bill.set_ai_analysis(analysis)
-                                complexity_assessment = analysis.get('complexity_assessment', {})
-                                if isinstance(complexity_assessment, dict):
-                                    complexity_score = complexity_assessment.get('complexity_score', 0)
-                                    if isinstance(complexity_score, (int, float)):
-                                        bill.complexity_score = float(complexity_score)
-                                policy_implications = analysis.get('policy_implications', {})
-                                if policy_implications and isinstance(policy_implications, dict):
-                                    bill.set_policy_categories(policy_implications)
-                                db.session.commit()
-                                logging.info(f"Successfully performed AI analysis for bill {bill.get_bill_identifier()}")
-                            else:
-                                logging.warning(f"AI analysis returned empty or error data for bill {bill.get_bill_identifier()}. Not saving to database.")
-                        else:
-                            logging.warning(f"No valid AI analysis returned for bill {bill.get_bill_identifier()}")
-                    except Exception as e:
-                        logging.error(f"Error in AI analysis for bill {bill.get_bill_identifier()}: {str(e)}")
+                # AI analysis is intentionally not run here — callers queue async analysis.
+                logging.info(
+                    f"Ingested {bill.get_bill_identifier()} v{bill.version} "
+                    f"(full_text={'yes' if bill.full_text else 'no'}); AI analysis deferred"
+                )
                 return bill
         except Exception as e:
             logging.error(f"Error processing bill data: {str(e)}")

@@ -1,9 +1,10 @@
 import os
 import logging
+from pathlib import Path
 
-# Load environment variables from .env file
+# Load environment variables from .env next to this file (not cwd-dependent)
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 from flask import Flask
 from flask_mail import Mail

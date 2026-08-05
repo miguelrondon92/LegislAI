@@ -9,7 +9,7 @@ Read `AGENTS.md` and `.cursor/resources/agent-roster.md` before multi-file work.
 
 ## Pipeline order
 
-ETL → Database → Analysis → API/Routes → Frontend → QA
+ETL → Database → Analysis → Gemini Ops (quota/model/ops-log) → API/Routes → Frontend → QA
 
 Upstream changes must produce a handoff (skill `legislai-pipeline-handoff`) so downstream layers accept the new shape and the UI can show it.
 

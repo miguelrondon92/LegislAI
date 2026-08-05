@@ -22,20 +22,33 @@
 
 ### Analysis Agent
 - Owns AI analysis pipeline and storage of analysis artifacts.
-- Files: `services/enhanced_ai_analyzer.py`, `services/analysis_cache.py`, `services/analysis_session_scheduler.py`, `utils/bill_chunker.py`, `utils/text_processing.py`, `utils/constants.py` (policy categories).
+- Files: `services/enhanced_ai_analyzer.py`, `services/analysis_enrichers.py`, `services/analysis_cache.py`, `services/analysis_session_scheduler.py`, `utils/bill_chunker.py`, `utils/text_processing.py`, `utils/constants.py` (policy categories — coordinate `GEMINI_MODEL` with Gemini Ops).
+- **Always read current `GEMINI_MODEL` / `EnhancedAIAnalyzer.model_name` before analysis work** — never hardcode a model string.
+- Every new `AIAnalysis` / `Summary` / `HiddenProvision` write **must** stamp `provider_model` (column + `analysis_data` JSON). Historical rows keep their stamped model when the constant later changes.
+- Size-aware: Tier A `single_pass_full_text` (~2 Gemini calls); Tier B `map_reduce_macro_chunks` with resume. Stakeholders + deep policy are **async enrichers**, not core.
+- Quota for enrichers: `enrichment_quota_ok()` / `get_rate_limit_status()` — never `get_quota_info()["status"]["safe_remaining_requests"]`.
 - Reads schema surface; does not invent tables without Database.
 - Output must satisfy [display-ready-contract.md](display-ready-contract.md).
+
+### Gemini Ops Agent
+- Owns configured Gemini model constant, OpsAlert lifecycle, free-tier quota narrative, quota probe scripts, and programmer ops UI.
+- Files: `services/ops_alert_service.py`, `utils/constants.py` (`GEMINI_MODEL`), `templates/ops_logs.html`, `templates/index.html` (system alerts), `scripts/debug/check_gemini_quota.py`, related ops routes in `routes.py`.
+- Free tier: ~15–30 RPM, ~1500 RPD, midnight PT reset, 429 `RESOURCE_EXHAUSTED`; local limiter stays at 15 RPM.
+- Require `continuation_queued` / `continuation_finished` on async resume paths; `enrichment_queued` / `enrichment_finished` on enricher paths (include `limit_cause` when deferred).
+- Does not own chunking/prompts — hand those to Analysis. Analysis stamps model on analysis tables; Gemini Ops owns changing the constant.
 
 ### API / Routes Agent
 - Owns HTTP surface and glue between services and templates.
 - Files: `routes.py`, `auth.py`, `app.py`, `workflow_admin.py`, `utils.py` (route helpers), `services/workflow_orchestrator.py` (API-facing workflow status only when coordinating with ETL/Analysis).
 - Keeps search / bill detail / profile / alerts / workflow endpoints consistent with model methods.
+- UI analysis waves: `allow_budget_waits=False`; separate `_analyzing_bill_ids` vs `_enriching_bill_ids`; pass `enrichment_flags` into `bill_analysis.html`.
 - Never hardcodes API keys; use env vars already loaded by the app.
 
 ### Frontend Agent
 - Owns presentation and client behavior.
 - Files: `templates/**`, `static/css/**`, `static/js/**`.
 - Consumes Bill model methods and route context vars; never calls Congress/Gemini APIs directly.
+- Bill analysis cards: **Policy Areas** (badges from `policy_areas`), **Policy Analysis** (deep `policy_analysis`), **Stakeholder Analysis** (`affected_groups` / `winners_losers`) with pending placeholders when `enrichment_flags` say so.
 - When `display_ready` or analysis JSON keys change, update templates/JS and note QA cases.
 
 ### QA Agent
@@ -55,4 +68,4 @@
 ## Recommended extra agents (when needed)
 
 - **Notifications**: `services/notification_*.py` — alerts/email after `display_ready`.
-- **Ops/Scripts**: one-off `scripts/` maintenance — prefer QA + Database review for destructive scripts.
+- One-off `scripts/` maintenance (non-Gemini) — prefer QA + Database review for destructive scripts.

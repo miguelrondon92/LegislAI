@@ -31,18 +31,20 @@ Welcome to the LegislAI documentation collection. This folder contains comprehen
 ### 📈 Recent Updates
 | File | Description |
 |------|-------------|
-| [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) | **🆕 Start here:** Summary of recent major system changes and enhancements |
+| [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) | **Start here:** Aug 2026 size-aware analysis + enrichers, plus earlier async work |
 | [`continued_ideas.md`](./continued_ideas.md) | Future enhancement ideas and development roadmap |
 
 ## 🤖 Agentic development
 
 Multi-agent Cursor setup (skills, hooks, contracts, secrets ban): see root [`AGENTS.md`](../AGENTS.md) and [`.cursor/README.md`](../.cursor/README.md).
 
+**Current pipeline (Tier A/B + async enrichers):** [`.cursor/resources/pipeline-contract.md`](../.cursor/resources/pipeline-contract.md) — prefer over older implementation summaries when they conflict.
+
 ## 🚀 Quick Start for Developers
 
-1. **New to the project?** Start with [`CLAUDE.md`](./CLAUDE.md) for complete system overview
-2. **Recent changes?** Check [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) for latest enhancements
-3. **AI analyzer work?** See [`AI_ANALYZER_CONSOLIDATION_LOG.md`](./AI_ANALYZER_CONSOLIDATION_LOG.md) for recent system unification
+1. **New to the project?** Start with [`AGENTS.md`](../AGENTS.md) + [`CLAUDE.md`](./CLAUDE.md)
+2. **Recent changes?** Check [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) (Aug 2026 size-aware + enrichers at top)
+3. **Analysis / Gemini work?** Pipeline contract + [`ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md`](./ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md) (2026-08 header)
 4. **Database work?** See [`DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`](./DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md) for recent structural changes
 5. **Setting up data?** Use [`DATABASE_POPULATION_GUIDE.md`](./DATABASE_POPULATION_GUIDE.md) for population scripts
 6. **Workflow issues?** Reference [`WORKFLOW_README.md`](./WORKFLOW_README.md) for orchestrator details

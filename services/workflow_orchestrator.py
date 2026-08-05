@@ -1170,14 +1170,26 @@ class WorkflowOrchestrator:
             
             # Get analysis version to link provisions to specific analysis
             analysis_version = 1
+            provider_model = None
             try:
                 # Query using self.session instead of bill methods that need app context
                 from db_models import AIAnalysis
                 ai_analysis = self.session.query(AIAnalysis).filter_by(bill_id=bill.id, active=True).first()
                 if ai_analysis:
                     analysis_version = ai_analysis.analysis_version
+                    provider_model = ai_analysis.provider_model
             except Exception:
                 pass  # Use default version 1
+
+            if not provider_model:
+                provider_model = (
+                    (full_analysis or {}).get('provider_model')
+                    or (full_analysis or {}).get('model')
+                    or getattr(self.ai_analyzer, 'model_name', None)
+                )
+            if not provider_model:
+                from utils.constants import GEMINI_MODEL
+                provider_model = GEMINI_MODEL
             
             self.logger.info(f"Processing {len(detected_provisions)} hidden provisions for {bill.get_bill_identifier()}")
             
@@ -1205,7 +1217,8 @@ class WorkflowOrchestrator:
                             chunk_index=chunk_index,
                             chunk_type=chunk_type,
                             analysis_version=analysis_version,
-                            detection_method='ai_enhanced'
+                            detection_method='ai_enhanced',
+                            provider_model=provider_model,
                         )
                         
                         # Store risk factors as JSON

@@ -12,9 +12,10 @@ description: Ingest and normalize congressional data for LegislAI via Congress.g
 ## Responsibilities
 
 1. Fetch bill metadata, text, and actions from Congress sources.
-2. Normalize into shapes Bill / BillAction already accept.
-3. Respect rate limits and backoff (`docs/BACKOFF_IMPLEMENTATION.md`, `docs/LIMIT_ENFORCEMENT_SUMMARY.md`).
+2. Normalize into shapes Bill / BillAction already accept — **persist `Bill.full_text` + `content_hash` + `full_text_fetched_at` on ingest**.
+3. Respect rate limits and backoff (`docs/BACKOFF_IMPLEMENTATION.md`, `docs/LIMIT_ENFORCEMENT_SUMMARY.md`). Use `get_shared_congress_api()` so spacing is process-wide.
 4. Support both live RSS and backfill batch size discipline (often batch size 1).
+5. **Do not run Gemini inside `process_bill_data`.** Ingest only; callers (`routes._perform_analysis_async`, workflow/backfill) queue analysis off the HTTP thread. Keep `local_minute_budget` waits in background analysis only.
 
 ## Rules
 
@@ -22,6 +23,7 @@ description: Ingest and normalize congressional data for LegislAI via Congress.g
 - Need a new column? Stop → handoff to Database with field name, type, nullability, sample payload.
 - **Do not** set `display_ready=True`; Analysis owns readiness after artifacts exist.
 - Prefer existing processors over new parallel ingest paths.
+- Prefer stored `bill.full_text` / payload text for hashing — never re-fetch Congress text in the same ingest when text is already present.
 - Secrets: never open `.env`; `CongressAPI` should use configured env already loaded by the app.
 
 ## Downstream handoff triggers
@@ -30,7 +32,7 @@ description: Ingest and normalize congressional data for LegislAI via Congress.g
 |--------|--------|
 | New bill metadata field | Database, then API/Frontend if shown |
 | New action type / status string length | Database (column length), Frontend formatting |
-| Text fetch shape change | Analysis (chunking / full text) |
+| Text fetch / persist shape change | Analysis (chunking / full text) + API |
 | RSS item identity change | Database uniqueness / dedupe logic |
 
 ## References
@@ -39,3 +41,4 @@ description: Ingest and normalize congressional data for LegislAI via Congress.g
 - `docs/DATABASE_POPULATION_GUIDE.md`
 - `docs/PRODUCTION_BACKFILL_GUIDE.md`
 - `.cursor/resources/pipeline-contract.md`
+- `services/congress_api.py` (`get_shared_congress_api`)

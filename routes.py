@@ -3,15 +3,28 @@ from flask_login import login_required, current_user
 from app import app
 from db_models import db, Bill, User, Alert, PolicyCategory, UserPolicySubscription, BillCategoryMapping, BillAction, AIAnalysis, Summary, OpsAlert
 import logging
+import threading
+import time as _time_module
 from datetime import datetime
-from services.congress_api import CongressAPI, APIRateLimitError
+from services.congress_api import CongressAPI, APIRateLimitError, get_shared_congress_api
 from services.enhanced_ai_analyzer import EnhancedAIAnalyzer, AIAnalysisPartialError
 from services.bill_processor import BillProcessor
+from utils.constants import GEMINI_MODEL
 
-# Initialize services
-congress_api = CongressAPI()
+# Initialize services (shared Congress client for rate-limit spacing)
+congress_api = get_shared_congress_api()
 ai_analyzer = EnhancedAIAnalyzer()
-bill_processor = BillProcessor()
+bill_processor = BillProcessor(congress_api=congress_api, ai_analyzer=ai_analyzer)
+
+# Per-bill in-flight analysis lock (process-local)
+_analyzing_bill_ids = set()
+_analyzing_lock = threading.Lock()
+# Separate lock for downstream enrichments so they don't block core analysis spawn
+_enriching_bill_ids = set()
+_enriching_lock = threading.Lock()
+# After a real RPM deferral, don't re-queue until local minute resets
+_enrichment_defer_until = {}
+_enrichment_defer_lock = threading.Lock()
 
 # Initialize workflow orchestrator as a global instance
 workflow_orchestrator = None
@@ -103,6 +116,7 @@ def bill_search():
                         severity="warning",
                         bill_identifier=search_query,
                         completion_percentage=e.completion_percentage,
+                        provider_model=getattr(ai_analyzer, 'model_name', None),
                         source="routes",
                         extra={
                             "search_type": search_type,
@@ -177,27 +191,71 @@ def _get_or_fetch_bill_by_number(search_query, congress):
                 logging.info("No AI analysis found, performing analysis...")
                 needs_analysis = True
             elif active_analysis:
-                # Check if existing analysis is partial and incomplete
+                # Resume Tier B map-reduce partials only (clear stale rows instead of legacy hardcode)
                 analysis_data = active_analysis.get_analysis_data()
-                if analysis_data and analysis_data.get('is_partial', False):
+                if analysis_data and _is_tier_b_partial(analysis_data):
                     completion = analysis_data.get('completion_percentage', 0)
-                    if completion < 50:  # Less than 50% complete
-                        # Check if we have enough API quota to continue analysis
+                    if completion < 100:
                         quota_info = ai_analyzer.get_quota_info()
                         can_analyze = quota_info['status']['can_handle_small_bill']
-                        
                         if can_analyze:
-                            logging.info(f"Partial AI analysis found ({completion:.1f}% complete), sufficient quota available, performing continued analysis...")
+                            logging.info(
+                                f"Partial AI analysis found ({completion:.1f}% complete), "
+                                "sufficient quota available, performing continued analysis..."
+                            )
                             needs_analysis = True
                         else:
-                            logging.info(f"Partial AI analysis found ({completion:.1f}% complete), but insufficient API quota remaining. Try again later.")
+                            logging.info(
+                                f"Partial AI analysis found ({completion:.1f}% complete), "
+                                "but insufficient API quota remaining. Try again later."
+                            )
                     else:
                         logging.info(f"Sufficient AI analysis found ({completion:.1f}% complete)")
+                elif analysis_data and analysis_data.get('is_partial'):
+                    logging.info(
+                        "Non-Tier-B partial on file; skipping auto-resume "
+                        f"({analysis_data.get('analysis_method')}) — clear and re-ingest to reanalyze"
+                    )
                 else:
                     logging.info("Complete AI analysis found")
             
             if needs_analysis:
-                _perform_analysis_async(existing_bill)
+                # Partial resume needs force_continue so analyze_bill re-runs despite existing AIAnalysis
+                force = bool(
+                    active_analysis
+                    and active_analysis.get_analysis_data()
+                    and active_analysis.get_analysis_data().get('is_partial')
+                )
+                if force:
+                    try:
+                        from services.ops_alert_service import (
+                            CONTINUATION_QUEUED,
+                            notify_gemini_failure,
+                        )
+                        adata = active_analysis.get_analysis_data() or {}
+                        completion = adata.get('completion_percentage', 0)
+                        model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
+                        notify_gemini_failure(
+                            CONTINUATION_QUEUED,
+                            (
+                                f"Continuation queued from search at {completion:.1f}% "
+                                f"(model={model_name})."
+                            ),
+                            severity="info",
+                            bill=existing_bill,
+                            completion_percentage=completion,
+                            provider_model=model_name,
+                            source="routes",
+                            extra={
+                                "event": "queued",
+                                "provider_model": model_name,
+                                "limit_cause": adata.get('limit_cause'),
+                                "completion": completion,
+                            },
+                        )
+                    except Exception:
+                        pass
+                _perform_analysis_async(existing_bill, force_continue=force)
             
             return existing_bill
         else:
@@ -207,9 +265,8 @@ def _get_or_fetch_bill_by_number(search_query, congress):
             if bill_data:
                 bill = bill_processor.process_bill_data(bill_data)
                 if bill:
-                    # AI analysis is already performed by bill_processor.process_bill_data()
-                    # No need to call _perform_analysis_if_needed(bill) here
-                    pass
+                    # ETL only in processor — queue Gemini off the request path
+                    _perform_analysis_async(bill)
                 return bill
             return None
             
@@ -323,16 +380,207 @@ def _check_bill_in_database(bill_data):
         pass
     return None
 
-def _perform_analysis_if_needed(bill):
-    """Perform comprehensive AI analysis on bill if not already done - equivalent to workflow orchestrator"""
+def _try_acquire_analysis_slot(bill_id):
+    """Return True if this process may start analysis for bill_id."""
+    if bill_id is None:
+        return True
+    with _analyzing_lock:
+        if bill_id in _analyzing_bill_ids:
+            return False
+        _analyzing_bill_ids.add(bill_id)
+        return True
+
+
+def _release_analysis_slot(bill_id):
+    if bill_id is None:
+        return
+    with _analyzing_lock:
+        _analyzing_bill_ids.discard(bill_id)
+
+
+def _try_acquire_enrichment_slot(bill_id):
+    if bill_id is None:
+        return True
+    with _enriching_lock:
+        if bill_id in _enriching_bill_ids:
+            return False
+        _enriching_bill_ids.add(bill_id)
+        return True
+
+
+def _release_enrichment_slot(bill_id):
+    if bill_id is None:
+        return
+    with _enriching_lock:
+        _enriching_bill_ids.discard(bill_id)
+
+
+def _enrichment_is_deferred(bill_id) -> bool:
+    if bill_id is None:
+        return False
+    with _enrichment_defer_lock:
+        until = _enrichment_defer_until.get(bill_id)
+        if until is None:
+            return False
+        if _time_module.time() >= until:
+            _enrichment_defer_until.pop(bill_id, None)
+            return False
+        return True
+
+
+def _mark_enrichment_deferred(bill_id, reset_seconds: float) -> None:
+    if bill_id is None:
+        return
+    wait = max(5.0, float(reset_seconds or 60.0))
+    with _enrichment_defer_lock:
+        _enrichment_defer_until[bill_id] = _time_module.time() + wait
+
+
+def _perform_enrichment_async(bill):
+    """Queue stakeholder + policy_analysis enrichers after core analysis."""
+    bill_id = getattr(bill, "id", None)
+    bill_ident = None
+    try:
+        bill_ident = bill.get_bill_identifier()
+    except Exception:
+        bill_ident = None
+
+    if _enrichment_is_deferred(bill_id):
+        logging.info(
+            f"Enrichment deferred (local RPM) for bill id={bill_id} ident={bill_ident}"
+        )
+        return
+
+    from services.analysis_enrichers import enrichment_quota_ok
+
+    ok, remaining, reset_in = enrichment_quota_ok(ai_analyzer)
+    if not ok:
+        _mark_enrichment_deferred(bill_id, reset_in or 60.0)
+        logging.info(
+            f"Enrichment not queued for bill id={bill_id}: "
+            f"remaining_requests={remaining} (local_minute_budget)"
+        )
+        return
+
+    if not _try_acquire_enrichment_slot(bill_id):
+        logging.info(f"Enrichment already in flight for bill id={bill_id}")
+        return
+
+    def enrich_worker():
+        from db_models import Bill
+        from services.analysis_enrichers import run_downstream_enrichments
+
+        try:
+            with app.app_context():
+                fresh = Bill.query.get(bill_id) if bill_id else None
+                if not fresh:
+                    return
+                logging.info(
+                    f"Starting downstream enrichments for {fresh.get_bill_identifier()}"
+                )
+                result = run_downstream_enrichments(fresh, ai_analyzer)
+                if isinstance(result, dict) and result.get("enrichments_deferred"):
+                    _mark_enrichment_deferred(
+                        bill_id, result.get("enrichments_retry_after_seconds") or 60.0
+                    )
+                logging.info(
+                    f"Downstream enrichments done for {fresh.get_bill_identifier()}"
+                )
+        except Exception as e:
+            logging.error(f"Enrichment failed for bill id={bill_id}: {e}")
+            import traceback
+
+            logging.error(traceback.format_exc())
+        finally:
+            _release_enrichment_slot(bill_id)
+
+    threading.Thread(target=enrich_worker, daemon=True).start()
+
+
+def _enrichment_pending_flags(analysis_data) -> dict:
+    """Flags for bill_analysis template placeholders."""
+    if not analysis_data:
+        return {
+            "stakeholders_pending": False,
+            "policy_analysis_pending": False,
+            "any_enrichment_pending": False,
+        }
+    st = analysis_data.get("stakeholders") or {}
+    pa = analysis_data.get("policy_analysis") or {}
+    st_status = st.get("status") if isinstance(st, dict) else None
+    pa_status = pa.get("status") if isinstance(pa, dict) else None
+    st_pending = st_status in (None, "pending", "skipped")
+    pa_pending = pa_status in (None, "pending", "skipped")
+    # Legacy rows without status but empty template fields → treat as pending
+    if isinstance(st, dict) and st_status is None:
+        has_ui = bool(st.get("affected_groups") or (st.get("winners_losers") or {}).get("potential_winners"))
+        st_pending = not has_ui
+    if isinstance(pa, dict) and pa_status is None:
+        has_deep = bool(pa.get("overall_assessment") or pa.get("category_breakdown"))
+        pa_pending = not has_deep
+    return {
+        "stakeholders_pending": st_pending,
+        "policy_analysis_pending": pa_pending,
+        "any_enrichment_pending": st_pending or pa_pending,
+    }
+
+
+def _is_tier_b_partial(analysis_data) -> bool:
+    if not analysis_data or not analysis_data.get("is_partial"):
+        return False
+    method = analysis_data.get("analysis_method") or ""
+    tier = analysis_data.get("analysis_tier")
+    return tier == "B" or method == "map_reduce_macro_chunks"
+
+
+def _schedule_next_analysis_wave(bill_id, delay_seconds=None):
+    """After local minute reset, queue another Tier B wave (UI path, no budget waits)."""
+    if bill_id is None:
+        return
+    if delay_seconds is None:
+        status = ai_analyzer.get_rate_limit_status()
+        delay_seconds = max(5.0, float(status.get("time_until_reset") or 60.0) + 1.0)
+
+    def _delayed():
+        try:
+            _time_module.sleep(delay_seconds)
+            with app.app_context():
+                bill = Bill.query.get(bill_id)
+                if not bill:
+                    return
+                active = bill.get_active_ai_analysis()
+                data = active.get_analysis_data() if active else {}
+                if not _is_tier_b_partial(data):
+                    return
+                logging.info(
+                    f"Scheduling delayed Tier B wave for {bill.get_bill_identifier()} "
+                    f"after {delay_seconds:.1f}s"
+                )
+                _perform_analysis_async(bill, force_continue=True)
+        except Exception as e:
+            logging.error(f"Delayed analysis wave failed for bill id={bill_id}: {e}")
+
+    threading.Thread(target=_delayed, daemon=True).start()
+
+
+def _perform_analysis_if_needed(bill, force_continue=False, allow_budget_waits=False):
+    """Perform comprehensive AI analysis on bill if not already done - equivalent to workflow orchestrator.
+
+    When force_continue=True (async resume of a partial), re-run analyze_bill even if an
+    active analysis already exists.
+    allow_budget_waits: False for UI waves (fast); True for offline/backfill callers.
+    """
     import time
     try:
         # Check both old and new database structure for existing analysis
         has_old_analysis = bool(bill.ai_analysis)
         has_new_analysis = bool(bill.get_active_ai_analysis())
-        
-        if not has_old_analysis and not has_new_analysis:
-            logging.info(f"Performing comprehensive AI analysis for {bill.get_bill_identifier()}")
+
+        if force_continue or (not has_old_analysis and not has_new_analysis):
+            logging.info(
+                f"{'Continuing' if force_continue else 'Performing'} comprehensive AI analysis "
+                f"for {bill.get_bill_identifier()}"
+            )
             
             # Get full text for analysis
             full_text = bill.get_full_text()
@@ -346,10 +594,9 @@ def _perform_analysis_if_needed(bill):
             logging.info(f"Starting enhanced AI analysis for {bill.get_bill_identifier()} "
                         f"(text length: {text_length:,} characters)")
             
-            # Perform comprehensive analysis using EnhancedAIAnalyzer
-            # This includes: summary, policy implications, stakeholders, complexity, controversy,
-            # hidden provisions, anomalies, suspicious language, cross-references, risk scoring
-            analysis = ai_analyzer.analyze_bill(bill, bill.title)
+            analysis = ai_analyzer.analyze_bill(
+                bill, bill.title, allow_budget_waits=allow_budget_waits
+            )
             
             processing_time = time.time() - start_time
             
@@ -417,29 +664,187 @@ def _perform_analysis_if_needed(bill):
         logging.error(f"Error performing comprehensive analysis for {bill.get_bill_identifier()}: {e}")
         import traceback
         logging.error(traceback.format_exc())
+        if force_continue:
+            raise
 
-def _perform_analysis_async(bill):
-    """Perform AI analysis in a background thread to avoid blocking the web request"""
-    import threading
-    
+
+def _perform_analysis_async(bill, force_continue=False):
+    """Perform AI analysis in a background thread to avoid blocking the web request.
+
+    Reloads Bill by id inside the worker to avoid detached-instance failures.
+    When force_continue=True, re-runs analyze_bill for partial resume paths.
+    Emits continuation_finished OpsAlert when the job ends.
+    UI waves use allow_budget_waits=False; schedules another wave if still Tier B partial.
+    """
+    bill_id = getattr(bill, 'id', None)
+    bill_ident = None
+    try:
+        bill_ident = bill.get_bill_identifier()
+    except Exception:
+        bill_ident = None
+    model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
+
+    if not _try_acquire_analysis_slot(bill_id):
+        logging.info(
+            f"Skipping analysis spawn for bill id={bill_id} — already in flight"
+        )
+        try:
+            from services.ops_alert_service import (
+                CONTINUATION_QUEUED,
+                notify_gemini_failure,
+            )
+            notify_gemini_failure(
+                CONTINUATION_QUEUED,
+                (
+                    f"Continuation skipped — analysis already in flight "
+                    f"(model={model_name})."
+                ),
+                severity="info",
+                bill=bill if hasattr(bill, "get_bill_identifier") else None,
+                bill_identifier=bill_ident,
+                bill_id=bill_id,
+                provider_model=model_name,
+                source="routes",
+                extra={
+                    "event": "queued",
+                    "in_flight": True,
+                    "provider_model": model_name,
+                },
+            )
+        except Exception:
+            pass
+        return
+
     def analysis_worker():
         """Worker function that runs the analysis in background"""
+        from db_models import Bill
+        from services.ops_alert_service import (
+            CONTINUATION_FINISHED,
+            UNKNOWN,
+            notify_gemini_failure,
+        )
+
         try:
-            # Use app context for database operations in the background thread
             with app.app_context():
-                logging.info(f"🔄 Starting background analysis for {bill.get_bill_identifier()}")
-                _perform_analysis_if_needed(bill)
-                logging.info(f"✅ Background analysis completed for {bill.get_bill_identifier()}")
+                fresh_bill = Bill.query.get(bill_id) if bill_id else None
+                if not fresh_bill:
+                    logging.error(f"❌ Background analysis: bill id={bill_id} not found")
+                    notify_gemini_failure(
+                        CONTINUATION_FINISHED,
+                        f"Background analysis failed: bill id={bill_id} not found",
+                        severity="error",
+                        bill_identifier=bill_ident,
+                        bill_id=bill_id,
+                        provider_model=model_name,
+                        source="routes",
+                        extra={"event": "finished", "error": "bill_not_found"},
+                    )
+                    return
+
+                ident = fresh_bill.get_bill_identifier()
+                logging.info(f"🔄 Starting background analysis for {ident} (force_continue={force_continue})")
+                try:
+                    _perform_analysis_if_needed(
+                        fresh_bill,
+                        force_continue=force_continue,
+                        allow_budget_waits=False,
+                    )
+                except AIAnalysisPartialError as e:
+                    logging.info(
+                        f"⚠️ Background analysis partial for {ident}: "
+                        f"{e.completion_percentage:.1f}% complete"
+                    )
+                    notify_gemini_failure(
+                        CONTINUATION_FINISHED,
+                        (
+                            f"Continuation finished still partial at {e.completion_percentage:.1f}% "
+                            f"(model={model_name}, chunks={e.completed_chunks}/{e.total_chunks})."
+                        ),
+                        severity="warning",
+                        bill=fresh_bill,
+                        completion_percentage=e.completion_percentage,
+                        provider_model=model_name,
+                        source="routes",
+                        extra={
+                            "event": "finished",
+                            "is_partial": True,
+                            "provider_model": model_name,
+                            "completed_chunks": e.completed_chunks,
+                            "total_chunks": e.total_chunks,
+                            "chunks": f"{e.completed_chunks}/{e.total_chunks}",
+                        },
+                    )
+                    # Auto-schedule next Tier B wave after minute reset
+                    _schedule_next_analysis_wave(bill_id)
+                    return
+
+                # Inspect stored analysis for finished status
+                active = fresh_bill.get_active_ai_analysis()
+                data = active.get_analysis_data() if active else {}
+                is_partial = bool(data.get('is_partial'))
+                completion = data.get('completion_percentage')
+                if completion is None and active:
+                    completion = 100.0 if not is_partial else None
+                severity = "warning" if is_partial else "info"
+                notify_gemini_failure(
+                    CONTINUATION_FINISHED,
+                    (
+                        f"Continuation finished for {ident} "
+                        f"(model={model_name}, "
+                        f"completion={completion if completion is not None else 'n/a'}%, "
+                        f"is_partial={is_partial})."
+                    ),
+                    severity=severity,
+                    bill=fresh_bill,
+                    completion_percentage=completion,
+                    provider_model=getattr(active, 'provider_model', None) or model_name,
+                    source="routes",
+                    extra={
+                        "event": "finished",
+                        "is_partial": is_partial,
+                        "provider_model": getattr(active, 'provider_model', None) or model_name,
+                        "analysis_tier": data.get("analysis_tier"),
+                        "chars_analyzed": data.get("chars_analyzed"),
+                        "total_chars": data.get("total_chars"),
+                    },
+                )
+                if _is_tier_b_partial(data):
+                    _schedule_next_analysis_wave(bill_id)
+                elif not is_partial:
+                    from services.analysis_enrichers import enrichments_need_work
+
+                    if enrichments_need_work(data):
+                        _perform_enrichment_async(fresh_bill)
+                logging.info(f"✅ Background analysis completed for {ident}")
         except Exception as e:
-            logging.error(f"❌ Background analysis failed for {bill.get_bill_identifier()}: {e}")
+            logging.error(f"❌ Background analysis failed for bill id={bill_id}: {e}")
             import traceback
             logging.error(traceback.format_exc())
-    
-    # Start the analysis in a background thread
+            try:
+                notify_gemini_failure(
+                    CONTINUATION_FINISHED,
+                    f"Continuation failed: {type(e).__name__}",
+                    severity="error",
+                    bill_identifier=bill_ident,
+                    bill_id=bill_id,
+                    provider_model=model_name,
+                    source="routes",
+                    extra={
+                        "event": "finished",
+                        "error": type(e).__name__,
+                        "failure_class_hint": UNKNOWN,
+                    },
+                )
+            except Exception:
+                pass
+        finally:
+            _release_analysis_slot(bill_id)
+
     thread = threading.Thread(target=analysis_worker, daemon=True)
     thread.start()
-    
-    logging.info(f"🚀 Background analysis started for {bill.get_bill_identifier()}")
+
+    logging.info(f"🚀 Background analysis started for bill id={bill_id}")
+
 
 def _store_policy_categories_with_sneakiness(bill, categories, analysis=None):
     """Store policy category mappings for the bill, including sneakiness score per category"""
@@ -630,11 +1035,15 @@ def fetch_bill_actions_from_api(bill):
 @app.route('/bill/<int:congress>/<bill_type>/<int:bill_number>')
 def bill_analysis(congress, bill_type, bill_number):
     """Display detailed analysis of a specific bill"""
-    # Check if bill exists in database
+    # Prefer active + display-ready versions (avoid stale inactive rows from re-ingest)
     bill = Bill.query.filter_by(
-        congress=congress, 
-        bill_type=bill_type.lower(), 
-        bill_number=bill_number
+        congress=congress,
+        bill_type=bill_type.lower(),
+        bill_number=bill_number,
+    ).order_by(
+        Bill.active.desc(),
+        Bill.display_ready.desc(),
+        Bill.id.desc(),
     ).first()
     
     if not bill:
@@ -643,6 +1052,8 @@ def bill_analysis(congress, bill_type, bill_number):
             bill_data = congress_api.get_bill_details(congress, bill_type, bill_number)
             if bill_data:
                 bill = bill_processor.process_bill_data(bill_data)
+                if bill:
+                    _perform_analysis_async(bill)
             else:
                 flash('Bill not found', 'error')
                 return redirect(url_for('bill_search'))
@@ -660,41 +1071,166 @@ def bill_analysis(congress, bill_type, bill_number):
     
     # Perform AI analysis if not already done (use new database structure)
     partial_analysis_warning = None
+    continuation_queued = False
     try:
         active_analysis = bill.get_active_ai_analysis()
         if active_analysis:
             analysis = active_analysis.get_analysis_data()
+            # Resume incomplete Tier B partials (async). Clear non-Tier-B partials and re-ingest instead.
+            if analysis and analysis.get('is_partial', False):
+                completion = analysis.get('completion_percentage', 0)
+                completed_chunks = analysis.get('chunks_analyzed', 0)
+                total_chunks = analysis.get(
+                    'total_chunks_available',
+                    completed_chunks + analysis.get('remaining_chunks', 0),
+                )
+                remaining_chunks = analysis.get(
+                    'remaining_chunks',
+                    max(0, total_chunks - completed_chunks) if total_chunks else 0,
+                )
+                limit_cause = analysis.get('limit_cause') or 'local_minute_budget'
+                model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
+                chars_analyzed = analysis.get('chars_analyzed', 0)
+                total_chars = analysis.get('total_chars', 0)
+                is_tier_b = _is_tier_b_partial(analysis)
+
+                coverage_note = (
+                    f"{chars_analyzed:,}/{total_chars:,} characters"
+                    if total_chars
+                    else f"{completed_chunks}/{total_chunks} sections"
+                )
+                partial_analysis_warning = {
+                    'message': (
+                        f"Analysis is only {completion:.1f}% complete "
+                        f"({coverage_note}; model={model_name}, limit_cause={limit_cause})."
+                    ),
+                    'completion_percentage': completion,
+                    'completed_chunks': completed_chunks,
+                    'total_chunks': total_chunks,
+                    'remaining_chunks': remaining_chunks,
+                    'chars_analyzed': chars_analyzed,
+                    'total_chars': total_chars,
+                    'limit_cause': limit_cause,
+                    'provider_model': model_name,
+                    'analysis_tier': analysis.get('analysis_tier'),
+                    'continuation_queued': False,
+                }
+
+                if is_tier_b and completion < 100:
+                    quota_info = ai_analyzer.get_quota_info()
+                    can_analyze = quota_info['status']['can_handle_small_bill']
+                    if can_analyze:
+                        logging.info(
+                            f"Partial AI analysis on bill detail ({completion:.1f}% complete), "
+                            f"queueing continued analysis for {bill.get_bill_identifier()}"
+                        )
+                        try:
+                            from services.ops_alert_service import (
+                                CONTINUATION_QUEUED,
+                                notify_gemini_failure,
+                            )
+                            notify_gemini_failure(
+                                CONTINUATION_QUEUED,
+                                (
+                                    f"Continuation queued at {completion:.1f}% "
+                                    f"(model={model_name}, chunks={completed_chunks}/{total_chunks}, "
+                                    f"limit_cause={limit_cause})."
+                                ),
+                                severity="info",
+                                bill=bill,
+                                completion_percentage=completion,
+                                provider_model=model_name,
+                                source="routes",
+                                extra={
+                                    "event": "queued",
+                                    "provider_model": model_name,
+                                    "model": model_name,
+                                    "completed_chunks": completed_chunks,
+                                    "total_chunks": total_chunks,
+                                    "limit_cause": limit_cause,
+                                    "chunks": f"{completed_chunks}/{total_chunks}",
+                                    "completion": completion,
+                                    "chars_analyzed": chars_analyzed,
+                                    "total_chars": total_chars,
+                                },
+                            )
+                        except Exception:
+                            pass
+                        _perform_analysis_async(bill, force_continue=True)
+                        continuation_queued = True
+                        partial_analysis_warning['continuation_queued'] = True
+                        partial_analysis_warning['message'] += (
+                            " Background analysis is running under free-tier rate limits; "
+                            "this page will update when you refresh — each wave adds more coverage."
+                        )
+                    else:
+                        logging.info(
+                            f"Partial AI analysis on bill detail ({completion:.1f}% complete), "
+                            f"insufficient API quota for {bill.get_bill_identifier()}"
+                        )
+                        try:
+                            from services.ops_alert_service import (
+                                PARTIAL_ANALYSIS,
+                                notify_gemini_failure,
+                            )
+                            notify_gemini_failure(
+                                PARTIAL_ANALYSIS,
+                                (
+                                    f"Partial analysis stuck at {completion:.1f}% on bill detail; "
+                                    f"insufficient local quota to resume "
+                                    f"(model={model_name}, chunks={completed_chunks}/{total_chunks}, "
+                                    f"limit_cause={limit_cause})."
+                                ),
+                                severity="warning",
+                                bill=bill,
+                                completion_percentage=completion,
+                                provider_model=model_name,
+                                source="routes",
+                                extra={
+                                    "provider_model": model_name,
+                                    "model": model_name,
+                                    "completed_chunks": completed_chunks,
+                                    "total_chunks": total_chunks,
+                                    "limit_cause": limit_cause,
+                                    "chunks": f"{completed_chunks}/{total_chunks}",
+                                    "resume_blocked": True,
+                                },
+                            )
+                        except Exception:
+                            pass
         elif bill.get_ai_analysis():
             analysis = bill.get_ai_analysis()  # Fallback to old structure
         else:
-            # No analysis exists, perform comprehensive analysis
-            logging.info(f"Performing AI analysis for bill analysis page: {bill.get_bill_identifier()}")
-            _perform_analysis_if_needed(bill)
-            
-            # Get the analysis that was just created
-            new_analysis = bill.get_active_ai_analysis()
-            if new_analysis:
-                analysis = new_analysis.get_analysis_data()
-            elif bill.get_ai_analysis():
-                analysis = bill.get_ai_analysis()  # Fallback
-            else:
-                analysis = {"error": "Unable to perform AI analysis at this time"}
-                try:
-                    from services.ops_alert_service import (
-                        EMPTY_RESULT,
-                        notify_gemini_failure,
-                    )
-                    notify_gemini_failure(
-                        EMPTY_RESULT,
-                        "Unable to perform AI analysis at this time",
-                        severity="error",
-                        bill=bill,
-                        source="routes",
-                    )
-                except Exception:
-                    pass
+            # No analysis exists — queue async (never block page on Gemini / minute waits)
+            logging.info(
+                f"Queueing AI analysis for bill analysis page: {bill.get_bill_identifier()}"
+            )
+            model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
+            _perform_analysis_async(bill)
+            continuation_queued = True
+            analysis = {
+                "status": "queued",
+                "message": (
+                    "Background analysis is running (free-tier rate limits). "
+                    "This page will update when you refresh."
+                ),
+            }
+            partial_analysis_warning = {
+                'message': (
+                    f"AI analysis was queued (model={model_name}). "
+                    "Background analysis is running under free-tier rate limits; "
+                    "refresh to see progress — each wave adds more coverage."
+                ),
+                'completion_percentage': 0,
+                'completed_chunks': 0,
+                'total_chunks': 0,
+                'remaining_chunks': 0,
+                'provider_model': model_name,
+                'continuation_queued': True,
+            }
     except AIAnalysisPartialError as e:
         logging.warning(f"AI analysis was partial for bill {bill.get_bill_identifier()}: {str(e)}")
+        model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
         try:
             from services.ops_alert_service import (
                 PARTIAL_ANALYSIS,
@@ -706,10 +1242,14 @@ def bill_analysis(congress, bill_type, bill_number):
                 severity="warning",
                 bill=bill,
                 completion_percentage=e.completion_percentage,
+                provider_model=model_name,
                 source="routes",
                 extra={
+                    "provider_model": model_name,
+                    "model": model_name,
                     "completed_chunks": e.completed_chunks,
                     "total_chunks": e.total_chunks,
+                    "chunks": f"{e.completed_chunks}/{e.total_chunks}",
                 },
             )
         except Exception:
@@ -729,15 +1269,23 @@ def bill_analysis(congress, bill_type, bill_number):
             'completion_percentage': e.completion_percentage,
             'completed_chunks': e.completed_chunks,
             'total_chunks': e.total_chunks,
-            'remaining_chunks': e.total_chunks - e.completed_chunks
+            'remaining_chunks': e.total_chunks - e.completed_chunks,
+            'provider_model': model_name,
+            'continuation_queued': continuation_queued,
         }
     
-    # Calculate user alignment score if user is logged in
+    # Calculate user alignment score if user is logged in (only when base analysis exists)
     alignment_score = None
     user_analysis = None
     if current_user.is_authenticated:
         user_prefs = current_user.get_policy_preferences()
-        if user_prefs and analysis:
+        has_usable_analysis = (
+            analysis
+            and isinstance(analysis, dict)
+            and not analysis.get('error')
+            and analysis.get('status') != 'queued'
+        )
+        if user_prefs and has_usable_analysis:
             try:
                 alignment_score = ai_analyzer.calculate_alignment_score(
                     analysis, user_prefs
@@ -750,14 +1298,39 @@ def bill_analysis(congress, bill_type, bill_number):
     
     # Get bill actions (refresh from database after potential fetch)
     bill_actions = bill.actions
-    
+
+    # Queue downstream enrichments when core is done but stakeholders/policy_analysis pending
+    enrichment_flags = _enrichment_pending_flags(
+        analysis if isinstance(analysis, dict) else None
+    )
+    if (
+        isinstance(analysis, dict)
+        and analysis.get("status") != "queued"
+        and not analysis.get("error")
+        and not analysis.get("is_partial")
+        and enrichment_flags["any_enrichment_pending"]
+        and not _enrichment_is_deferred(getattr(bill, "id", None))
+    ):
+        from services.analysis_enrichers import enrichment_quota_ok
+
+        ok, _remaining, reset_in = enrichment_quota_ok(ai_analyzer)
+        if ok:
+            _perform_enrichment_async(bill)
+            enrichment_flags["enrichment_queued"] = True
+        else:
+            _mark_enrichment_deferred(getattr(bill, "id", None), reset_in or 60.0)
+            enrichment_flags["enrichment_queued"] = False
+    else:
+        enrichment_flags["enrichment_queued"] = False
+
     return render_template('bill_analysis.html', 
                          bill=bill, 
                          analysis=analysis,
                          alignment_score=alignment_score,
                          user_analysis=user_analysis,
                          bill_actions=bill_actions,
-                         partial_analysis_warning=partial_analysis_warning)
+                         partial_analysis_warning=partial_analysis_warning,
+                         enrichment_flags=enrichment_flags)
 
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():

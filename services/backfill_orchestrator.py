@@ -1007,10 +1007,22 @@ class BackfillOrchestrator:
                 
                 # Get analysis version to link provisions to specific analysis
                 analysis_version = 1
+                provider_model = None
                 if hasattr(bill, 'get_active_ai_analysis'):
                     ai_analysis = bill.get_active_ai_analysis()
                     if ai_analysis:
                         analysis_version = ai_analysis.analysis_version
+                        provider_model = getattr(ai_analysis, 'provider_model', None)
+
+                if not provider_model:
+                    provider_model = (
+                        (full_analysis or {}).get('provider_model')
+                        or (full_analysis or {}).get('model')
+                        or getattr(self.ai_analyzer, 'model_name', None)
+                    )
+                if not provider_model:
+                    from utils.constants import GEMINI_MODEL
+                    provider_model = GEMINI_MODEL
                 
                 logger.info(f"Processing {len(detected_provisions)} hidden provisions for {bill.get_bill_identifier()}")
                 
@@ -1038,7 +1050,8 @@ class BackfillOrchestrator:
                                 chunk_index=chunk_index,
                                 chunk_type=chunk_type,
                                 analysis_version=analysis_version,
-                                detection_method='ai_enhanced'
+                                detection_method='ai_enhanced',
+                                provider_model=provider_model,
                             )
                             
                             # Store risk factors as JSON

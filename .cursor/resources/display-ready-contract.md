@@ -13,6 +13,13 @@ A bill is display-ready when **all** are true:
 
 Agents must call / preserve `update_display_ready_status()` after mutations that affect these inputs.
 
+## What is NOT required
+
+- `policy_analysis.status == ready` (deep Policy Analysis enricher)
+- `stakeholders.status == ready` (Stakeholder Analysis enricher)
+
+Bills may be `display_ready=True` while those sections show pending/queued placeholders. Enrichment completion creates a new `AIAnalysis` version but must not flip `display_ready` false.
+
 ## Ownership
 
 | Layer | Responsibility |
@@ -30,3 +37,5 @@ Agents must call / preserve `update_display_ready_status()` after mutations that
 - [ ] Partial analysis can extract categories and become ready
 - [ ] Homepage only lists ready bills (or shows incomplete state intentionally)
 - [ ] Notification path keys off ready transition where applicable
+- [ ] Enrichments pending does not block `display_ready=True`
+- [ ] After enrichers finish, bill detail shows Policy Analysis narrative + Stakeholder groups (template shape)

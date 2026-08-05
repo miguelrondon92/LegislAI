@@ -16,13 +16,17 @@ description: Verify LegislAI pipeline regressions across ingest, storage, analys
 - [ ] Active `AIAnalysis` + `Summary` created
 - [ ] `BillCategoryMapping` present
 - [ ] `display_ready` transitions to true when inputs complete
+- [ ] `display_ready` does **not** require enrichments ready
+- [ ] Enricher merge produces template-shaped `stakeholders` + `policy_analysis`
+- [ ] `enrichment_quota_ok` / deferral does not false-skip when RPM remains
 - [ ] Bill detail / search / homepage paths tolerate incomplete vs ready states
 - [ ] No secret values in fixtures or assertion messages
 
 ## Practice
 
 - Mock Congress/Gemini where possible (`docs` + existing test patterns).
-- Prefer extending `test/test_workflow_integration.py`, bill search tests, homepage tests.
+- Prefer extending `test/test_downstream_enrichers.py`, `test/test_size_aware_analysis.py`, `test/test_workflow_integration.py`, bill search tests, homepage tests.
+- After route/analyzer/template changes: restart Flask and curl `/bill/...` + `/ops/logs` before closing.
 - Never `cat .env` or print `os.environ` secret keys in test output.
 
 ## On failure

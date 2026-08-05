@@ -194,10 +194,13 @@
             <div class="card-body">
                 {% if ops_unread_preview %}
                     {% for alert in ops_unread_preview %}
-                    <div class="alert alert-{{ 'warning' if alert.severity == 'warning' else 'danger' }} alert-sm mb-2 py-2" role="alert">
+                    <div class="alert alert-{{ 'info' if alert.severity == 'info' else 'warning' if alert.severity == 'warning' else 'danger' }} alert-sm mb-2 py-2" role="alert">
                         <div class="d-flex justify-content-between align-items-start gap-2">
                             <div class="small">
                                 <strong>{{ alert.failure_class }}</strong>
+                                {% if alert.provider_model %}
+                                <span class="badge bg-secondary">{{ alert.provider_model }}</span>
+                                {% endif %}
                                 {% if alert.bill_identifier %}
                                 <span class="text-muted">· {{ alert.bill_identifier }}</span>
                                 {% endif %}
