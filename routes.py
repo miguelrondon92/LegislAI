@@ -225,36 +225,42 @@ def _get_or_fetch_bill_by_number(search_query, congress):
                     and active_analysis.get_analysis_data()
                     and active_analysis.get_analysis_data().get('is_partial')
                 )
-                if force:
-                    try:
-                        from services.ops_alert_service import (
-                            CONTINUATION_QUEUED,
-                            notify_gemini_failure,
-                        )
-                        adata = active_analysis.get_analysis_data() or {}
-                        completion = adata.get('completion_percentage', 0)
-                        model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
-                        notify_gemini_failure(
-                            CONTINUATION_QUEUED,
-                            (
-                                f"Continuation queued from search at {completion:.1f}% "
-                                f"(model={model_name})."
-                            ),
-                            severity="info",
-                            bill=existing_bill,
-                            completion_percentage=completion,
-                            provider_model=model_name,
-                            source="routes",
-                            extra={
-                                "event": "queued",
-                                "provider_model": model_name,
-                                "limit_cause": adata.get('limit_cause'),
-                                "completion": completion,
-                            },
-                        )
-                    except Exception:
-                        pass
-                _perform_analysis_async(existing_bill, force_continue=force)
+                if _analysis_is_in_flight(getattr(existing_bill, "id", None)):
+                    logging.info(
+                        f"Skipping search resume for {existing_bill.get_bill_identifier()} "
+                        "— analysis already in flight"
+                    )
+                else:
+                    if force:
+                        try:
+                            from services.ops_alert_service import (
+                                CONTINUATION_QUEUED,
+                                notify_gemini_failure,
+                            )
+                            adata = active_analysis.get_analysis_data() or {}
+                            completion = adata.get('completion_percentage', 0)
+                            model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
+                            notify_gemini_failure(
+                                CONTINUATION_QUEUED,
+                                (
+                                    f"Continuation queued from search at {completion:.1f}% "
+                                    f"(model={model_name})."
+                                ),
+                                severity="info",
+                                bill=existing_bill,
+                                completion_percentage=completion,
+                                provider_model=model_name,
+                                source="routes",
+                                extra={
+                                    "event": "queued",
+                                    "provider_model": model_name,
+                                    "limit_cause": adata.get('limit_cause'),
+                                    "completion": completion,
+                                },
+                            )
+                        except Exception:
+                            pass
+                    _perform_analysis_async(existing_bill, force_continue=force)
             
             return existing_bill
         else:
@@ -388,6 +394,14 @@ def _try_acquire_analysis_slot(bill_id):
             return False
         _analyzing_bill_ids.add(bill_id)
         return True
+
+
+def _analysis_is_in_flight(bill_id) -> bool:
+    """True when a background analysis worker already holds this bill's slot."""
+    if bill_id is None:
+        return False
+    with _analyzing_lock:
+        return bill_id in _analyzing_bill_ids
 
 
 def _release_analysis_slot(bill_id):
@@ -700,34 +714,10 @@ def _perform_analysis_async(bill, force_continue=False):
     model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
 
     if not _try_acquire_analysis_slot(bill_id):
+        # Refresh / auto-poll while a wave is running — log only, do not spam OpsAlert rows
         logging.info(
             f"Skipping analysis spawn for bill id={bill_id} — already in flight"
         )
-        try:
-            from services.ops_alert_service import (
-                CONTINUATION_QUEUED,
-                notify_gemini_failure,
-            )
-            notify_gemini_failure(
-                CONTINUATION_QUEUED,
-                (
-                    f"Continuation skipped — analysis already in flight "
-                    f"(model={model_name})."
-                ),
-                severity="info",
-                bill=bill if hasattr(bill, "get_bill_identifier") else None,
-                bill_identifier=bill_ident,
-                bill_id=bill_id,
-                provider_model=model_name,
-                source="routes",
-                extra={
-                    "event": "queued",
-                    "in_flight": True,
-                    "provider_model": model_name,
-                },
-            )
-        except Exception:
-            pass
         return
 
     def analysis_worker():
@@ -1133,7 +1123,19 @@ def bill_analysis(congress, bill_type, bill_number):
 
                 if is_tier_b and completion < 100:
                     can_analyze = _can_continue_tier_b_wave()
-                    if can_analyze:
+                    if _analysis_is_in_flight(getattr(bill, "id", None)):
+                        # Already running — keep UI "queued" state without new OpsAlert spam
+                        logging.info(
+                            f"Partial AI analysis on bill detail ({completion:.1f}% complete), "
+                            f"continuation already in flight for {bill.get_bill_identifier()}"
+                        )
+                        continuation_queued = True
+                        partial_analysis_warning['continuation_queued'] = True
+                        partial_analysis_warning['message'] += (
+                            " Background analysis is already running; "
+                            "this page will update when you refresh — each wave adds more coverage."
+                        )
+                    elif can_analyze:
                         logging.info(
                             f"Partial AI analysis on bill detail ({completion:.1f}% complete), "
                             f"queueing continued analysis for {bill.get_bill_identifier()}"

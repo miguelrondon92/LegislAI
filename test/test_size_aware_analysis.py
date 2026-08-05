@@ -289,6 +289,38 @@ class TestInFlightDedupe(unittest.TestCase):
         self.assertTrue(routes_mod._try_acquire_analysis_slot(999001))
         routes_mod._release_analysis_slot(999001)
 
+    def test_in_flight_skip_does_not_persist_ops_alert(self):
+        """Refresh while analysis runs must not spam OpsAlert with in_flight skips."""
+        import routes as routes_mod
+        from unittest.mock import MagicMock, patch
+
+        with routes_mod._analyzing_lock:
+            routes_mod._analyzing_bill_ids.clear()
+            routes_mod._analyzing_bill_ids.add(8800)
+
+        bill = MagicMock()
+        bill.id = 8800
+        bill.get_bill_identifier.return_value = "119-HR8800"
+
+        with patch("services.ops_alert_service.notify_gemini_failure") as notify:
+            routes_mod._perform_analysis_async(bill, force_continue=True)
+            notify.assert_not_called()
+
+        with routes_mod._analyzing_lock:
+            routes_mod._analyzing_bill_ids.discard(8800)
+
+    def test_analysis_is_in_flight_helper(self):
+        import routes as routes_mod
+
+        with routes_mod._analyzing_lock:
+            routes_mod._analyzing_bill_ids.clear()
+        self.assertFalse(routes_mod._analysis_is_in_flight(42))
+        with routes_mod._analyzing_lock:
+            routes_mod._analyzing_bill_ids.add(42)
+        self.assertTrue(routes_mod._analysis_is_in_flight(42))
+        with routes_mod._analyzing_lock:
+            routes_mod._analyzing_bill_ids.discard(42)
+
     def test_is_tier_b_partial(self):
         import routes as routes_mod
 

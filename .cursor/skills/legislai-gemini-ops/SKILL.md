@@ -27,7 +27,7 @@ description: Own Gemini model constant, OpsAlert lifecycle, free-tier quota awar
 ## Responsibilities
 
 1. Keep `GEMINI_MODEL` and `OpsAlert.provider_model` defaults aligned.
-2. Require lifecycle OpsAlerts on resume: queue → `continuation_queued` (info); finish → `continuation_finished` (info/warning/error).
+2. Require lifecycle OpsAlerts on resume: queue → `continuation_queued` (info) only when a wave is newly spawned; finish → `continuation_finished` (info/warning/error). Do not persist OpsAlerts for in-flight skip on refresh.
 3. Require enrichment OpsAlerts: `enrichment_queued` / `enrichment_finished` (include `provider_model`; on RPM deferral include `limit_cause=local_minute_budget` and `remaining_requests`).
 4. Probe models via `check_gemini_quota.py` using `GEMINI_MODEL` — never print API keys.
 5. Coordinate with Analysis: Analysis **stamps** `provider_model` on `AIAnalysis` / `Summary` / `HiddenProvision` at write time; Gemini Ops owns changing the constant.
