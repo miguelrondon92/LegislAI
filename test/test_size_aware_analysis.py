@@ -190,6 +190,90 @@ class TestTierRouting(unittest.TestCase):
             wave2["completion_percentage"], wave1["completion_percentage"]
         )
 
+    def test_empty_wave_preserves_map_findings(self):
+        analyzer = self._make_analyzer()
+        analyzer.macro_chunk_target_tokens = 50
+        parts = []
+        for i in range(1, 8):
+            parts.append(f"SEC. {i}. Section {i}.\n" + ("legislation text " * 40) + "\n")
+        text = "\n".join(parts)
+        total_chars = len(text)
+
+        prior = {
+            "analysis_method": "map_reduce_macro_chunks",
+            "analysis_tier": "B",
+            "is_partial": True,
+            "analyzed_chunk_keys": ["k1", "k2"],
+            "tier_b_map_findings": [
+                {"chunk_key": "k1", "summary": "first"},
+                {"chunk_key": "k2", "summary": "second"},
+            ],
+            "summary": {"main_summary": "kept summary", "key_provisions": ["a"]},
+            "completion_percentage": 40.0,
+        }
+
+        with patch.object(analyzer, "_select_tier_b_wave", return_value=[]):
+            out = analyzer._analyze_tier_b(
+                text,
+                "Big Act",
+                "",
+                total_chars,
+                prior_analysis=prior,
+                allow_budget_waits=False,
+            )
+
+        self.assertTrue(out.get("_no_progress"))
+        self.assertEqual(len(out.get("tier_b_map_findings") or []), 2)
+        self.assertEqual(out["summary"]["main_summary"], "kept summary")
+        self.assertEqual(out["analysis_method"], "map_reduce_macro_chunks")
+        self.assertTrue(out["is_partial"])
+
+    def test_orphan_keys_are_remapped(self):
+        analyzer = self._make_analyzer()
+        analyzer.macro_chunk_target_tokens = 50
+        parts = []
+        for i in range(1, 6):
+            parts.append(f"SEC. {i}. Section {i}.\n" + ("legislation text " * 40) + "\n")
+        text = "\n".join(parts)
+        total_chars = len(text)
+        macros = analyzer.bill_chunker.build_macro_chunks(
+            text, max_chars=analyzer._macro_chunk_max_chars()
+        )
+        self.assertGreaterEqual(len(macros), 2)
+        k0 = macros[0].ensure_key()
+        k1 = macros[1].ensure_key()
+        prior = {
+            "analyzed_chunk_keys": [k0, k1],
+            # Missing finding for k1 — should remap k1
+            "tier_b_map_findings": [{"chunk_key": k0, "summary": "ok"}],
+        }
+        mapped = []
+
+        def fake_map(chunk, title, index):
+            mapped.append(chunk.ensure_key())
+            return {"chunk_key": chunk.ensure_key(), "summary": "remapped"}
+
+        with patch.object(analyzer, "_map_macro_chunk", side_effect=fake_map), patch.object(
+            analyzer,
+            "_select_tier_b_wave",
+            side_effect=lambda rem, allow_budget_waits=True: rem[:1],
+        ), patch.object(
+            analyzer, "_reduce_tier_b", return_value={"summary": {"main_summary": "full"}}
+        ):
+            out = analyzer._analyze_tier_b(
+                text,
+                "Big Act",
+                "",
+                total_chars,
+                prior_analysis=prior,
+                allow_budget_waits=False,
+            )
+
+        self.assertIn(k1, mapped)
+        out_keys = {m.get("chunk_key") for m in (out.get("tier_b_map_findings") or [])}
+        self.assertIn(k0, out_keys)
+        self.assertIn(k1, out_keys)
+
 
 class TestInFlightDedupe(unittest.TestCase):
     def test_second_acquire_fails(self):
@@ -229,6 +313,42 @@ class TestInFlightDedupe(unittest.TestCase):
                 }
             )
         )
+
+    def test_can_continue_tier_b_wave_respects_tpm(self):
+        import routes as routes_mod
+
+        class FakeAnalyzer:
+            macro_chunk_target_tokens = 120_000
+
+            def get_rate_limit_status(self):
+                return {
+                    "is_at_limit": False,
+                    "remaining_tokens": 1000,  # too small for a macro
+                    "remaining_requests": 10,
+                }
+
+        old = routes_mod.ai_analyzer
+        routes_mod.ai_analyzer = FakeAnalyzer()
+        try:
+            self.assertFalse(routes_mod._can_continue_tier_b_wave())
+        finally:
+            routes_mod.ai_analyzer = old
+
+        class OkAnalyzer:
+            macro_chunk_target_tokens = 120_000
+
+            def get_rate_limit_status(self):
+                return {
+                    "is_at_limit": False,
+                    "remaining_tokens": 200_000,
+                    "remaining_requests": 10,
+                }
+
+        routes_mod.ai_analyzer = OkAnalyzer()
+        try:
+            self.assertTrue(routes_mod._can_continue_tier_b_wave())
+        finally:
+            routes_mod.ai_analyzer = old
 
 
 class TestGovernorTPM(unittest.TestCase):

@@ -102,7 +102,8 @@
 {% if partial_analysis_warning %}
 <!-- Partial Analysis Warning -->
 <div class="row mb-4" id="partial-analysis-banner"
-     data-continuation-queued="{{ 'true' if partial_analysis_warning.continuation_queued else 'false' }}">
+     data-continuation-queued="{{ 'true' if partial_analysis_warning.continuation_queued else 'false' }}"
+     data-remaining-chunks="{{ partial_analysis_warning.remaining_chunks or 0 }}">
     <div class="col-12">
         <div class="alert alert-warning border-warning" role="alert">
             <div class="d-flex align-items-start">
@@ -181,7 +182,9 @@
   if (!banner || banner.getAttribute('data-continuation-queued') !== 'true') return;
   var key = 'legislai_poll_' + (window.location.pathname || '');
   var n = parseInt(sessionStorage.getItem(key) || '0', 10);
-  var maxPolls = 8;
+  var remaining = parseInt(banner.getAttribute('data-remaining-chunks') || '0', 10);
+  // Tier B waves often need ~1 minute each; poll every 18s with room for large bills
+  var maxPolls = Math.min(40, Math.max(12, remaining * 5 + 8));
   if (n >= maxPolls) return;
   sessionStorage.setItem(key, String(n + 1));
   setTimeout(function () { window.location.reload(); }, 18000);
@@ -259,7 +262,13 @@
     <!-- Bill Analysis -->
     <div class="col-lg-8 mb-4">
         <!-- Bill Summary -->
-        {% if analysis and analysis.summary %}
+        {% set ai_summary = analysis.summary if analysis and analysis.summary else none %}
+        {% set db_summary = bill.get_active_summary() %}
+        {% set db_summary_text = (db_summary.summary_text if db_summary else none) %}
+        {# Prefer AI analysis JSON; else Summary table; else Congress.gov text #}
+        {% set has_ai_summary = ai_summary and (ai_summary.main_summary or ai_summary.plain_language_explanation) %}
+        {% set has_db_summary = db_summary_text and db_summary_text|length > 40 and not db_summary_text.startswith('SEC.') %}
+        {% if has_ai_summary %}
         <div class="card mb-4">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -268,9 +277,9 @@
                 </h5>
             </div>
             <div class="card-body">
-                {% set summary = analysis.summary %}
+                {% set summary = ai_summary %}
                 <h6>Overview</h6>
-                <p>{{ summary.main_summary }}</p>
+                <p>{{ summary.main_summary or summary.plain_language_explanation }}</p>
                 
                 {% if summary.key_provisions %}
                 <h6>Key Provisions</h6>
@@ -303,10 +312,24 @@
                 
             </div>
         </div>
-        {% endif %}
-
-        <!-- Fallback Summary for Non-Display-Ready Bills -->
-        {% if not bill.display_ready and bill.summary and not (analysis and analysis.summary) %}
+        {% elif has_db_summary %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="file-text" class="me-2"></i>
+                    Bill Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>Overview</h6>
+                <p>{{ db_summary_text }}</p>
+                {% if db_summary.plain_language_summary and db_summary.plain_language_summary != db_summary_text %}
+                <h6>Plain language</h6>
+                <p class="text-muted">{{ db_summary.plain_language_summary }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% elif bill.summary and not has_ai_summary %}
         <div class="card mb-4">
             <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
@@ -321,12 +344,21 @@
                 </div>
             </div>
             <div class="card-body">
+                {% if not bill.display_ready %}
                 <div class="alert alert-info border-info mb-3">
                     <small>
                         <i data-feather="info" class="me-1" style="width: 14px; height: 14px;"></i>
                         <strong>Note:</strong> This is the original summary from Congress.gov. Our enhanced AI analysis is still in progress and will provide additional insights when complete.
                     </small>
                 </div>
+                {% else %}
+                <div class="alert alert-info border-info mb-3">
+                    <small>
+                        <i data-feather="info" class="me-1" style="width: 14px; height: 14px;"></i>
+                        <strong>Note:</strong> AI summary is missing from the stored analysis; showing the Congress.gov summary.
+                    </small>
+                </div>
+                {% endif %}
                 <p>{{ bill.summary | clean_summary }}</p>
             </div>
         </div>

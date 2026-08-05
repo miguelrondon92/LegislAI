@@ -196,8 +196,7 @@ def _get_or_fetch_bill_by_number(search_query, congress):
                 if analysis_data and _is_tier_b_partial(analysis_data):
                     completion = analysis_data.get('completion_percentage', 0)
                     if completion < 100:
-                        quota_info = ai_analyzer.get_quota_info()
-                        can_analyze = quota_info['status']['can_handle_small_bill']
+                        can_analyze = _can_continue_tier_b_wave()
                         if can_analyze:
                             logging.info(
                                 f"Partial AI analysis found ({completion:.1f}% complete), "
@@ -531,6 +530,22 @@ def _is_tier_b_partial(analysis_data) -> bool:
     method = analysis_data.get("analysis_method") or ""
     tier = analysis_data.get("analysis_tier")
     return tier == "B" or method == "map_reduce_macro_chunks"
+
+
+def _can_continue_tier_b_wave() -> bool:
+    """Enough local RPM+TPM headroom for at least one Tier B macro map call."""
+    try:
+        status = ai_analyzer.get_rate_limit_status()
+    except Exception:
+        return False
+    if status.get("is_at_limit"):
+        return False
+    need_tokens = int(getattr(ai_analyzer, "macro_chunk_target_tokens", 120_000)) + 1500
+    if int(status.get("remaining_tokens") or 0) < need_tokens:
+        return False
+    if int(status.get("remaining_requests") or 0) < 2:
+        return False
+    return True
 
 
 def _schedule_next_analysis_wave(bill_id, delay_seconds=None):
@@ -1117,8 +1132,7 @@ def bill_analysis(congress, bill_type, bill_number):
                 }
 
                 if is_tier_b and completion < 100:
-                    quota_info = ai_analyzer.get_quota_info()
-                    can_analyze = quota_info['status']['can_handle_small_bill']
+                    can_analyze = _can_continue_tier_b_wave()
                     if can_analyze:
                         logging.info(
                             f"Partial AI analysis on bill detail ({completion:.1f}% complete), "
@@ -1198,6 +1212,14 @@ def bill_analysis(congress, bill_type, bill_number):
                             )
                         except Exception:
                             pass
+                        # Still schedule a delayed wave after minute reset
+                        _schedule_next_analysis_wave(getattr(bill, "id", None))
+                        continuation_queued = True
+                        partial_analysis_warning['continuation_queued'] = True
+                        partial_analysis_warning['message'] += (
+                            " Next analysis wave is scheduled after the free-tier minute resets; "
+                            "this page will update when you refresh."
+                        )
         elif bill.get_ai_analysis():
             analysis = bill.get_ai_analysis()  # Fallback to old structure
         else:

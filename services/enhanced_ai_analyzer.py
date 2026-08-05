@@ -280,13 +280,23 @@ class EnhancedAIAnalyzer:
             analysis_results.setdefault("hidden_detection_enabled", True)
 
             processing_time = time.time() - start_time
-            self._persist_analysis_results(
-                bill_or_text, analysis_results, processing_time
-            )
+            no_progress = bool(analysis_results.pop("_no_progress", False))
+            if no_progress:
+                logger.info(
+                    "[AI] Skipping persist — Tier B wave empty (budget); prior analysis kept"
+                )
+            else:
+                self._persist_analysis_results(
+                    bill_or_text, analysis_results, processing_time
+                )
 
             logger.info("[AI] Analysis completed successfully.")
 
-            if hasattr(bill_or_text, "id") and analysis_results:
+            if (
+                not no_progress
+                and hasattr(bill_or_text, "id")
+                and analysis_results
+            ):
                 try:
                     overall_risk_score = analysis_results.get("overall_risk_score", 0)
                     if overall_risk_score >= 0.7:
@@ -334,11 +344,76 @@ class EnhancedAIAnalyzer:
             if not active:
                 return None
             data = active.get_analysis_data() or {}
-            if data.get("is_partial") and data.get("analysis_method") == "map_reduce_macro_chunks":
-                return data
+            if data.get("analysis_method") != "map_reduce_macro_chunks":
+                return None
+
+            healed = self._heal_tier_b_map_findings(bill, data)
+            keys = set(healed.get("analyzed_chunk_keys") or [])
+            map_keys = {
+                m.get("chunk_key")
+                for m in (healed.get("tier_b_map_findings") or [])
+                if isinstance(m, dict) and m.get("chunk_key")
+            }
+            raw_maps = len(data.get("tier_b_map_findings") or [])
+            healed_maps = len(healed.get("tier_b_map_findings") or [])
+
+            if data.get("is_partial"):
+                return healed
+
+            # Complete but missing map payloads for some keys → remapped via orphan logic
+            if keys and not keys.issubset(map_keys):
+                out = dict(healed)
+                out["is_partial"] = True
+                return out
+
+            # Complete but history heal restored more map findings → re-reduce only
+            if healed_maps > raw_maps and keys and keys.issubset(map_keys):
+                out = dict(healed)
+                out["is_partial"] = True
+                out["_needs_rereduce"] = True
+                return out
         except Exception as e:
             logger.debug(f"Could not load prior partial: {e}")
         return None
+
+    def _heal_tier_b_map_findings(self, bill, data: Dict) -> Dict:
+        """Restore tier_b_map_findings wiped by empty-wave minimal persists."""
+        findings = list(data.get("tier_b_map_findings") or [])
+        by_key = {
+            f.get("chunk_key"): f
+            for f in findings
+            if isinstance(f, dict) and f.get("chunk_key")
+        }
+        keys = set(data.get("analyzed_chunk_keys") or [])
+        if keys and keys.issubset(by_key.keys()):
+            return data
+        try:
+            from db_models import AIAnalysis
+
+            versions = (
+                AIAnalysis.query.filter_by(bill_id=bill.id)
+                .order_by(AIAnalysis.id.desc())
+                .all()
+            )
+            for ver in versions:
+                vd = ver.get_analysis_data() or {}
+                for f in vd.get("tier_b_map_findings") or []:
+                    if not isinstance(f, dict):
+                        continue
+                    ck = f.get("chunk_key")
+                    if ck and ck not in by_key:
+                        by_key[ck] = f
+            if len(by_key) > len(findings):
+                logger.info(
+                    f"[AI] Healed Tier B map findings {len(findings)} → {len(by_key)} "
+                    f"from analysis history"
+                )
+                healed = dict(data)
+                healed["tier_b_map_findings"] = list(by_key.values())
+                return healed
+        except Exception as e:
+            logger.debug(f"Could not heal Tier B map findings: {e}")
+        return data
 
     def _analyze_tier_a(
         self, text: str, title: str, summary: str, total_chars: int
@@ -518,11 +593,36 @@ Return JSON with keys:
             macros = macros[: self.max_chunks_per_bill]
 
         prior_keys = set((prior_analysis or {}).get("analyzed_chunk_keys") or [])
+        prior_maps = list((prior_analysis or {}).get("tier_b_map_findings") or [])
+        map_keys_present = {
+            m.get("chunk_key") for m in prior_maps if isinstance(m, dict) and m.get("chunk_key")
+        }
+        # Keys marked done but missing map payloads (empty-wave wipe) must be remapped
+        orphan_keys = prior_keys - map_keys_present
+        if orphan_keys:
+            logger.warning(
+                f"[AI] Tier B: {len(orphan_keys)} chunk keys lack map findings — remapping"
+            )
+            prior_keys = prior_keys - orphan_keys
+            prior_maps = [
+                m for m in prior_maps
+                if isinstance(m, dict) and m.get("chunk_key") in prior_keys
+            ]
+
         remaining = self.bill_chunker.filter_unanalyzed(macros, prior_keys)
 
         if not remaining:
             logger.info("[AI] Tier B: no remaining macro-chunks — marking complete")
-            merged = dict(prior_analysis or {})
+            covered_map_keys = {
+                m.get("chunk_key")
+                for m in prior_maps
+                if isinstance(m, dict) and m.get("chunk_key")
+            }
+            # Re-reduce when we have map findings for every macro (incl. history heal)
+            if prior_maps and len(covered_map_keys) >= len(macros):
+                merged = self._reduce_tier_b(prior_maps, title, text)
+            else:
+                merged = dict(prior_analysis or {})
             merged.update(
                 {
                     "is_partial": False,
@@ -530,6 +630,10 @@ Return JSON with keys:
                     "remaining_chunks": 0,
                     "chars_analyzed": total_chars,
                     "total_chars": total_chars,
+                    "chunks_analyzed": len(macros),
+                    "total_chunks_available": len(macros),
+                    "analyzed_chunk_keys": sorted(m.ensure_key() for m in macros),
+                    "tier_b_map_findings": prior_maps,
                     "analysis_completeness": "full",
                     "limit_cause": None,
                     "analysis_method": "map_reduce_macro_chunks",
@@ -541,6 +645,35 @@ Return JSON with keys:
 
         wave = self._select_tier_b_wave(remaining, allow_budget_waits=allow_budget_waits)
         if not wave:
+            # Preserve prior Tier B payload — never swap in a fresh "minimal" that
+            # drops tier_b_map_findings / summary (that broke HR-1 accuracy).
+            if prior_analysis:
+                preserved = dict(prior_analysis)
+                preserved.update(
+                    {
+                        "analysis_method": "map_reduce_macro_chunks",
+                        "analysis_tier": "B",
+                        "is_partial": True,
+                        "completion_percentage": self._char_completion(
+                            prior_keys, macros, total_chars
+                        ),
+                        "analyzed_chunk_keys": sorted(prior_keys),
+                        "chunks_analyzed": len(prior_keys),
+                        "total_chunks_available": len(macros),
+                        "remaining_chunks": len(remaining),
+                        "chars_analyzed": self._chars_for_keys(prior_keys, macros),
+                        "total_chars": total_chars,
+                        "limit_cause": "local_minute_budget",
+                        "tier_b_map_findings": prior_maps
+                        or list(prior_analysis.get("tier_b_map_findings") or []),
+                        "provider_model": self.model_name,
+                        "_no_progress": True,
+                    }
+                )
+                logger.info(
+                    "[AI] Tier B: empty wave (local budget) — preserving prior map findings"
+                )
+                return preserved
             minimal = self._create_minimal_analysis(title, summary)
             minimal.update(
                 {
@@ -557,6 +690,7 @@ Return JSON with keys:
                     "chars_analyzed": self._chars_for_keys(prior_keys, macros),
                     "total_chars": total_chars,
                     "limit_cause": "local_minute_budget",
+                    "_no_progress": True,
                 }
             )
             return minimal
@@ -566,11 +700,16 @@ Return JSON with keys:
         for i, chunk in enumerate(wave):
             finding = self._map_macro_chunk(chunk, title, i)
             if finding is not None:
+                if not isinstance(finding, dict):
+                    finding = {"summary": str(finding)}
+                else:
+                    finding = dict(finding)
+                finding.setdefault("chunk_key", chunk.ensure_key())
                 map_findings.append(finding)
             newly_done.append(chunk.ensure_key())
 
         all_keys = prior_keys | set(newly_done)
-        prior_maps = list((prior_analysis or {}).get("tier_b_map_findings") or [])
+        # Use healed/filtered prior_maps from above (not raw prior_analysis)
         combined_maps = prior_maps + map_findings
 
         is_complete = len(all_keys) >= len(macros)
