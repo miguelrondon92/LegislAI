@@ -165,6 +165,40 @@ class Bill(db.Model):
     actions = db.relationship('BillAction', backref='bill', lazy=True, cascade='all, delete-orphan', order_by='BillAction.action_date.desc()')
     def get_bill_identifier(self):
         return f"{self.congress}-{self.bill_type.upper()}{self.bill_number}"
+
+    @staticmethod
+    def _congress_ordinal(congress):
+        """English ordinal suffix for a congress number (119 → '119th')."""
+        n = int(congress)
+        if 11 <= (n % 100) <= 13:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        return f"{n}{suffix}"
+
+    _CONGRESS_GOV_TYPE_SLUGS = {
+        'hr': 'house-bill',
+        's': 'senate-bill',
+        'hjres': 'house-joint-resolution',
+        'sjres': 'senate-joint-resolution',
+        'hres': 'house-resolution',
+        'sres': 'senate-resolution',
+        'hconres': 'house-concurrent-resolution',
+        'sconres': 'senate-concurrent-resolution',
+    }
+
+    def get_congress_gov_url(self):
+        """Public congress.gov bill page URL (not the API endpoint)."""
+        if self.congress is None or self.bill_number is None or not self.bill_type:
+            return None
+        slug = self._CONGRESS_GOV_TYPE_SLUGS.get(self.bill_type.lower().strip())
+        if not slug:
+            return None
+        ordinal = self._congress_ordinal(self.congress)
+        return (
+            f"https://www.congress.gov/bill/{ordinal}-congress/{slug}/{int(self.bill_number)}"
+        )
+
     def get_full_text(self, *, fetch_if_missing=True, persist=True):
         """Return persisted full text, optionally fetching once from Congress and storing it."""
         if self.full_text:

@@ -11,7 +11,7 @@ Authoritative definitions live in `db_models.py`. This is a navigation aid for s
 | `AIAnalysis` | Versioned AI results | `analysis_data` JSON text; `complexity_score`, `controversy_score`; `provider_model` (Gemini at write time); `active`, `analysis_version`. Enrichment fields live **inside** JSON (`policy_areas`, `policy_analysis`, `stakeholders`) — no separate table |
 | `Summary` | Versioned summaries | `summary_text`, `plain_language_summary`, `key_provisions` JSON; `provider_model`; `active` |
 | `BillCategoryMapping` | Bill ↔ policy | Relevance + `sneakiness_score` |
-| `HiddenProvision` | Risk findings | Linked to bill; sneakiness/risk metadata; `provider_model` |
+| `HiddenProvision` | Hidden provisions (UI) | Canonical store for profile/search/home; risk metadata; `provider_model`. Filled from analysis JSON on complete analyze + heal |
 | `PolicyCategory` | 36 federal categories | Seed via `scripts/setup/create_policy_categories.py`; names in `utils/constants.py` |
 | `User` / `UserPolicySubscription` | Auth + prefs | Interest levels, notification settings |
 | `Alert` / `UserBillAlignment` | Personalization | Alignment scores |
@@ -25,7 +25,8 @@ Use these instead of raw legacy columns when possible:
 
 - `get_active_ai_analysis()`, `get_ai_analysis_new()`
 - `get_active_summary()`, `get_summary_text()`, `get_plain_language_summary()`
-- `get_complexity_score_new()`, `get_controversy_score_new()`
+- `get_complexity_score_new()`, `get_controversy_score_new()` — complexity helper returns **0–1** (`complexity_assessment.complexity_score` is 0.0–1.0; only ÷100 if legacy value `>1`); templates display ×100
+- `get_hidden_provisions()`, `get_hidden_provisions_count()` — UI source of truth for **hidden provisions** (not analysis JSON)
 - `create_new_analysis_version(...)`, `create_new_summary_version(...)`
 - `update_display_ready_status()`
 

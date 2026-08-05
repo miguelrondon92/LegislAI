@@ -44,7 +44,7 @@ command_touches_secrets() {
   if echo "$cmd" | grep -Eiq '(^|[;&|[:space:]])(printenv|env)([|;[:space:]]|$)'; then
     return 0
   fi
-  if echo "$cmd" | grep -Eiq '(echo|printf|print)\>.*(_API_KEY|SECRET_KEY|MAIL_PASSWORD|ADMIN_PASSWORD)'; then
+  if echo "$cmd" | grep -Eiq '(echo|printf|print)\>.*(_API_KEY|SECRET_KEY|MAIL_PASSWORD|ADMIN_PASSWORD|LEGISLAI_ADMIN_PASSWORD)'; then
     return 0
   fi
   if echo "$cmd" | grep -Eiq 'export[[:space:]]+[A-Za-z0-9_]*(KEY|PASSWORD|SECRET)='; then

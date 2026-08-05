@@ -354,7 +354,7 @@
                         <div class="alert alert-warning" role="alert">
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             Unable to load bill text. You can view the full text on the 
-                            <a href="{{ bill.congress_api_url }}" target="_blank">Congress.gov website</a>.
+                            <a href="{{ bill.get_congress_gov_url() or bill.congress_api_url }}" target="_blank">Congress.gov website</a>.
                         </div>
                     </div>
                 </div>
