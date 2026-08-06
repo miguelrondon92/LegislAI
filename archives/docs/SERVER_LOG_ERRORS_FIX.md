@@ -1,3 +1,5 @@
+> **Archived** — historical reference only. Current docs: [root README](../../README.md), [pipeline-contract](../../.cursor/resources/pipeline-contract.md).
+
 # Server Log Errors Fix - Implementation Summary
 
 ## Issues Identified in Server Log

@@ -1,3 +1,5 @@
+> **Archived** — historical reference only. Current docs: [root README](../../README.md), [pipeline-contract](../../.cursor/resources/pipeline-contract.md).
+
 # Enhanced Limit Enforcement System
 
 > **2026-08 note:** Size-aware Tier A/B + TPM governor supersede parts of this doc (e.g. “max 15 chunks”, front-of-bill importance bias). For current behavior see `AGENTS.md` and `.cursor/resources/pipeline-contract.md`. Enrichment RPM checks use `enrichment_quota_ok()` → `get_rate_limit_status()["remaining_requests"]`, **not** `get_quota_info()["status"]["safe_remaining_requests"]` (that nest is wrong and caused false skips).

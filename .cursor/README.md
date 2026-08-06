@@ -2,6 +2,8 @@
 
 Project-local Cursor configuration for multi-agent LegislAI development.
 
+Human-facing product and architecture docs: [`../README.md`](../README.md), [`../services/README.md`](../services/README.md). Pipeline rules for agents: [`../AGENTS.md`](../AGENTS.md).
+
 ## Layout
 
 | Path | Purpose |

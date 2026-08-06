@@ -74,9 +74,12 @@ When Gemini analysis fails (missing key, model error, quota, partial, empty resu
 
 ## Docs map
 
-- Architecture: `docs/CLAUDE.md`
-- Structure: `PROJECT_STRUCTURE.md`
-- Workflow: `docs/WORKFLOW_README.md`
-- Bill search: `docs/BILL_SEARCH_WORKFLOW_GUIDE.md`
-- DB: `docs/DATABASE_OPTIMIZATION_SUMMARY.md`, `docs/DATABASE_POPULATION_GUIDE.md`
-- Analysis pipeline: `docs/ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md`
+- Product / fine-tune / architecture chart: [`README.md`](README.md)
+- Services diagrams: [`services/README.md`](services/README.md)
+- Docs index: [`docs/README.md`](docs/README.md)
+- Developer guide: [`docs/CLAUDE.md`](docs/CLAUDE.md)
+- Structure: [`PROJECT_STRUCTURE.md`](PROJECT_STRUCTURE.md)
+- Workflow: [`docs/WORKFLOW_README.md`](docs/WORKFLOW_README.md)
+- Analysis pipeline: [`docs/ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md`](docs/ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md)
+- DB: [`docs/DATABASE_OPTIMIZATION_SUMMARY.md`](docs/DATABASE_OPTIMIZATION_SUMMARY.md), [`docs/DATABASE_POPULATION_GUIDE.md`](docs/DATABASE_POPULATION_GUIDE.md)
+- Historical summaries: [`archives/docs/`](archives/docs/)

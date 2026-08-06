@@ -1,82 +1,39 @@
-# LegislAI Documentation Index
+# LegislAI documentation index
 
-Welcome to the LegislAI documentation collection. This folder contains comprehensive documentation for the LegislAI system, organized by category.
+**Start here:** [root README](../README.md) — product overview, fine-tuning, architecture chart.
 
-## 📚 Documentation Overview
+Service diagrams: [services/README.md](../services/README.md).  
+Agent / pipeline source of truth: [AGENTS.md](../AGENTS.md), [pipeline-contract](../.cursor/resources/pipeline-contract.md).
 
-### 🏗️ Core System Documentation
+## Current docs
+
 | File | Description |
 |------|-------------|
-| [`CLAUDE.md`](./CLAUDE.md) | **Main developer guide** - Comprehensive system overview, architecture, and development guidelines |
-| [`WORKFLOW_README.md`](./WORKFLOW_README.md) | Workflow orchestrator system documentation and API reference |
-| [`DATABASE_POPULATION_GUIDE.md`](./DATABASE_POPULATION_GUIDE.md) | Complete guide for populating database with congressional data |
+| [`CLAUDE.md`](./CLAUDE.md) | Longer developer guide (defers to AGENTS on pipeline) |
+| [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) | Chronological product/engineering updates |
+| [`ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md`](./ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md) | Tier A/B analysis, hidden provisions, rate limits |
+| [`WORKFLOW_README.md`](./WORKFLOW_README.md) | RSS workflow orchestrator and API |
+| [`DATABASE_POPULATION_GUIDE.md`](./DATABASE_POPULATION_GUIDE.md) | Populating congressional data |
+| [`DATABASE_OPTIMIZATION_SUMMARY.md`](./DATABASE_OPTIMIZATION_SUMMARY.md) | AIAnalysis / Summary normalization overview |
+| [`PRODUCTION_BACKFILL_GUIDE.md`](./PRODUCTION_BACKFILL_GUIDE.md) | Production backfill with PostgreSQL |
+| [`NOTIFICATION_ENVIRONMENT_CONTROLS.md`](./NOTIFICATION_ENVIRONMENT_CONTROLS.md) | `NOTIFICATIONS_ENABLED` / env gating |
 
-### 🔧 Implementation Summaries  
-| File | Description |
+## Archived docs
+
+Historical implementation summaries and fix logs live under [`archives/docs/`](../archives/docs/). Prefer the root README and pipeline contract when those conflict with archived notes.
+
+## Related
+
+| Path | Description |
 |------|-------------|
-| [`AI_ANALYZER_CONSOLIDATION_LOG.md`](./AI_ANALYZER_CONSOLIDATION_LOG.md) | **🆕 Latest:** AI analyzer consolidation - three analyzers unified into one enhanced system |
-| [`DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`](./DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md) | Comprehensive log of database structure optimization (450+ lines) |
-| [`DATABASE_OPTIMIZATION_SUMMARY.md`](./DATABASE_OPTIMIZATION_SUMMARY.md) | Technical summary of database optimization with schema definitions |
-| [`AI_ANALYZER_CONSOLIDATION_ANALYSIS.md`](./AI_ANALYZER_CONSOLIDATION_ANALYSIS.md) | Analysis and comparison of the three AI analyzers before consolidation |
-| [`FULL_TEXT_ANALYSIS_IMPLEMENTATION_SUMMARY.md`](./FULL_TEXT_ANALYSIS_IMPLEMENTATION_SUMMARY.md) | Full text analysis enhancement implementation details |
-| [`BILL_SEARCH_ENHANCEMENT_SUMMARY.md`](./BILL_SEARCH_ENHANCEMENT_SUMMARY.md) | Bill search functionality improvements and enhancements |
-| [`HOMEPAGE_DUPLICATE_FIX_SUMMARY.md`](./HOMEPAGE_DUPLICATE_FIX_SUMMARY.md) | Homepage duplicate bill display fixes |
+| [`PROJECT_STRUCTURE.md`](../PROJECT_STRUCTURE.md) | Directory layout |
+| [`config/README.md`](../config/README.md) | Env templates |
+| [`scripts/README.md`](../scripts/README.md) | Setup / debug / cleanup scripts |
+| [`.cursor/README.md`](../.cursor/README.md) | Agentic Cursor system |
 
-### ⚙️ System Configuration  
-| File | Description |
-|------|-------------|
-| [`BACKOFF_IMPLEMENTATION.md`](./BACKOFF_IMPLEMENTATION.md) | Rate limiting and backoff implementation details |
-| [`LIMIT_ENFORCEMENT_SUMMARY.md`](./LIMIT_ENFORCEMENT_SUMMARY.md) | Rate limit enforcement and monitoring configuration |
+## Contributing to documentation
 
-### 📈 Recent Updates
-| File | Description |
-|------|-------------|
-| [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) | **Start here:** Aug 2026 size-aware analysis + enrichers, plus earlier async work |
-| [`continued_ideas.md`](./continued_ideas.md) | Future enhancement ideas and development roadmap |
-
-## 🤖 Agentic development
-
-Multi-agent Cursor setup (skills, hooks, contracts, secrets ban): see root [`AGENTS.md`](../AGENTS.md) and [`.cursor/README.md`](../.cursor/README.md).
-
-**Current pipeline (Tier A/B + async enrichers):** [`.cursor/resources/pipeline-contract.md`](../.cursor/resources/pipeline-contract.md) — prefer over older implementation summaries when they conflict.
-
-## 🚀 Quick Start for Developers
-
-1. **New to the project?** Start with [`AGENTS.md`](../AGENTS.md) + [`CLAUDE.md`](./CLAUDE.md)
-2. **Recent changes?** Check [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) (Aug 2026 size-aware + enrichers at top)
-3. **Analysis / Gemini work?** Pipeline contract + [`ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md`](./ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md) (2026-08 header)
-4. **Database work?** See [`DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`](./DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md) for recent structural changes
-5. **Setting up data?** Use [`DATABASE_POPULATION_GUIDE.md`](./DATABASE_POPULATION_GUIDE.md) for population scripts
-6. **Workflow issues?** Reference [`WORKFLOW_README.md`](./WORKFLOW_README.md) for orchestrator details
-
-## 📊 Documentation Statistics
-
-- **Total Documentation Files:** 15  
-- **Total Lines:** 3000+ lines of comprehensive documentation
-- **Last Updated:** July 2025
-- **Coverage:** Complete system architecture, implementation logs, configuration guides
-
-## 🔍 Finding Information
-
-**By Topic:**
-- **Database:** `DATABASE_*` files cover schema, migration, and population
-- **Workflow:** `WORKFLOW_README.md` and `BACKOFF_IMPLEMENTATION.md`
-- **Search:** `BILL_SEARCH_ENHANCEMENT_SUMMARY.md`
-- **Analysis:** `FULL_TEXT_ANALYSIS_IMPLEMENTATION_SUMMARY.md`
-- **Configuration:** `LIMIT_ENFORCEMENT_SUMMARY.md` and `BACKOFF_IMPLEMENTATION.md`
-
-**By Recency:**
-- 🆕 **July 2025:** Database optimization with AIAnalysis/Summary tables
-- **Previous:** Full text analysis, search enhancements, rate limiting
-
-## 📝 Contributing to Documentation
-
-When making system changes:
-1. Update [`CLAUDE.md`](./CLAUDE.md) for architectural changes
-2. Create implementation summary for major features
-3. Update [`RECENT_UPDATES.md`](./RECENT_UPDATES.md) with new changes
-4. Reference this README.md for documentation organization
-
----
-
-*This documentation collection ensures comprehensive coverage of the LegislAI system for current and future developers.*
+1. Update [root README](../README.md) or [services/README.md](../services/README.md) for architecture / product changes.
+2. Update [AGENTS.md](../AGENTS.md) / pipeline-contract for agent-facing pipeline rules.
+3. Append noteworthy shipped work to [`RECENT_UPDATES.md`](./RECENT_UPDATES.md).
+4. Do not revive archived fix logs as current architecture — add a short current doc or extend the README instead.

@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Start here for humans:** root [`README.md`](../README.md) and [`services/README.md`](../services/README.md).
+>
 > **Agent / pipeline source of truth (2026-08):** root [`AGENTS.md`](../AGENTS.md) and [`.cursor/resources/pipeline-contract.md`](../.cursor/resources/pipeline-contract.md). Prefer those for Tier A/B analysis, async enrichers (`analysis_enrichers.py`), ops classes, and `display_ready` semantics when this file disagrees.
 
 ## Overview
@@ -373,30 +375,25 @@ class HiddenProvision(db.Model):
 - `utils/` - Utility functions (bill_chunker.py, constants.py, text_processing.py)
 - `test/` - Comprehensive test suite (40+ test files)
 - `logs/` - Application logs and monitoring data
-- `readme's/` - Additional documentation and implementation summaries (see below for complete list)
+- `docs/` - Live technical docs (see [`README.md`](./README.md) index)
+- Root [`README.md`](../README.md) / [`services/README.md`](../services/README.md) - Product + service architecture
+- `archives/docs/` - Historical implementation summaries (not current architecture)
 
-## Documentation Index (readme's/ folder)
+## Documentation Index
 
-### Core System Documentation
-- **`CLAUDE.md`** - This file: Comprehensive system overview and developer guide
-- **`WORKFLOW_README.md`** - Workflow orchestrator system documentation
-- **`DATABASE_POPULATION_GUIDE.md`** - Complete guide for populating database with congressional data
+### Current
+- **Root [`README.md`](../README.md)** - Product overview, fine-tuning, architecture chart
+- **[`services/README.md`](../services/README.md)** - Service catalog and diagrams
+- **`CLAUDE.md`** - This file: longer developer guide
+- **`WORKFLOW_README.md`** - Workflow orchestrator
+- **`ENHANCED_ANALYSIS_PIPELINE_DOCUMENTATION.md`** - Tier A/B analysis
+- **`DATABASE_POPULATION_GUIDE.md`** / **`DATABASE_OPTIMIZATION_SUMMARY.md`** - DB guides
+- **`PRODUCTION_BACKFILL_GUIDE.md`** / **`NOTIFICATION_ENVIRONMENT_CONTROLS.md`**
+- **`RECENT_UPDATES.md`** - Chronological updates
+- **[`docs/README.md`](./README.md)** - Full live index
 
-### Implementation Summaries  
-- **`DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`** - Comprehensive log of database structure optimization (AI analysis → separate tables)
-- **`DATABASE_OPTIMIZATION_SUMMARY.md`** - Technical summary of database optimization with schema definitions
-- **`HIDDEN_PROVISIONS_IMPLEMENTATION_SUMMARY.md`** - Complete hidden provisions detection system implementation
-- **`FULL_TEXT_ANALYSIS_IMPLEMENTATION_SUMMARY.md`** - Full text analysis enhancement implementation
-- **`BILL_SEARCH_ENHANCEMENT_SUMMARY.md`** - Bill search functionality improvements
-- **`HOMEPAGE_DUPLICATE_FIX_SUMMARY.md`** - Homepage duplicate bill display fixes
-
-### System Configuration  
-- **`BACKOFF_IMPLEMENTATION.md`** - Rate limiting and backoff implementation details
-- **`LIMIT_ENFORCEMENT_SUMMARY.md`** - Rate limit enforcement and monitoring
-
-### Recent Updates
-- **`RECENT_UPDATES.md`** - Summary of recent major system changes and enhancements
-- **`continued_ideas.md`** - Future enhancement ideas and development roadmap
+### Archived
+Historical fix/implementation logs: [`archives/docs/`](../archives/docs/).
 
 ## Latest Fixes and Enhancements (July 2025)
 

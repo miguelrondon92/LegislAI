@@ -39,6 +39,6 @@ description: Build and fix LegislAI Jinja templates, CSS, and JS for dashboards,
 
 - `.cursor/resources/pipeline-contract.md` (Policy areas vs enrichments)
 - `.cursor/resources/display-ready-contract.md`
-- `docs/PROGRESSIVE_LOADING_ENHANCEMENT.md`
-- `docs/FRONTEND_LEGISLATIVE_PROGRESS_FIX.md`
-- `docs/HOMEPAGE_SUMMARY_TABLE_FIX.md`
+- `archives/docs/PROGRESSIVE_LOADING_ENHANCEMENT.md`
+- `archives/docs/FRONTEND_LEGISLATIVE_PROGRESS_FIX.md`
+- `archives/docs/HOMEPAGE_SUMMARY_TABLE_FIX.md`

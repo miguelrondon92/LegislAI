@@ -95,8 +95,8 @@ def _perform_analysis_async(bill):
 - `routes.py` - Async analysis implementation and enhanced quota management
 - `templates/bill_search.html` - Background analysis notifications
 - `templates/workflow_dashboard.html` - Enhanced user messaging
-- `docs/ASYNC_ANALYSIS_IMPLEMENTATION.md` - Comprehensive implementation documentation
-- `docs/ASYNC_WORKFLOW_ORCHESTRATOR_ANALYSIS.md` - Workflow orchestrator analysis documentation
+- `archives/docs/ASYNC_ANALYSIS_IMPLEMENTATION.md` - Historical implementation documentation
+- `archives/docs/ASYNC_WORKFLOW_ORCHESTRATOR_ANALYSIS.md` - Historical workflow orchestrator analysis
 
 ---
 
@@ -175,7 +175,7 @@ def _perform_analysis_async(bill):
 ### Bill Text Acquisition, Category Mapping & Search Integration Fixes
 
 **Status:** ✅ Completed Successfully  
-**Comprehensive Documentation:** [`BILL_TEXT_AND_CATEGORY_MAPPING_FIXES.md`](./BILL_TEXT_AND_CATEGORY_MAPPING_FIXES.md)
+**Comprehensive Documentation:** [`BILL_TEXT_AND_CATEGORY_MAPPING_FIXES.md`](../archives/docs/BILL_TEXT_AND_CATEGORY_MAPPING_FIXES.md)
 
 **Summary of Changes:**
 - **Enhanced bill text acquisition** with exhaustive retry logic and format fallback
@@ -229,8 +229,8 @@ Integration testing: Comprehensive test suite validates system
 **Documentation Updated:**
 - `readmes/CLAUDE.md` - Enhanced with latest WorkflowOrchestrator and bill search integration details
 - `readmes/RECENT_UPDATES.md` - Complete summary of all fixes and enhancements
-- `readmes/WORKFLOW_ORCHESTRATOR_INTEGRATION_STATUS.md` - New integration status documentation
-- `readmes/BILL_TEXT_AND_CATEGORY_MAPPING_FIXES.md` - Comprehensive implementation details
+- `archives/docs/WORKFLOW_ORCHESTRATOR_INTEGRATION_STATUS.md` - Historical integration status
+- `archives/docs/BILL_TEXT_AND_CATEGORY_MAPPING_FIXES.md` - Historical implementation details
 
 **Production Ready Status:**
 ✅ **RSS Monitoring**: Fully automated with WorkflowOrchestrator  
@@ -248,7 +248,7 @@ Integration testing: Comprehensive test suite validates system
 ### Comprehensive Bill Analysis: Advanced Detection & Web Integration
 
 **Status:** ✅ Completed Successfully  
-**Comprehensive Documentation:** [`HIDDEN_PROVISIONS_IMPLEMENTATION_SUMMARY.md`](./HIDDEN_PROVISIONS_IMPLEMENTATION_SUMMARY.md)
+**Comprehensive Documentation:** [`HIDDEN_PROVISIONS_IMPLEMENTATION_SUMMARY.md`](../archives/docs/HIDDEN_PROVISIONS_IMPLEMENTATION_SUMMARY.md)
 
 **Summary of Changes:**
 - **Added sophisticated detection system** with 28 pattern-based detectors for suspicious bill language
@@ -301,7 +301,7 @@ bill.get_overall_hidden_risk_score()         # Calculated aggregate risk score
 ### System Unification: Three Analyzers → One Enhanced Analyzer
 
 **Status:** ✅ Completed Successfully  
-**Comprehensive Documentation:** [`AI_ANALYZER_CONSOLIDATION_LOG.md`](./AI_ANALYZER_CONSOLIDATION_LOG.md)
+**Comprehensive Documentation:** [`AI_ANALYZER_CONSOLIDATION_LOG.md`](../archives/docs/AI_ANALYZER_CONSOLIDATION_LOG.md)
 
 **Summary of Changes:**
 - **Consolidated three different AI analyzers** into single `EnhancedAIAnalyzer`
@@ -336,7 +336,7 @@ bill.get_overall_hidden_risk_score()         # Calculated aggregate risk score
 ### Major Enhancement: AI Analysis & Summary Table Separation
 
 **Status:** ✅ Completed Successfully  
-**Comprehensive Documentation:** [`DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`](./DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md)
+**Comprehensive Documentation:** [`DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`](../archives/docs/DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md)
 
 **Summary of Changes:**
 - **Moved AI analysis data** from JSON field to dedicated `AIAnalysis` table with versioning
@@ -385,4 +385,4 @@ bill.create_new_summary_version()    # Creates new summary version
 
 ---
 
-*For complete technical details, migration steps, test results, and implementation specifics, see the [full implementation log](./DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md).*
+*For complete technical details, migration steps, test results, and implementation specifics, see the [full implementation log](../archives/docs/DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md).*

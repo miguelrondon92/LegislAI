@@ -1,3 +1,5 @@
+> **Archived** — historical reference only. Current docs: [root README](../../README.md), [pipeline-contract](../../.cursor/resources/pipeline-contract.md).
+
 # Frontend Action Type Formatting Fix - Implementation Summary
 
 ## Issue Identified

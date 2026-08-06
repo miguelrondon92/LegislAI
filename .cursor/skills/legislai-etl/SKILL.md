@@ -13,7 +13,7 @@ description: Ingest and normalize congressional data for LegislAI via Congress.g
 
 1. Fetch bill metadata, text, and actions from Congress sources.
 2. Normalize into shapes Bill / BillAction already accept — **persist `Bill.full_text` + `content_hash` + `full_text_fetched_at` on ingest**.
-3. Respect rate limits and backoff (`docs/BACKOFF_IMPLEMENTATION.md`, `docs/LIMIT_ENFORCEMENT_SUMMARY.md`). Use `get_shared_congress_api()` so spacing is process-wide.
+3. Respect rate limits and backoff (`archives/docs/BACKOFF_IMPLEMENTATION.md`, `archives/docs/LIMIT_ENFORCEMENT_SUMMARY.md`; current budget: `services/gemini_rate_budget.py`). Use `get_shared_congress_api()` so spacing is process-wide.
 4. Support both live RSS and backfill batch size discipline (often batch size 1).
 5. **Do not run Gemini inside `process_bill_data`.** Ingest only; callers (`routes._perform_analysis_async`, workflow/backfill) queue analysis off the HTTP thread. Keep `local_minute_budget` waits in background analysis only.
 

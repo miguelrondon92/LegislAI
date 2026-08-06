@@ -1,3 +1,5 @@
+> **Archived** — historical reference only. Current docs: [root README](../../README.md), [pipeline-contract](../../.cursor/resources/pipeline-contract.md).
+
 # Progressive Loading Enhancement for Bill Search - Implementation Summary
 
 ## Problem Identified

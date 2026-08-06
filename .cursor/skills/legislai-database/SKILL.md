@@ -35,5 +35,5 @@ After migration + model update:
 ## References
 
 - `docs/DATABASE_OPTIMIZATION_SUMMARY.md`
-- `docs/DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`
+- `archives/docs/DATABASE_OPTIMIZATION_IMPLEMENTATION_LOG.md`
 - `.cursor/resources/schema-surface.md`
