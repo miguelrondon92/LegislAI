@@ -241,7 +241,7 @@ def test_workflow_integration():
         orchestrator = WorkflowOrchestrator()
         
         # Test the enhanced AI analysis
-        success, metadata = orchestrator._perform_ai_analysis(recent_bill)
+        success, metadata, _analysis_ran = orchestrator._perform_ai_analysis(recent_bill)
         
         if success:
             logger.info("✅ Workflow integration test successful")

@@ -192,11 +192,14 @@ def _normalize_policy_analysis(
     }
 
 
-def run_downstream_enrichments(bill, analyzer) -> Dict[str, Any]:
+def run_downstream_enrichments(
+    bill, analyzer, *, source: str = "enricher"
+) -> Dict[str, Any]:
     """
     Run stakeholder + policy_analysis Gemini passes and merge into a new analysis version.
 
     Returns the merged analysis dict (also persisted when bill supports versioning).
+    `source` is stored on OpsAlerts (routes / rss / backfill / enricher).
     """
     from services.ops_alert_service import (
         ENRICHMENT_FINISHED,
@@ -204,6 +207,7 @@ def run_downstream_enrichments(bill, analyzer) -> Dict[str, Any]:
         notify_gemini_failure,
     )
 
+    ops_source = source or "enricher"
     model_name = getattr(analyzer, "model_name", None) or GEMINI_MODEL
     active = bill.get_active_ai_analysis() if hasattr(bill, "get_active_ai_analysis") else None
     base = attach_policy_areas((active.get_analysis_data() if active else {}) or {})
@@ -241,7 +245,7 @@ def run_downstream_enrichments(bill, analyzer) -> Dict[str, Any]:
                 severity="info",
                 bill=bill,
                 provider_model=model_name,
-                source="enricher",
+                source=ops_source,
                 extra={
                     "event": "deferred",
                     "enrichment": "both",
@@ -250,6 +254,7 @@ def run_downstream_enrichments(bill, analyzer) -> Dict[str, Any]:
                     "remaining_requests": remaining,
                     "time_until_reset": reset_in,
                     "provider_model": model_name,
+                    "pipeline": ops_source,
                 },
             )
         except Exception:
@@ -285,11 +290,12 @@ def run_downstream_enrichments(bill, analyzer) -> Dict[str, Any]:
             severity="info",
             bill=bill,
             provider_model=model_name,
-            source="enricher",
+            source=ops_source,
             extra={
                 "event": "queued",
                 "enrichment": "both",
                 "provider_model": model_name,
+                "pipeline": ops_source,
             },
         )
     except Exception:
@@ -373,13 +379,14 @@ relevance_score must be a float from 0.0 to 1.0.
             severity="info",
             bill=bill,
             provider_model=model_name,
-            source="enricher",
+            source=ops_source,
             extra={
                 "event": "finished",
                 "enrichment": "both",
                 "stakeholders_status": base["stakeholders"].get("status"),
                 "policy_analysis_status": base["policy_analysis"].get("status"),
                 "provider_model": model_name,
+                "pipeline": ops_source,
             },
         )
     except Exception:

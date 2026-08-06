@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import threading
 from typing import Dict, List, Optional, Tuple, Any
 import google.generativeai as genai
 # from openai import OpenAI  # Removed - using Gemini only
@@ -8,10 +9,24 @@ import re
 from datetime import datetime
 from utils.constants import FEDERAL_POLICY_CATEGORIES, GEMINI_MODEL
 from utils.bill_chunker import BillChunker, BillChunk
+from services.gemini_rate_budget import get_shared_gemini_budget
 import time
 import random
 
 logger = logging.getLogger(__name__)
+
+_shared_ai_analyzer = None
+_shared_ai_analyzer_lock = threading.Lock()
+
+
+def get_shared_ai_analyzer() -> "EnhancedAIAnalyzer":
+    """Process-wide analyzer so Gemini RPM/TPM budget is shared across ingestors."""
+    global _shared_ai_analyzer
+    with _shared_ai_analyzer_lock:
+        if _shared_ai_analyzer is None:
+            _shared_ai_analyzer = EnhancedAIAnalyzer()
+        return _shared_ai_analyzer
+
 
 class AIAnalysisPartialError(Exception):
     """Exception raised when AI analysis is only partially completed due to rate limits"""
@@ -26,8 +41,9 @@ class EnhancedAIAnalyzer:
 
     MODEL_NAME = GEMINI_MODEL
     
-    def __init__(self):
+    def __init__(self, budget=None):
         self.model_name = self.MODEL_NAME
+        self._budget = budget if budget is not None else get_shared_gemini_budget()
         self.api_key = os.environ.get('GEMINI_API_KEY')
         if not self.api_key:
             logging.warning("GEMINI_API_KEY not found. AI analysis will be disabled.")
@@ -52,14 +68,17 @@ class EnhancedAIAnalyzer:
             self.client = genai.GenerativeModel(self.model_name)
 
         # Rate limiting — free-tier Gemini Flash-Lite: ~15 RPM, ~250k TPM, 1M context
-        self.max_requests_per_minute = 15
-        self.max_input_tokens_per_minute = 250_000
-        self.usable_tpm_headroom = 220_000  # leave buffer under TPM
+        # Counters live on shared GeminiRateBudget; these mirror budget limits for callers.
+        self.max_requests_per_minute = self._budget.max_requests_per_minute
+        self.max_input_tokens_per_minute = self._budget.max_input_tokens_per_minute
+        self.usable_tpm_headroom = self._budget.usable_tpm_headroom
         self.max_tokens_per_request = 200_000  # per-request input cap (was stale 30k)
         self.tier_a_max_tokens = 150_000  # whole-bill single/two-pass below this
         self.macro_chunk_target_tokens = 120_000  # Tier B map chunk size
         self.estimated_tokens_per_char = 0.30  # dense legislative text
         self.max_budget_waits_per_analysis = 2
+        # Per-thread Gemini admit priority (search=True); cleared after analyze_bill
+        self._call_tls = threading.local()
         self.max_chunks_per_bill = 50  # Tier B macro-chunk safety cap (not a shredding target)
 
         # Initialize bill chunker (macro sizing set per Tier B run)
@@ -107,13 +126,49 @@ class EnhancedAIAnalyzer:
         self.backoff_multiplier = 2.0
         self.jitter_factor = 0.1  # Add 10% jitter
         
-        # Request tracking for rate limiting (RPM + TPM)
-        self.request_count = 0
-        self.last_request_time = None
-        self.requests_this_minute = 0
-        self.tokens_this_minute = 0
-        self.minute_start_time = None
         self._hit_gemini_api_429 = False
+
+    # --- Shared budget attribute shims (tests / callers set counters on analyzer) ---
+
+    @property
+    def requests_this_minute(self) -> int:
+        return self._budget.requests_this_minute
+
+    @requests_this_minute.setter
+    def requests_this_minute(self, value: int) -> None:
+        self._budget.requests_this_minute = int(value)
+
+    @property
+    def tokens_this_minute(self) -> int:
+        return self._budget.tokens_this_minute
+
+    @tokens_this_minute.setter
+    def tokens_this_minute(self, value: int) -> None:
+        self._budget.tokens_this_minute = int(value)
+
+    @property
+    def minute_start_time(self):
+        return self._budget.minute_start_time
+
+    @minute_start_time.setter
+    def minute_start_time(self, value) -> None:
+        self._budget.minute_start_time = value
+
+    @property
+    def request_count(self) -> int:
+        return self._budget.request_count
+
+    @request_count.setter
+    def request_count(self, value: int) -> None:
+        self._budget.request_count = int(value)
+
+    @property
+    def last_request_time(self):
+        return self._budget.last_request_time
+
+    @last_request_time.setter
+    def last_request_time(self, value) -> None:
+        self._budget.last_request_time = value
     
     def _ops_extra(self, **kwargs) -> Dict[str, Any]:
         """Build ops alert extra with model identity."""
@@ -129,80 +184,82 @@ class EnhancedAIAnalyzer:
         return max(1000, int(self.macro_chunk_target_tokens / self.estimated_tokens_per_char))
 
     def _reset_minute_window_if_needed(self):
-        current_time = time.time()
-        if not self.minute_start_time or current_time - self.minute_start_time >= 60:
-            self.minute_start_time = current_time
-            self.requests_this_minute = 0
-            self.tokens_this_minute = 0
+        with self._budget._lock:
+            self._budget._reset_window_if_needed_unlocked()
 
     def _check_rate_limit(self, estimated_tokens: int = 0) -> bool:
         """True if we cannot take another request (RPM or TPM)."""
-        self._reset_minute_window_if_needed()
-
-        if self.requests_this_minute >= self.max_requests_per_minute:
+        blocked = self._budget.check_blocked(estimated_tokens)
+        if blocked:
+            status = self._budget.status()
+            if status["requests_this_minute"] >= self.max_requests_per_minute:
+                logger.warning(
+                    f"🚫 RPM limit reached: {status['requests_this_minute']}/"
+                    f"{self.max_requests_per_minute}"
+                )
+            elif status["tokens_this_minute"] + max(0, estimated_tokens) > self.usable_tpm_headroom:
+                logger.warning(
+                    f"🚫 TPM headroom reached: {status['tokens_this_minute']}+{estimated_tokens} "
+                    f"> {self.usable_tpm_headroom}"
+                )
+            elif status["is_approaching_limit"]:
+                logger.warning(
+                    f"⚠️ Near RPM limit: {status['requests_this_minute']}/"
+                    f"{self.max_requests_per_minute}"
+                )
+        elif self._budget.status().get("is_approaching_limit"):
+            status = self._budget.status()
             logger.warning(
-                f"🚫 RPM limit reached: {self.requests_this_minute}/{self.max_requests_per_minute}"
+                f"⚠️ Near RPM limit: {status['requests_this_minute']}/"
+                f"{self.max_requests_per_minute}"
             )
-            return True
-
-        projected = self.tokens_this_minute + max(0, estimated_tokens)
-        if projected > self.usable_tpm_headroom:
-            logger.warning(
-                f"🚫 TPM headroom reached: {self.tokens_this_minute}+{estimated_tokens} "
-                f"> {self.usable_tpm_headroom}"
-            )
-            return True
-
-        if self.requests_this_minute >= self.max_requests_per_minute - 2:
-            logger.warning(
-                f"⚠️ Near RPM limit: {self.requests_this_minute}/{self.max_requests_per_minute}"
-            )
-
-        return False
+        return blocked
 
     def _record_request(self, estimated_tokens: int = 0):
         """Record a request for RPM+TPM limiting. Returns False if at limit."""
-        self._reset_minute_window_if_needed()
-
-        if self.requests_this_minute >= self.max_requests_per_minute:
-            logger.error("🚫 Attempted to record request when already at RPM limit")
+        ok = self._budget.record(estimated_tokens)
+        if not ok:
+            logger.error("🚫 Attempted to record request when already at RPM/TPM limit")
             return False
-        if self.tokens_this_minute + max(0, estimated_tokens) > self.usable_tpm_headroom:
-            logger.error("🚫 Attempted to record request when TPM headroom exhausted")
-            return False
-
-        self.requests_this_minute += 1
-        self.tokens_this_minute += max(0, estimated_tokens)
-        self.request_count += 1
-        self.last_request_time = time.time()
-
+        status = self._budget.status()
         logger.debug(
-            f"📊 Request recorded: {self.requests_this_minute}/{self.max_requests_per_minute} RPM, "
-            f"{self.tokens_this_minute}/{self.usable_tpm_headroom} TPM"
+            f"📊 Request recorded: {status['requests_this_minute']}/{self.max_requests_per_minute} RPM, "
+            f"{status['tokens_this_minute']}/{self.usable_tpm_headroom} TPM"
         )
         return True
 
+    def _current_admit_priority(self) -> bool:
+        tls = getattr(self, "_call_tls", None)
+        if tls is None:
+            return False
+        return bool(getattr(tls, "priority", False))
+
     def _wait_for_rate_limit(self, estimated_tokens: int = 0):
-        """Wait if we're at rate limit (RPM or TPM)."""
-        if self._check_rate_limit(estimated_tokens):
-            wait_time = 60 - (time.time() - (self.minute_start_time or time.time()))
-            if wait_time > 0:
-                logger.info(f"⏳ Waiting {wait_time:.1f}s for rate limit reset...")
-                time.sleep(wait_time)
-            self.minute_start_time = time.time()
-            self.requests_this_minute = 0
-            self.tokens_this_minute = 0
-    
-    def analyze_bill(self, bill_or_text, title=None, allow_budget_waits=True) -> Dict:
+        """Wait until shared budget can accept estimated_tokens (does not record)."""
+        if not self._check_rate_limit(estimated_tokens):
+            return
+        # Join FIFO until we are head and capacity exists, then yield without recording
+        # so _call_ai_model / _record_request can claim the slot under the same budget.
+        self._budget.wait_for_capacity(
+            estimated_tokens,
+            max_waits=max(1, self.max_budget_waits_per_analysis),
+            priority=self._current_admit_priority(),
+        )
+
+    def analyze_bill(
+        self, bill_or_text, title=None, allow_budget_waits=True, priority=False
+    ) -> Dict:
         """Size-aware analysis: Tier A full-text two-pass, Tier B map-reduce + resume.
 
         allow_budget_waits: when True (offline/backfill), may sleep for local minute
         resets to expand a Tier B wave. UI async paths should pass False.
+        priority: when True (bill search), join the Gemini admit priority lane.
         """
         start_time = time.time()
         logger.info(f"[AI] Starting analysis for bill: {title}")
         self._allow_budget_waits = bool(allow_budget_waits)
         self._hit_gemini_api_429 = False
+        self._call_tls.priority = bool(priority)
 
         if not self.client:
             logging.warning("Gemini client not available")
@@ -222,6 +279,7 @@ class EnhancedAIAnalyzer:
                 )
             except Exception:
                 pass
+            self._call_tls.priority = False
             return {}
 
         try:
@@ -335,6 +393,8 @@ class EnhancedAIAnalyzer:
             except Exception:
                 pass
             return {}
+        finally:
+            self._call_tls.priority = False
 
     def _is_usable_map_finding(self, finding: Optional[Dict]) -> bool:
         """True when a Tier B map finding has real content (recovery contract)."""
@@ -2227,8 +2287,6 @@ Return a single JSON object with:
         estimated_tokens = self._estimate_tokens(prompt)
         logger.debug(f"[AI] Estimated tokens: {estimated_tokens:,}")
 
-        self._wait_for_rate_limit(estimated_tokens)
-
         if estimated_tokens > self.max_tokens_per_request:
             logger.warning(
                 f"⚠️ Request too large: {estimated_tokens:,} tokens "
@@ -2246,13 +2304,15 @@ Return a single JSON object with:
 
         for attempt in range(self.max_retries + 1):
             try:
-                if self._check_rate_limit(estimated_tokens):
-                    logger.error(f"🚫 Rate limit check failed on attempt {attempt + 1}")
-                    return None
-
-                if not self._record_request(estimated_tokens):
+                # Shared dual-lane FIFO budget: wait + record in one admit
+                if not self._budget.admit(
+                    estimated_tokens,
+                    wait=True,
+                    max_waits=max(1, self.max_budget_waits_per_analysis),
+                    priority=self._current_admit_priority(),
+                ):
                     logger.error(
-                        f"🚫 Failed to record request due to rate limit on attempt {attempt + 1}"
+                        f"🚫 Shared Gemini budget denied request on attempt {attempt + 1}"
                     )
                     return None
 
@@ -2321,36 +2381,8 @@ Return a single JSON object with:
         return max(0.1, delay)  # Ensure minimum delay of 0.1 seconds
     
     def get_rate_limit_status(self) -> Dict:
-        """Get current rate limiting status"""
-        self._reset_minute_window_if_needed()
-        current_time = time.time()
-
-        time_until_reset = 0
-        if self.minute_start_time:
-            time_until_reset = max(0, 60 - (current_time - self.minute_start_time))
-
-        remaining_requests = max(0, self.max_requests_per_minute - self.requests_this_minute)
-        remaining_tokens = max(0, self.usable_tpm_headroom - self.tokens_this_minute)
-
-        return {
-            'requests_this_minute': self.requests_this_minute,
-            'max_requests_per_minute': self.max_requests_per_minute,
-            'remaining_requests': remaining_requests,
-            'tokens_this_minute': self.tokens_this_minute,
-            'max_input_tokens_per_minute': self.max_input_tokens_per_minute,
-            'usable_tpm_headroom': self.usable_tpm_headroom,
-            'remaining_tokens': remaining_tokens,
-            'total_requests': self.request_count,
-            'time_until_reset': time_until_reset,
-            'is_at_limit': (
-                self.requests_this_minute >= self.max_requests_per_minute
-                or self.tokens_this_minute >= self.usable_tpm_headroom
-            ),
-            'is_approaching_limit': self.requests_this_minute >= self.max_requests_per_minute - 2,
-            'last_request_time': self.last_request_time,
-            'rate_limit_percentage': (self.requests_this_minute / self.max_requests_per_minute) * 100,
-            'safe_remaining_requests': max(0, remaining_requests - 2),
-        }
+        """Get current rate limiting status from shared budget"""
+        return self._budget.status()
 
     def get_quota_info(self) -> Dict:
         """Get detailed quota information for planning"""
@@ -2388,11 +2420,7 @@ Return a single JSON object with:
 
     def reset_rate_limit_counters(self):
         """Reset rate limit counters (useful for testing or manual reset)"""
-        self.requests_this_minute = 0
-        self.tokens_this_minute = 0
-        self.minute_start_time = time.time()
-        self.request_count = 0
-        self.last_request_time = None
+        self._budget.reset()
         logger.info("✅ Rate limit counters reset")
     
     def _estimate_analysis_requests(self, chunks: List[BillChunk]) -> int:
@@ -2511,31 +2539,17 @@ Return a single JSON object with:
     
     def _wait_for_rate_limit_reset(self):
         """Wait for rate limit to reset and log progress"""
-        if not self.minute_start_time:
-            return
-        
-        current_time = time.time()
-        elapsed = current_time - self.minute_start_time
-        wait_time = max(0, 60 - elapsed)
-        
+        status = self._budget.status()
+        wait_time = status.get("time_until_reset") or 0
         if wait_time > 0:
             logger.info(f"⏳ Waiting {wait_time:.1f} seconds for rate limit reset...")
-            logger.info(f"   Current usage: {self.requests_this_minute}/{self.max_requests_per_minute}")
+            logger.info(
+                f"   Current usage: {status['requests_this_minute']}/"
+                f"{self.max_requests_per_minute}"
+            )
             logger.info(f"   This ensures continued analysis rather than stopping completely")
-            
-            # Wait in smaller increments to show progress
-            while wait_time > 0:
-                sleep_time = min(10, wait_time)  # Sleep max 10 seconds at a time
-                time.sleep(sleep_time)
-                wait_time -= sleep_time
-                if wait_time > 0:
-                    logger.info(f"   Still waiting... {wait_time:.1f} seconds remaining")
-            
-            # Reset rate limit counters
-            self.requests_this_minute = 0
-            self.tokens_this_minute = 0
-            self.minute_start_time = time.time()
-            logger.info(f"✅ Rate limit reset complete, ready to continue analysis")
+        self._budget.wait_for_reset()
+        logger.info(f"✅ Rate limit reset complete, ready to continue analysis")
     
     def _create_minimal_analysis(self, title: str, summary: str) -> Dict:
         """Create minimal analysis when quota is insufficient for full analysis"""

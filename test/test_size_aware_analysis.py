@@ -55,8 +55,10 @@ class TestBillChunkerNoOverlap(unittest.TestCase):
 class TestTierRouting(unittest.TestCase):
     def _make_analyzer(self):
         from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
+        from services.gemini_rate_budget import GeminiRateBudget
 
         analyzer = EnhancedAIAnalyzer.__new__(EnhancedAIAnalyzer)
+        analyzer._budget = GeminiRateBudget(persist_to_db=False)
         analyzer.model_name = "gemini-3.5-flash-lite"
         analyzer.client = MagicMock()
         analyzer.api_key = "test"
@@ -460,48 +462,42 @@ class TestTierRouting(unittest.TestCase):
 class TestInFlightDedupe(unittest.TestCase):
     def test_second_acquire_fails(self):
         import routes as routes_mod
+        from unittest.mock import patch
 
-        # Isolate process lock for test
-        with routes_mod._analyzing_lock:
-            routes_mod._analyzing_bill_ids.clear()
-
-        self.assertTrue(routes_mod._try_acquire_analysis_slot(999001))
-        self.assertFalse(routes_mod._try_acquire_analysis_slot(999001))
-        routes_mod._release_analysis_slot(999001)
-        self.assertTrue(routes_mod._try_acquire_analysis_slot(999001))
-        routes_mod._release_analysis_slot(999001)
+        with patch(
+            "routes.bill_work_lease.try_acquire", side_effect=[True, False, True]
+        ) as acq, patch("routes.bill_work_lease.release") as rel:
+            self.assertTrue(routes_mod._try_acquire_analysis_slot(999001))
+            self.assertFalse(routes_mod._try_acquire_analysis_slot(999001))
+            routes_mod._release_analysis_slot(999001)
+            self.assertTrue(routes_mod._try_acquire_analysis_slot(999001))
+            routes_mod._release_analysis_slot(999001)
+            self.assertEqual(acq.call_count, 3)
+            self.assertEqual(rel.call_count, 2)
 
     def test_in_flight_skip_does_not_persist_ops_alert(self):
         """Refresh while analysis runs must not spam OpsAlert with in_flight skips."""
         import routes as routes_mod
         from unittest.mock import MagicMock, patch
 
-        with routes_mod._analyzing_lock:
-            routes_mod._analyzing_bill_ids.clear()
-            routes_mod._analyzing_bill_ids.add(8800)
-
         bill = MagicMock()
         bill.id = 8800
         bill.get_bill_identifier.return_value = "119-HR8800"
 
-        with patch("services.ops_alert_service.notify_gemini_failure") as notify:
+        with patch(
+            "routes.bill_work_lease.try_acquire", return_value=False
+        ), patch("services.ops_alert_service.notify_gemini_failure") as notify:
             routes_mod._perform_analysis_async(bill, force_continue=True)
             notify.assert_not_called()
 
-        with routes_mod._analyzing_lock:
-            routes_mod._analyzing_bill_ids.discard(8800)
-
     def test_analysis_is_in_flight_helper(self):
         import routes as routes_mod
+        from unittest.mock import patch
 
-        with routes_mod._analyzing_lock:
-            routes_mod._analyzing_bill_ids.clear()
-        self.assertFalse(routes_mod._analysis_is_in_flight(42))
-        with routes_mod._analyzing_lock:
-            routes_mod._analyzing_bill_ids.add(42)
-        self.assertTrue(routes_mod._analysis_is_in_flight(42))
-        with routes_mod._analyzing_lock:
-            routes_mod._analyzing_bill_ids.discard(42)
+        with patch("routes.bill_work_lease.is_held", return_value=False):
+            self.assertFalse(routes_mod._analysis_is_in_flight(42))
+        with patch("routes.bill_work_lease.is_held", return_value=True):
+            self.assertTrue(routes_mod._analysis_is_in_flight(42))
 
     def test_is_tier_b_partial(self):
         import routes as routes_mod
@@ -568,8 +564,14 @@ class TestInFlightDedupe(unittest.TestCase):
 class TestGovernorTPM(unittest.TestCase):
     def test_record_request_tracks_tokens(self):
         from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
+        from services.gemini_rate_budget import GeminiRateBudget
 
         analyzer = EnhancedAIAnalyzer.__new__(EnhancedAIAnalyzer)
+        analyzer._budget = GeminiRateBudget(
+            max_requests_per_minute=15,
+            usable_tpm_headroom=1000,
+            persist_to_db=False,
+        )
         analyzer.max_requests_per_minute = 15
         analyzer.usable_tpm_headroom = 1000
         analyzer.requests_this_minute = 0

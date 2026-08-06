@@ -8,24 +8,23 @@ import time as _time_module
 from datetime import datetime
 from functools import wraps
 from services.congress_api import CongressAPI, APIRateLimitError, get_shared_congress_api
-from services.enhanced_ai_analyzer import EnhancedAIAnalyzer, AIAnalysisPartialError
+from services.enhanced_ai_analyzer import EnhancedAIAnalyzer, AIAnalysisPartialError, get_shared_ai_analyzer
 from services.bill_processor import BillProcessor
+from services import bill_sync
+from services import bill_work_lease
 from utils.constants import GEMINI_MODEL
 
-# Initialize services (shared Congress client for rate-limit spacing)
+# Initialize services (shared Congress client + shared Gemini analyzer/budget)
 congress_api = get_shared_congress_api()
-ai_analyzer = EnhancedAIAnalyzer()
+ai_analyzer = get_shared_ai_analyzer()
 bill_processor = BillProcessor(congress_api=congress_api, ai_analyzer=ai_analyzer)
 
-# Per-bill in-flight analysis lock (process-local)
-_analyzing_bill_ids = set()
-_analyzing_lock = threading.Lock()
-# Separate lock for downstream enrichments so they don't block core analysis spawn
-_enriching_bill_ids = set()
-_enriching_lock = threading.Lock()
-# After a real RPM deferral, don't re-queue until local minute resets
-_enrichment_defer_until = {}
-_enrichment_defer_lock = threading.Lock()
+# Lease holders for cross-ingestor coordination (DB-backed)
+_ANALYSIS_HOLDER = bill_work_lease.default_holder("routes")
+
+# Activity-refresh lock (TTL-gated Congress actions sync) — process-local is fine
+_refreshing_bill_ids = set()
+_refreshing_lock = threading.Lock()
 
 # Initialize workflow orchestrator as a global instance
 workflow_orchestrator = None
@@ -172,7 +171,7 @@ def bill_search():
                          background_analysis_info=background_analysis_info)
 
 def _get_or_fetch_bill_by_number(search_query, congress):
-    """Get bill by number - check database first, fetch from API if needed"""
+    """Get bill by number via shared bill_sync; TTL-gated activity refresh off-request."""
     try:
         # Parse the bill identifier to get congress, type, and number
         bill_parts = _parse_bill_identifier(search_query)
@@ -180,110 +179,38 @@ def _get_or_fetch_bill_by_number(search_query, congress):
             return None
             
         bill_congress, bill_type, bill_number = bill_parts
-        
-        # Check if bill exists in database (prioritize display-ready, but include all)
-        existing_bill = Bill.query.filter_by(
-            congress=bill_congress,
-            bill_type=bill_type, 
-            bill_number=bill_number
-        ).order_by(Bill.display_ready.desc(), Bill.id.desc()).first()
-        
+
+        existing_bill = bill_sync.resolve_active_bill(
+            bill_congress, bill_type, bill_number
+        )
+
         if existing_bill:
-            logging.info(f"Found existing bill in database: {existing_bill.get_bill_identifier()}")
-            
-            # Check if we need to update actions (simple check - could be enhanced)
-            if not existing_bill.actions:
-                logging.info("No actions found, fetching from API...")
-                fetch_bill_actions_from_api(existing_bill)
-            
-            # Check if we need AI analysis (prioritize new table structure)
-            active_analysis = existing_bill.get_active_ai_analysis()
-            needs_analysis = False
-            
-            if not active_analysis and not existing_bill.ai_analysis:
-                logging.info("No AI analysis found, performing analysis...")
-                needs_analysis = True
-            elif active_analysis:
-                # Resume Tier B map-reduce partials only (clear stale rows instead of legacy hardcode)
-                analysis_data = active_analysis.get_analysis_data()
-                if analysis_data and _tier_b_needs_resume(analysis_data):
-                    completion = analysis_data.get('completion_percentage', 0)
-                    can_analyze = _can_continue_tier_b_wave()
-                    if can_analyze:
-                        logging.info(
-                            f"Tier B needs resume ({completion:.1f}% / map recovery), "
-                            "sufficient quota available, performing continued analysis..."
-                        )
-                        needs_analysis = True
-                    else:
-                        logging.info(
-                            f"Tier B needs resume ({completion:.1f}% / map recovery), "
-                            "but insufficient API quota remaining. Try again later."
-                        )
-                elif analysis_data and analysis_data.get('is_partial'):
-                    logging.info(
-                        "Non-Tier-B partial on file; skipping auto-resume "
-                        f"({analysis_data.get('analysis_method')}) — clear and re-ingest to reanalyze"
-                    )
-                else:
-                    logging.info("Complete AI analysis found")
-            
-            if needs_analysis:
-                # Resume needs force_continue so analyze_bill re-runs despite existing AIAnalysis
-                force = bool(
-                    active_analysis
-                    and active_analysis.get_analysis_data()
-                    and _tier_b_needs_resume(active_analysis.get_analysis_data())
-                )
-                if _analysis_is_in_flight(getattr(existing_bill, "id", None)):
-                    logging.info(
-                        f"Skipping search resume for {existing_bill.get_bill_identifier()} "
-                        "— analysis already in flight"
-                    )
-                else:
-                    if force:
-                        try:
-                            from services.ops_alert_service import (
-                                CONTINUATION_QUEUED,
-                                notify_gemini_failure,
-                            )
-                            adata = active_analysis.get_analysis_data() or {}
-                            completion = adata.get('completion_percentage', 0)
-                            model_name = getattr(ai_analyzer, 'model_name', GEMINI_MODEL)
-                            notify_gemini_failure(
-                                CONTINUATION_QUEUED,
-                                (
-                                    f"Continuation queued from search at {completion:.1f}% "
-                                    f"(model={model_name})."
-                                ),
-                                severity="info",
-                                bill=existing_bill,
-                                completion_percentage=completion,
-                                provider_model=model_name,
-                                source="routes",
-                                extra={
-                                    "event": "queued",
-                                    "provider_model": model_name,
-                                    "limit_cause": adata.get('limit_cause'),
-                                    "completion": completion,
-                                },
-                            )
-                        except Exception:
-                            pass
-                    _perform_analysis_async(existing_bill, force_continue=force)
-            
+            logging.info(
+                f"Found existing bill in database: {existing_bill.get_bill_identifier()}"
+            )
+            # TTL-gated activity refresh off the HTTP thread
+            if bill_sync.needs_activity_refresh(existing_bill):
+                _refresh_activity_async(existing_bill)
+
+            _queue_analysis_from_sync_flags(existing_bill)
             return existing_bill
-        else:
-            # Bill not in database, fetch from Congress API
-            logging.info(f"Bill not in database, fetching from Congress API: {search_query}")
-            bill_data = congress_api.get_bill_by_number(search_query)
-            if bill_data:
-                bill = bill_processor.process_bill_data(bill_data)
-                if bill:
-                    # ETL only in processor — queue Gemini off the request path
-                    _perform_analysis_async(bill)
-                return bill
-            return None
+
+        # Bill not in database — sync_bill performs content ingest
+        logging.info(f"Bill not in database, fetching from Congress API: {search_query}")
+        result = bill_sync.sync_bill(
+            bill_congress,
+            bill_type,
+            bill_number,
+            reason="search",
+            refresh_activity_flag=False,
+            allow_content_ingest=False,  # missing → ingest path inside sync_bill
+            congress_api=congress_api,
+            bill_processor=bill_processor,
+        )
+        if result.bill:
+            _queue_analysis_from_sync_flags(result.bill, sync_result=result)
+            return result.bill
+        return None
             
     except APIRateLimitError:
         # Re-raise the rate limit error so it can be caught by the main handler
@@ -291,6 +218,116 @@ def _get_or_fetch_bill_by_number(search_query, congress):
     except Exception as e:
         logging.error(f"Error in _get_or_fetch_bill_by_number: {e}")
         return None
+
+
+def _queue_analysis_from_sync_flags(bill, sync_result=None):
+    """Queue analysis / Tier B resume based on SyncResult or live analysis state."""
+    if bill is None:
+        return
+    needs_analysis = False
+    needs_resume = False
+    if sync_result is not None:
+        needs_analysis = sync_result.needs_analysis
+        needs_resume = sync_result.needs_resume
+    else:
+        active_analysis = bill.get_active_ai_analysis()
+        if not active_analysis and not bill.ai_analysis:
+            needs_analysis = True
+        elif active_analysis:
+            analysis_data = active_analysis.get_analysis_data()
+            if analysis_data and _tier_b_needs_resume(analysis_data):
+                if _can_continue_tier_b_wave():
+                    needs_resume = True
+                    needs_analysis = True
+                else:
+                    logging.info(
+                        "Tier B needs resume for %s but insufficient quota",
+                        bill.get_bill_identifier(),
+                    )
+            elif analysis_data and analysis_data.get("is_partial"):
+                logging.info(
+                    "Non-Tier-B partial on file for %s; skipping auto-resume",
+                    bill.get_bill_identifier(),
+                )
+
+    if not needs_analysis:
+        return
+
+    force = needs_resume
+    if _analysis_is_in_flight(getattr(bill, "id", None)):
+        logging.info(
+            "Skipping analysis queue for %s — already in flight",
+            bill.get_bill_identifier(),
+        )
+        return
+
+    if force:
+        try:
+            from services.ops_alert_service import (
+                CONTINUATION_QUEUED,
+                notify_gemini_failure,
+            )
+            active_analysis = bill.get_active_ai_analysis()
+            adata = (
+                active_analysis.get_analysis_data() if active_analysis else {}
+            ) or {}
+            completion = adata.get("completion_percentage", 0)
+            model_name = getattr(ai_analyzer, "model_name", GEMINI_MODEL)
+            notify_gemini_failure(
+                CONTINUATION_QUEUED,
+                (
+                    f"Continuation queued from search at {completion:.1f}% "
+                    f"(model={model_name})."
+                ),
+                severity="info",
+                bill=bill,
+                completion_percentage=completion,
+                provider_model=model_name,
+                source="routes",
+                extra={
+                    "event": "queued",
+                    "provider_model": model_name,
+                    "limit_cause": adata.get("limit_cause"),
+                    "completion": completion,
+                },
+            )
+        except Exception:
+            pass
+    _perform_analysis_async(bill, force_continue=force)
+
+
+def _refresh_activity_async(bill):
+    """Queue Congress activity refresh off the request thread (TTL-gated callers)."""
+    bill_id = getattr(bill, "id", None)
+    if bill_id is None:
+        return
+    with _refreshing_lock:
+        if bill_id in _refreshing_bill_ids:
+            return
+        _refreshing_bill_ids.add(bill_id)
+
+    def _run():
+        try:
+            with app.app_context():
+                fresh = Bill.query.get(bill_id)
+                if fresh is None:
+                    return
+                actions_added, status_changed = bill_sync.refresh_activity(
+                    fresh, congress_api=congress_api
+                )
+                logging.info(
+                    "Async activity refresh for %s: actions+=%s status_changed=%s",
+                    fresh.get_bill_identifier(),
+                    actions_added,
+                    status_changed,
+                )
+        except Exception as e:
+            logging.error("Async activity refresh failed for bill_id=%s: %s", bill_id, e)
+        finally:
+            with _refreshing_lock:
+                _refreshing_bill_ids.discard(bill_id)
+
+    threading.Thread(target=_run, daemon=True).start()
 
 def _search_bills_hybrid(search_query, search_type, limit=20):
     """Hybrid search - use database when possible, fetch from API when needed"""
@@ -386,138 +423,37 @@ def _check_bill_in_database(bill_data):
         bill_number = bill_data.get('number')
         
         if congress and bill_type and bill_number:
-            return Bill.query.filter_by(
-                congress=congress,
-                bill_type=bill_type,
-                bill_number=bill_number
-            ).first()
-    except Exception:
-        pass
-    return None
+            return bill_sync.resolve_active_bill(congress, bill_type, bill_number)
+        return None
+    except Exception as e:
+        logging.error(f"Error checking bill in database: {e}")
+        return None
 
 def _try_acquire_analysis_slot(bill_id):
-    """Return True if this process may start analysis for bill_id."""
-    if bill_id is None:
-        return True
-    with _analyzing_lock:
-        if bill_id in _analyzing_bill_ids:
-            return False
-        _analyzing_bill_ids.add(bill_id)
-        return True
+    """Return True if this process may start analysis for bill_id (DB lease)."""
+    return bill_work_lease.try_acquire(
+        bill_id, bill_work_lease.KIND_ANALYZE, _ANALYSIS_HOLDER
+    )
 
 
 def _analysis_is_in_flight(bill_id) -> bool:
-    """True when a background analysis worker already holds this bill's slot."""
-    if bill_id is None:
-        return False
-    with _analyzing_lock:
-        return bill_id in _analyzing_bill_ids
+    """True when any holder has an active analyze lease for this bill."""
+    return bill_work_lease.is_held(bill_id, bill_work_lease.KIND_ANALYZE)
 
 
 def _release_analysis_slot(bill_id):
-    if bill_id is None:
-        return
-    with _analyzing_lock:
-        _analyzing_bill_ids.discard(bill_id)
-
-
-def _try_acquire_enrichment_slot(bill_id):
-    if bill_id is None:
-        return True
-    with _enriching_lock:
-        if bill_id in _enriching_bill_ids:
-            return False
-        _enriching_bill_ids.add(bill_id)
-        return True
-
-
-def _release_enrichment_slot(bill_id):
-    if bill_id is None:
-        return
-    with _enriching_lock:
-        _enriching_bill_ids.discard(bill_id)
-
-
-def _enrichment_is_deferred(bill_id) -> bool:
-    if bill_id is None:
-        return False
-    with _enrichment_defer_lock:
-        until = _enrichment_defer_until.get(bill_id)
-        if until is None:
-            return False
-        if _time_module.time() >= until:
-            _enrichment_defer_until.pop(bill_id, None)
-            return False
-        return True
-
-
-def _mark_enrichment_deferred(bill_id, reset_seconds: float) -> None:
-    if bill_id is None:
-        return
-    wait = max(5.0, float(reset_seconds or 60.0))
-    with _enrichment_defer_lock:
-        _enrichment_defer_until[bill_id] = _time_module.time() + wait
+    bill_work_lease.release(
+        bill_id, bill_work_lease.KIND_ANALYZE, _ANALYSIS_HOLDER
+    )
 
 
 def _perform_enrichment_async(bill):
     """Queue stakeholder + policy_analysis enrichers after core analysis."""
-    bill_id = getattr(bill, "id", None)
-    bill_ident = None
-    try:
-        bill_ident = bill.get_bill_identifier()
-    except Exception:
-        bill_ident = None
+    from services.enrichment_queue import queue_downstream_enrichments
 
-    if _enrichment_is_deferred(bill_id):
-        logging.info(
-            f"Enrichment deferred (local RPM) for bill id={bill_id} ident={bill_ident}"
-        )
-        return
-
-    from services.analysis_enrichers import enrichment_quota_ok
-
-    ok, remaining, reset_in = enrichment_quota_ok(ai_analyzer)
-    if not ok:
-        _mark_enrichment_deferred(bill_id, reset_in or 60.0)
-        logging.info(
-            f"Enrichment not queued for bill id={bill_id}: "
-            f"remaining_requests={remaining} (local_minute_budget)"
-        )
-        return
-
-    if not _try_acquire_enrichment_slot(bill_id):
-        logging.info(f"Enrichment already in flight for bill id={bill_id}")
-        return
-
-    def enrich_worker():
-        from db_models import Bill
-        from services.analysis_enrichers import run_downstream_enrichments
-
-        try:
-            with app.app_context():
-                fresh = Bill.query.get(bill_id) if bill_id else None
-                if not fresh:
-                    return
-                logging.info(
-                    f"Starting downstream enrichments for {fresh.get_bill_identifier()}"
-                )
-                result = run_downstream_enrichments(fresh, ai_analyzer)
-                if isinstance(result, dict) and result.get("enrichments_deferred"):
-                    _mark_enrichment_deferred(
-                        bill_id, result.get("enrichments_retry_after_seconds") or 60.0
-                    )
-                logging.info(
-                    f"Downstream enrichments done for {fresh.get_bill_identifier()}"
-                )
-        except Exception as e:
-            logging.error(f"Enrichment failed for bill id={bill_id}: {e}")
-            import traceback
-
-            logging.error(traceback.format_exc())
-        finally:
-            _release_enrichment_slot(bill_id)
-
-    threading.Thread(target=enrich_worker, daemon=True).start()
+    queue_downstream_enrichments(
+        bill, source="routes", analyzer=ai_analyzer
+    )
 
 
 def _enrichment_pending_flags(analysis_data) -> dict:
@@ -668,7 +604,10 @@ def _perform_analysis_if_needed(bill, force_continue=False, allow_budget_waits=F
                         f"(text length: {text_length:,} characters)")
             
             analysis = ai_analyzer.analyze_bill(
-                bill, bill.title, allow_budget_waits=allow_budget_waits
+                bill,
+                bill.title,
+                allow_budget_waits=allow_budget_waits,
+                priority=True,
             )
             
             processing_time = time.time() - start_time
@@ -1050,59 +989,28 @@ def _get_unique_recent_bills(limit=10):
         # Fallback to active and display-ready bills only
         return Bill.query.filter_by(active=True, display_ready=True).order_by(Bill.last_updated.desc()).limit(limit).all()
 
-def fetch_bill_actions_from_api(bill):
-    """Fetch and store bill actions from Congress API"""
-    try:
-        if not bill.actions:  # Only fetch if no actions exist
-            actions_data = congress_api.get_bill_actions(bill.congress, bill.bill_type, bill.bill_number)
-            if actions_data and 'actions' in actions_data:
-                for action_info in actions_data['actions']:
-                    # Parse action data
-                    action_date = None
-                    if action_info.get('actionDate'):
-                        try:
-                            action_date = datetime.strptime(action_info['actionDate'], '%Y-%m-%d')
-                        except:
-                            pass
-                    
-                    action = BillAction(
-                        bill_id=bill.id,
-                        action_date=action_date or datetime.utcnow(),
-                        action_type=action_info.get('type', 'Unknown'),
-                        action_text=action_info.get('text', ''),
-                        action_description=action_info.get('description', ''),
-                        source_system=action_info.get('sourceSystem', {}).get('code', ''),
-                        source_system_name=action_info.get('sourceSystem', {}).get('name', '')
-                    )
-                    db.session.add(action)
-                
-                db.session.commit()
-                logging.info(f"Fetched {len(actions_data['actions'])} actions for bill {bill.get_bill_identifier()}")
-    except Exception as e:
-        logging.error(f"Error fetching bill actions: {str(e)}")
-
 @app.route('/bill/<int:congress>/<bill_type>/<int:bill_number>')
 def bill_analysis(congress, bill_type, bill_number):
     """Display detailed analysis of a specific bill"""
-    # Prefer active + display-ready versions (avoid stale inactive rows from re-ingest)
-    bill = Bill.query.filter_by(
-        congress=congress,
-        bill_type=bill_type.lower(),
-        bill_number=bill_number,
-    ).order_by(
-        Bill.active.desc(),
-        Bill.display_ready.desc(),
-        Bill.id.desc(),
-    ).first()
+    # Prefer active + display-ready versions via shared resolver
+    bill = bill_sync.resolve_active_bill(congress, bill_type.lower(), bill_number)
     
     if not bill:
-        # Fetch from Congress API if not in database
+        # Fetch from Congress API if not in database (shared sync)
         try:
-            bill_data = congress_api.get_bill_details(congress, bill_type, bill_number)
-            if bill_data:
-                bill = bill_processor.process_bill_data(bill_data)
-                if bill:
-                    _perform_analysis_async(bill)
+            result = bill_sync.sync_bill(
+                congress,
+                bill_type.lower(),
+                bill_number,
+                reason="bill_detail",
+                refresh_activity_flag=False,
+                allow_content_ingest=False,
+                congress_api=congress_api,
+                bill_processor=bill_processor,
+            )
+            bill = result.bill
+            if bill:
+                _queue_analysis_from_sync_flags(bill, sync_result=result)
             else:
                 flash('Bill not found', 'error')
                 return redirect(url_for('bill_search'))
@@ -1114,9 +1022,10 @@ def bill_analysis(congress, bill_type, bill_number):
             logging.error(f"Error fetching bill: {str(e)}")
             flash('Error loading bill details', 'error')
             return redirect(url_for('bill_search'))
-    
-    # Fetch bill actions if not already present
-    fetch_bill_actions_from_api(bill)
+    else:
+        # TTL-gated activity refresh off the request thread
+        if bill_sync.needs_activity_refresh(bill):
+            _refresh_activity_async(bill)
     
     # Perform AI analysis if not already done (use new database structure)
     partial_analysis_warning = None
@@ -1389,6 +1298,13 @@ def bill_analysis(congress, bill_type, bill_number):
         logging.warning(f"Hidden provisions heal failed: {e}")
 
     # Queue downstream enrichments when core is done but stakeholders/policy_analysis pending
+    from services.enrichment_queue import (
+        enrichment_is_deferred,
+        mark_enrichment_deferred,
+        queue_downstream_enrichments,
+    )
+    from services.analysis_enrichers import enrichment_quota_ok
+
     enrichment_flags = _enrichment_pending_flags(
         analysis if isinstance(analysis, dict) else None
     )
@@ -1398,16 +1314,17 @@ def bill_analysis(congress, bill_type, bill_number):
         and not analysis.get("error")
         and not analysis.get("is_partial")
         and enrichment_flags["any_enrichment_pending"]
-        and not _enrichment_is_deferred(getattr(bill, "id", None))
+        and not enrichment_is_deferred(getattr(bill, "id", None))
     ):
-        from services.analysis_enrichers import enrichment_quota_ok
-
         ok, _remaining, reset_in = enrichment_quota_ok(ai_analyzer)
         if ok:
-            _perform_enrichment_async(bill)
-            enrichment_flags["enrichment_queued"] = True
+            enrichment_flags["enrichment_queued"] = bool(
+                queue_downstream_enrichments(
+                    bill, source="routes", analyzer=ai_analyzer
+                )
+            )
         else:
-            _mark_enrichment_deferred(getattr(bill, "id", None), reset_in or 60.0)
+            mark_enrichment_deferred(getattr(bill, "id", None), reset_in or 60.0)
             enrichment_flags["enrichment_queued"] = False
     else:
         enrichment_flags["enrichment_queued"] = False
@@ -1631,11 +1548,115 @@ def get_recent_workflow_items():
         # Return empty items list if there's an error
         return jsonify({'items': [], 'error_message': str(e)})
 
+
+@app.route('/api/workflow/logs')
+@admin_required
+def get_workflow_logs():
+    """Tail of RSS dashboard activity ring buffer."""
+    from services.pipeline_activity_log import get_rss_activity_log
+
+    limit = request.args.get('limit', 100, type=int)
+    return jsonify({'entries': get_rss_activity_log().tail(limit)})
+
+
 @app.route('/workflow')
 @admin_required
 def workflow_dashboard():
-    """Workflow dashboard for monitoring bill processing"""
+    """RSS dashboard (legacy /workflow path)."""
     return render_template('workflow_dashboard.html')
+
+
+@app.route('/rss')
+@admin_required
+def rss_dashboard():
+    """RSS dashboard alias."""
+    return render_template('workflow_dashboard.html')
+
+
+@app.route('/backfill')
+@admin_required
+def backfill_dashboard():
+    """Backfill dashboard for historical Congress ingest."""
+    return render_template('backfill_dashboard.html')
+
+
+@app.route('/api/backfill/start', methods=['POST'])
+@admin_required
+def start_backfill_api():
+    from services import backfill_web
+
+    data = request.get_json(silent=True) or {}
+    congress = data.get('congress_session', 119)
+    mode = data.get('processing_mode', 'full_processing')
+    resume = data.get('resume', True)
+    continue_from_cursor = data.get('continue_from_cursor', True)
+    max_bills = data.get('max_bills', None)
+    start_index = data.get('start_index', None)
+    if max_bills is not None and max_bills != '':
+        try:
+            max_bills = int(max_bills)
+        except (TypeError, ValueError):
+            return jsonify({'status': 'error', 'message': 'max_bills must be an integer'}), 400
+        if max_bills < 1:
+            return jsonify({'status': 'error', 'message': 'max_bills must be >= 1'}), 400
+    else:
+        max_bills = None
+    if start_index is not None and start_index != '':
+        try:
+            start_index = int(start_index)
+        except (TypeError, ValueError):
+            return jsonify({'status': 'error', 'message': 'start_index must be an integer'}), 400
+        if start_index < 0:
+            return jsonify({'status': 'error', 'message': 'start_index must be >= 0'}), 400
+    else:
+        start_index = None
+    try:
+        result = backfill_web.start_backfill_web(
+            congress_session=int(congress),
+            processing_mode=str(mode),
+            resume=bool(resume),
+            max_bills=max_bills,
+            start_index=start_index,
+            continue_from_cursor=bool(continue_from_cursor),
+        )
+        code = 200 if result.get('status') in ('success', 'already_running') else 400
+        return jsonify(result), code
+    except Exception as e:
+        logging.error(f"Error starting backfill: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/backfill/stop', methods=['POST'])
+@admin_required
+def stop_backfill_api():
+    from services import backfill_web
+
+    try:
+        return jsonify(backfill_web.stop_backfill_web())
+    except Exception as e:
+        logging.error(f"Error stopping backfill: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/backfill/status')
+@admin_required
+def get_backfill_status_api():
+    from services import backfill_web
+
+    try:
+        return jsonify(backfill_web.get_backfill_status_web())
+    except Exception as e:
+        logging.error(f"Error getting backfill status: {e}")
+        return jsonify({'is_running': False, 'status': 'error', 'error_message': str(e)})
+
+
+@app.route('/api/backfill/logs')
+@admin_required
+def get_backfill_logs_api():
+    from services import backfill_web
+
+    limit = request.args.get('limit', 100, type=int)
+    return jsonify({'entries': backfill_web.get_backfill_logs(limit)})
 
 
 def _ops_alerts_query(unread_only=None, bill=None, failure_class=None, ordered=True):

@@ -41,9 +41,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app import app, db
 from db_models import Bill, BillCategoryMapping, PolicyCategory
-from services.congress_api import CongressAPI
-from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
+from services.congress_api import get_shared_congress_api
+from services.enhanced_ai_analyzer import get_shared_ai_analyzer
 from services.bill_processor import BillProcessor
+from services import bill_sync
+from services import bill_work_lease
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +112,14 @@ class BackfillState:
                 'missing_bills': 0,
                 'unanalyzed_bills': 0,
                 'display_ready_bills': 0,
-                'not_display_ready_bills': 0
+                'not_display_ready_bills': 0,
+                'visited': 0,
+                'ingested': 0,
+                'refreshed_only': 0,
+                'skipped_fresh': 0,
+                'window_start': 0,
+                'window_size': 0,
+                'catalog_next_index': 0,
             }
 
 @dataclass
@@ -119,12 +128,16 @@ class BackfillConfig:
     congress_session: int = 119
     processing_mode: ProcessingMode = ProcessingMode.FULL_PROCESSING
     batch_size: int = 1
-    max_bills_per_session: int = 10000
+    # Window size N for catalog runs (None = no cap / page until API end)
+    max_bills_per_session: Optional[int] = None
+    # Explicit 0-based catalog start; None → use cursor when continue_from_cursor
+    start_index: Optional[int] = None
+    continue_from_cursor: bool = True
     congress_api_delay: float = 3.6  # Rate limit for Congress API
     ai_api_delay: float = 4.0  # Rate limit for AI API
     auto_pause_on_quota: bool = True
     save_state_frequency: int = 5  # Save state every N bills
-    discovery_limit: int = 1000  # Max bills to discover in one batch
+    discovery_limit: int = 250  # Page size for Congress list API
     retry_failed: bool = True
     max_retries: int = 3
 
@@ -136,15 +149,22 @@ class BackfillOrchestrator:
     manages state persistence, and handles rate limiting across multiple APIs.
     """
     
-    def __init__(self, config: BackfillConfig = None):
+    def __init__(self, config: BackfillConfig = None, *, state_file: Path = None):
         self.config = config or BackfillConfig()
-        self.state_file = Path("logs") / f"backfill_state_{self.config.congress_session}.json"
+        # Allow callers (--prod) to set state_file BEFORE load so we don't inherit the wrong file
+        if state_file is not None:
+            self.state_file = Path(state_file)
+        else:
+            self.state_file = Path("logs") / f"backfill_state_{self.config.congress_session}.json"
         self.state_file.parent.mkdir(exist_ok=True)
         
-        # Initialize services
-        self.congress_api = CongressAPI()
-        self.ai_analyzer = EnhancedAIAnalyzer()
-        self.bill_processor = BillProcessor()
+        # Initialize services — shared Congress + Gemini so spacing/budget are process-wide
+        self.congress_api = get_shared_congress_api()
+        self.ai_analyzer = get_shared_ai_analyzer()
+        self.bill_processor = BillProcessor(
+            congress_api=self.congress_api, ai_analyzer=self.ai_analyzer
+        )
+        self._analysis_holder = bill_work_lease.default_holder("backfill")
         
         # Load or initialize state
         self.state = self._load_state()
@@ -182,6 +202,130 @@ class BackfillOrchestrator:
             logger.debug(f"State saved to {self.state_file}")
         except Exception as e:
             logger.error(f"Error saving state: {e}")
+
+    def _get_or_create_catalog_state(self):
+        """Load per-congress catalog cursor; reset if sort_key mismatches."""
+        from app import db
+        from db_models import BackfillCatalogState
+
+        sort_key = BackfillCatalogState.SORT_INTRODUCED_ASC
+        row = BackfillCatalogState.query.get(self.config.congress_session)
+        if row is None:
+            row = BackfillCatalogState(
+                congress=self.config.congress_session,
+                sort_key=sort_key,
+                next_index=0,
+                updated_at=datetime.utcnow(),
+            )
+            db.session.add(row)
+            db.session.commit()
+            return row
+        if row.sort_key != sort_key:
+            logger.warning(
+                "Catalog sort_key mismatch (%s != %s); resetting next_index to 0",
+                row.sort_key,
+                sort_key,
+            )
+            row.sort_key = sort_key
+            row.next_index = 0
+            row.updated_at = datetime.utcnow()
+            db.session.commit()
+        return row
+
+    def _resolve_start_index(self) -> int:
+        if self.config.start_index is not None:
+            return max(0, int(self.config.start_index))
+        if self.config.continue_from_cursor:
+            with app.app_context():
+                return int(self._get_or_create_catalog_state().next_index or 0)
+        return 0
+
+    def _advance_catalog_cursor(self, next_index: int) -> None:
+        from app import db
+
+        with app.app_context():
+            row = self._get_or_create_catalog_state()
+            row.next_index = max(0, int(next_index))
+            row.updated_at = datetime.utcnow()
+            db.session.commit()
+            self.state.stats["catalog_next_index"] = row.next_index
+
+    def fetch_catalog_window(self, start_index: int, count: int) -> List[Dict]:
+        """
+        Fetch up to `count` bills from the Congress catalog starting at
+        0-based `start_index`, ordered by introducedDate ascending.
+        """
+        from db_models import BackfillCatalogState
+
+        if count is None or count < 1:
+            count = 10**9
+        start_index = max(0, int(start_index))
+        sort_key = BackfillCatalogState.SORT_INTRODUCED_ASC
+        page_size = min(250, self.config.discovery_limit or 250)
+        offset = start_index
+        collected: List[Dict] = []
+
+        logger.info(
+            "Fetching catalog window congress=%s start=%s count=%s sort=%s",
+            self.config.congress_session,
+            start_index,
+            count if count < 10**9 else "all",
+            sort_key,
+        )
+        self.state.status = BackfillStatus.DISCOVERING.value
+        self._save_state()
+
+        while len(collected) < count:
+            limit = min(page_size, count - len(collected))
+            params = {
+                "limit": limit,
+                "offset": offset,
+                "sort": sort_key,
+            }
+            endpoint = f"/bill/{self.config.congress_session}"
+            data = self.congress_api._make_request(endpoint, params)
+            if not data or "bills" not in data:
+                logger.warning("No bills data at offset %s", offset)
+                break
+            bill_list = data.get("bills") or []
+            if not bill_list:
+                logger.info("Catalog exhausted at offset %s", offset)
+                break
+            added_this_page = 0
+            for bill_summary in bill_list:
+                if len(collected) >= count:
+                    break
+                try:
+                    bill_info = self._extract_bill_info(bill_summary)
+                    if bill_info:
+                        bill_info["catalog_index"] = start_index + len(collected)
+                        collected.append(bill_info)
+                        added_this_page += 1
+                except Exception as e:
+                    logger.error("Error extracting bill in window: %s", e)
+            if len(collected) >= count:
+                break
+            if added_this_page == 0 or len(bill_list) < limit:
+                break
+            offset += limit
+            time.sleep(self.config.congress_api_delay)
+
+        self.state.bills_discovered = collected
+        self.state.total_bills_discovered = len(collected)
+        self.state.discovery_offset = start_index + len(collected)
+        # Window runs are not "whole congress discovered"
+        self.state.discovery_complete = False
+        self.state.stats["window_start"] = start_index
+        self.state.stats["window_size"] = len(collected)
+        self.state.stats["session_total_bills"] = len(collected)
+        self._save_state()
+        logger.info(
+            "Catalog window ready: %s bills (indexes %s..%s)",
+            len(collected),
+            start_index,
+            start_index + max(len(collected) - 1, 0) if collected else start_index,
+        )
+        return collected
     
     def analyze_gaps(self) -> Dict:
         """
@@ -193,89 +337,108 @@ class BackfillOrchestrator:
         logger.info("Starting gap analysis...")
         
         with app.app_context():
-            # Get database statistics
+            # Get database statistics — all ORM access stays inside this context
             db_bills = Bill.query.filter_by(congress=self.config.congress_session).all()
             db_bill_ids = set(bill.get_bill_identifier() for bill in db_bills)
-            db_analyzed_bills = [bill for bill in db_bills if bill.ai_analysis]
+            db_analyzed_bills = [
+                bill for bill in db_bills if bill.get_active_ai_analysis()
+            ]
             db_display_ready_bills = [bill for bill in db_bills if bill.display_ready]
             db_not_display_ready_bills = [bill for bill in db_bills if not bill.display_ready]
+
+            n_db = len(db_bills)
+            n_analyzed = len(db_analyzed_bills)
+            n_ready = len(db_display_ready_bills)
+            n_not_ready = len(db_not_display_ready_bills)
             
-            self.state.stats['db_existing_bills'] = len(db_bills)
-            self.state.stats['db_analyzed_bills'] = len(db_analyzed_bills)
-            self.state.stats['display_ready_bills'] = len(db_display_ready_bills)
-            self.state.stats['not_display_ready_bills'] = len(db_not_display_ready_bills)
+            self.state.stats['db_existing_bills'] = n_db
+            self.state.stats['db_analyzed_bills'] = n_analyzed
+            self.state.stats['display_ready_bills'] = n_ready
+            self.state.stats['not_display_ready_bills'] = n_not_ready
             
             # For analysis-only mode, track display-ready progress
             if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
-                self.state.display_ready_start_count = len(db_display_ready_bills)
-                self.state.display_ready_goal_count = len(db_bills)  # Goal: all bills display-ready
+                self.state.display_ready_start_count = n_ready
+                self.state.display_ready_goal_count = n_db  # Goal: all bills display-ready
             
-            logger.info(f"Database has {len(db_bills)} bills from Congress {self.config.congress_session}")
-            logger.info(f"Of those, {len(db_analyzed_bills)} have AI analysis")
-            logger.info(f"Display-ready bills: {len(db_display_ready_bills)}")
-            logger.info(f"Not display-ready: {len(db_not_display_ready_bills)}")
+            logger.info(f"Database has {n_db} bills from Congress {self.config.congress_session}")
+            logger.info(f"Of those, {n_analyzed} have AI analysis")
+            logger.info(f"Display-ready bills: {n_ready}")
+            logger.info(f"Not display-ready: {n_not_ready}")
         
-        # If we haven't discovered bills yet, we need to do discovery first
-        # Exception: analysis-only mode doesn't need discovery since it only works with existing bills
-        if not self.state.discovery_complete and self.config.processing_mode != ProcessingMode.ANALYSIS_ONLY:
-            logger.info("No discovery data available. Need to run discovery first.")
-            return {
-                'status': 'discovery_needed',
-                'db_bills': len(db_bills),
-                'db_analyzed_bills': len(db_analyzed_bills),
-                'discovered_bills': 0,
-                'missing_bills': 'unknown',
-                'unanalyzed_bills': len(db_bills) - len(db_analyzed_bills)
+            # Need discovery data unless analysis-only or we already have a window list
+            if (
+                not self.state.discovery_complete
+                and not self.state.bills_discovered
+                and self.config.processing_mode != ProcessingMode.ANALYSIS_ONLY
+            ):
+                logger.info("No discovery data available. Need to run discovery first.")
+                return {
+                    'status': 'discovery_needed',
+                    'db_bills': n_db,
+                    'db_analyzed_bills': n_analyzed,
+                    'discovered_bills': 0,
+                    'missing_bills': 'unknown',
+                    'unanalyzed_bills': n_db - n_analyzed
+                }
+        
+            # Compare discovered bills vs database (skip for analysis-only mode)
+            if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                # For analysis-only mode, we only work with existing bills
+                discovered_bill_ids = set()
+                missing_bills = set()
+                unanalyzed_bill_ids = [
+                    bill.get_bill_identifier()
+                    for bill in db_bills
+                    if not bill.get_active_ai_analysis()
+                ]
+            
+                self.state.stats['session_total_bills'] = n_db  # Use DB bills as total
+                self.state.stats['missing_bills'] = 0  # No missing bills in analysis-only mode
+                self.state.stats['unanalyzed_bills'] = len(unanalyzed_bill_ids)
+            else:
+                discovered_bill_ids = set(bill['identifier'] for bill in self.state.bills_discovered)
+                missing_bills = discovered_bill_ids - db_bill_ids
+                unanalyzed_bill_ids = [
+                    bill.get_bill_identifier()
+                    for bill in db_bills
+                    if not bill.get_active_ai_analysis()
+                ]
+            
+                self.state.stats['session_total_bills'] = len(discovered_bill_ids)
+                self.state.stats['missing_bills'] = len(missing_bills)
+                self.state.stats['unanalyzed_bills'] = len(unanalyzed_bill_ids)
+        
+            gap_analysis = {
+                'status': 'complete',
+                'congress_session': self.config.congress_session,
+                'discovered_bills': len(discovered_bill_ids),
+                'db_bills': n_db,
+                'db_analyzed_bills': n_analyzed,
+                'db_display_ready_bills': n_ready,
+                'db_not_display_ready_bills': n_not_ready,
+                'missing_bills': len(missing_bills),
+                'unanalyzed_bills': len(unanalyzed_bill_ids),
+                'missing_bill_samples': list(missing_bills)[:10],
+                'unanalyzed_bill_samples': unanalyzed_bill_ids[:10],
             }
         
-        # Compare discovered bills vs database (skip for analysis-only mode)
-        if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
-            # For analysis-only mode, we only work with existing bills
-            discovered_bill_ids = set()
-            missing_bills = set()
-            unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
-            
-            self.state.stats['session_total_bills'] = len(db_bills)  # Use DB bills as total
-            self.state.stats['missing_bills'] = 0  # No missing bills in analysis-only mode
-            self.state.stats['unanalyzed_bills'] = len(unanalyzed_bills)
-        else:
-            discovered_bill_ids = set(bill['identifier'] for bill in self.state.bills_discovered)
-            missing_bills = discovered_bill_ids - db_bill_ids
-            unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
-            
-            self.state.stats['session_total_bills'] = len(discovered_bill_ids)
-            self.state.stats['missing_bills'] = len(missing_bills)
-            self.state.stats['unanalyzed_bills'] = len(unanalyzed_bills)
+            logger.info("Gap Analysis Results:")
+            logger.info(f"  Total bills discovered: {gap_analysis['discovered_bills']}")
+            logger.info(f"  Bills in database: {gap_analysis['db_bills']}")
+            logger.info(f"  Bills with analysis: {gap_analysis['db_analyzed_bills']}")
+            logger.info(f"  Display-ready bills: {gap_analysis['db_display_ready_bills']}")
+            logger.info(f"  Not display-ready: {gap_analysis['db_not_display_ready_bills']}")
+            logger.info(f"  Missing from database: {gap_analysis['missing_bills']}")
+            logger.info(f"  Missing analysis: {gap_analysis['unanalyzed_bills']}")
         
-        gap_analysis = {
-            'status': 'complete',
-            'congress_session': self.config.congress_session,
-            'discovered_bills': len(discovered_bill_ids),
-            'db_bills': len(db_bills),
-            'db_analyzed_bills': len(db_analyzed_bills),
-            'db_display_ready_bills': len(db_display_ready_bills),
-            'db_not_display_ready_bills': len(db_not_display_ready_bills),
-            'missing_bills': len(missing_bills),
-            'unanalyzed_bills': len(unanalyzed_bills),
-            'missing_bill_samples': list(missing_bills)[:10],
-            'unanalyzed_bill_samples': [bill.get_bill_identifier() for bill in unanalyzed_bills[:10]]
-        }
+            # Special logging for analysis-only mode
+            if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                pct = (n_ready / n_db * 100) if n_db else 0.0
+                logger.info(f"🎯 Analysis-Only Mode Goal: Get all {n_db} bills to display-ready state")
+                logger.info(f"📊 Current progress: {n_ready}/{n_db} bills display-ready ({pct:.1f}%)")
         
-        logger.info("Gap Analysis Results:")
-        logger.info(f"  Total bills discovered: {gap_analysis['discovered_bills']}")
-        logger.info(f"  Bills in database: {gap_analysis['db_bills']}")
-        logger.info(f"  Bills with analysis: {gap_analysis['db_analyzed_bills']}")
-        logger.info(f"  Display-ready bills: {gap_analysis['db_display_ready_bills']}")
-        logger.info(f"  Not display-ready: {gap_analysis['db_not_display_ready_bills']}")
-        logger.info(f"  Missing from database: {gap_analysis['missing_bills']}")
-        logger.info(f"  Missing analysis: {gap_analysis['unanalyzed_bills']}")
-        
-        # Special logging for analysis-only mode
-        if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
-            logger.info(f"🎯 Analysis-Only Mode Goal: Get all {len(db_bills)} bills to display-ready state")
-            logger.info(f"📊 Current progress: {len(db_display_ready_bills)}/{len(db_bills)} bills display-ready ({len(db_display_ready_bills)/len(db_bills)*100:.1f}%)")
-        
-        return gap_analysis
+            return gap_analysis
     
     def discover_bills(self, max_bills: int = None) -> bool:
         """
@@ -291,6 +454,11 @@ class BackfillOrchestrator:
         
         if max_bills is None:
             max_bills = self.config.max_bills_per_session
+        if max_bills is None:
+            # No configured cap — keep paging until the API is exhausted
+            max_bills = 10**9
+        else:
+            max_bills = int(max_bills)
         
         self.state.status = BackfillStatus.DISCOVERING.value
         self._save_state()
@@ -308,7 +476,7 @@ class BackfillOrchestrator:
                 params = {
                     'limit': limit,
                     'offset': offset,
-                    'sort': 'introducedDate+desc'
+                    'sort': 'introducedDate+asc'
                 }
                 
                 endpoint = f"/bill/{self.config.congress_session}"
@@ -410,30 +578,60 @@ class BackfillOrchestrator:
         Start the backfill process.
         
         Args:
-            resume: Whether to resume from previous state
+            resume: Whether to resume JSON run state (legacy pause). Catalog
+                position uses continue_from_cursor / start_index on config.
             
         Returns:
             bool: True if backfill completed successfully
         """
         logger.info("Starting backfill process")
         
-        # Check if we should resume or start fresh
+        # Check if we should resume or start fresh (JSON counters / pause)
         if not resume or self.state.status == BackfillStatus.NOT_STARTED.value:
-            logger.info("Starting fresh backfill")
+            logger.info("Starting fresh backfill run state")
             self.state = BackfillState(
                 congress_session=self.config.congress_session,
                 status=BackfillStatus.NOT_STARTED.value,
                 processing_mode=self.config.processing_mode.value,
                 start_time=datetime.now().isoformat()
             )
+        else:
+            # Always reflect the mode chosen for this invocation
+            self.state.processing_mode = self.config.processing_mode.value
         
         try:
+            mode = self.config.processing_mode
+
+            # Full processing: catalog window from cursor / start_index
+            if mode == ProcessingMode.FULL_PROCESSING:
+                start_index = self._resolve_start_index()
+                window_n = self.config.max_bills_per_session
+                if window_n is None:
+                    window_n = 10**9
+                logger.info(
+                    "Full processing window start_index=%s max=%s continue_cursor=%s",
+                    start_index,
+                    window_n if window_n < 10**9 else "all",
+                    self.config.continue_from_cursor,
+                )
+                window = self.fetch_catalog_window(start_index, int(window_n))
+                if not window:
+                    logger.info("Empty catalog window — nothing to process")
+                    self.state.status = BackfillStatus.COMPLETED.value
+                    self._save_state()
+                    return True
+                gap_analysis = self.analyze_gaps()
+                ok = self._process_bills(gap_analysis)
+                if ok and self.state.status != BackfillStatus.PAUSED.value:
+                    self._advance_catalog_cursor(start_index + len(window))
+                return ok
+
             # Step 1: Discovery (if needed, skip for analysis-only mode)
-            if not self.state.discovery_complete and self.config.processing_mode != ProcessingMode.ANALYSIS_ONLY:
+            if not self.state.discovery_complete and mode != ProcessingMode.ANALYSIS_ONLY:
                 logger.info("Running bill discovery...")
                 if not self.discover_bills():
                     return False
-            elif self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+            elif mode == ProcessingMode.ANALYSIS_ONLY:
                 logger.info("Skipping discovery phase for analysis-only mode")
                 self.state.discovery_complete = True  # Mark as complete to skip future checks
             
@@ -442,7 +640,7 @@ class BackfillOrchestrator:
             gap_analysis = self.analyze_gaps()
             
             # Step 3: Process bills based on mode
-            if self.config.processing_mode == ProcessingMode.DISCOVERY_ONLY:
+            if mode == ProcessingMode.DISCOVERY_ONLY:
                 logger.info("Discovery-only mode: skipping processing")
                 self.state.status = BackfillStatus.COMPLETED.value
                 self._save_state()
@@ -483,8 +681,10 @@ class BackfillOrchestrator:
                     if bill_info['identifier'] not in db_bill_ids:
                         bills_to_process.append(bill_info)
                 
-                # Add unanalyzed bills
-                unanalyzed_bills = [bill for bill in db_bills if not bill.ai_analysis]
+                # Add unanalyzed bills (new AIAnalysis table, not legacy column)
+                unanalyzed_bills = [
+                    bill for bill in db_bills if not bill.get_active_ai_analysis()
+                ]
                 for bill in unanalyzed_bills:
                     bill_info = {
                         'identifier': bill.get_bill_identifier(),
@@ -556,6 +756,16 @@ class BackfillOrchestrator:
             # Process all discovered bills
             bills_to_process = self.state.bills_discovered
         
+        # Optional cap (UI / CLI max_bills) — applies after mode selection so
+        # analysis-only and full_processing both respect a smoke-test limit.
+        limit = self.config.max_bills_per_session
+        if limit is not None and limit > 0 and len(bills_to_process) > limit:
+            logger.info(
+                f"Limiting processing to {limit} of {len(bills_to_process)} bills "
+                f"(max_bills_per_session)"
+            )
+            bills_to_process = bills_to_process[:limit]
+
         logger.info(f"Processing {len(bills_to_process)} bills")
         
         # Process in batches
@@ -573,6 +783,11 @@ class BackfillOrchestrator:
             logger.info(f"Processing batch {batch_num}: bills {i+1}-{min(i+batch_size, total_bills)} of {total_bills}")
             
             # Check AI quota before processing batch
+            if self.state.status == BackfillStatus.PAUSED.value:
+                logger.info("Backfill paused — skipping remaining batches")
+                self._save_state()
+                return False
+
             quota_info = self.ai_analyzer.get_quota_info()
             if quota_info['status']['is_at_limit']:
                 logger.warning("AI API quota limit reached")
@@ -584,6 +799,12 @@ class BackfillOrchestrator:
             
             # Process each bill in the batch
             for bill_info in batch:
+                # Honor pause/stop from web UI or auto-pause
+                if self.state.status == BackfillStatus.PAUSED.value:
+                    logger.info("Backfill paused — stopping batch processing")
+                    self._save_state()
+                    return False
+
                 try:
                     # Check if bill was display-ready before processing
                     was_display_ready = False
@@ -598,10 +819,41 @@ class BackfillOrchestrator:
                                 was_display_ready = existing_bill.display_ready
                     
                     success = self._process_single_bill(bill_info)
+                    if success == "lease_deferred":
+                        logger.info(
+                            f"Deferred {bill_info['identifier']} (analyze lease held)"
+                        )
+                        try:
+                            from services.pipeline_activity_log import (
+                                get_backfill_activity_log,
+                            )
+
+                            get_backfill_activity_log().append(
+                                "Analyze lease held — deferred",
+                                level="info",
+                                bill_identifier=bill_info.get("identifier"),
+                            )
+                        except Exception:
+                            pass
+                        continue
                     if success:
                         self.state.bills_processed += 1
-                        if 'analyzed' in str(success).lower():
+                        self.state.stats['visited'] = self.state.stats.get('visited', 0) + 1
+                        # Count only fresh analyses — not "already_analyzed"
+                        if success == "analyzed":
                             self.state.bills_analyzed += 1
+                        elif success == "skipped_fresh":
+                            self.state.stats['skipped_fresh'] = (
+                                self.state.stats.get('skipped_fresh', 0) + 1
+                            )
+                        elif success == "refreshed_only":
+                            self.state.stats['refreshed_only'] = (
+                                self.state.stats.get('refreshed_only', 0) + 1
+                            )
+                        elif success in ("ingested", "complete"):
+                            self.state.stats['ingested'] = (
+                                self.state.stats.get('ingested', 0) + 1
+                            )
                         
                         # Check if bill became display-ready after processing
                         if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY and not was_display_ready:
@@ -612,7 +864,7 @@ class BackfillOrchestrator:
                                     bill_number=bill_info['bill_number']
                                 ).first()
                                 if existing_bill and existing_bill.display_ready:
-                                    self.state.bills_made_display_ready += 1
+                                    # Already counted in _process_single_bill when analysis succeeds
                                     logger.info(f"✅ {bill_info['identifier']} is now display-ready!")
                     else:
                         self.state.bills_failed += 1
@@ -670,470 +922,316 @@ class BackfillOrchestrator:
         return True
     
     def _process_single_bill(self, bill_info: Dict) -> bool:
-        """Process a single bill: fetch data, analyze, and store"""
+        """Process a single bill via shared bill_sync + EnhancedAIAnalyzer."""
         identifier = bill_info['identifier']
         logger.debug(f"Processing bill: {identifier}")
         
         try:
             with app.app_context():
-                # Check if bill already exists
-                existing_bill = Bill.query.filter_by(
-                    congress=bill_info['congress'],
-                    bill_type=bill_info['bill_type'],
-                    bill_number=bill_info['bill_number']
-                ).first()
+                from app import db
+
+                existing_bill = bill_sync.resolve_active_bill(
+                    bill_info['congress'],
+                    bill_info['bill_type'],
+                    bill_info['bill_number'],
+                )
+                list_update = bill_info.get('update_date')
                 
-                # In analysis-only mode, check if bill is already display-ready instead of just analyzed
+                # In analysis-only mode, check if bill is already display-ready
                 if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
                     if existing_bill and existing_bill.display_ready:
                         logger.debug(f"Bill {identifier} already display-ready, skipping")
                         return "already_ready"
-                else:
-                    # For other modes, skip if already analyzed
-                    if existing_bill and existing_bill.ai_analysis:
-                        logger.debug(f"Bill {identifier} already analyzed, skipping")
-                        return "already_analyzed"
-                
-                # Fetch full bill data from Congress API
-                if not bill_info.get('existing_in_db'):
-                    bill_data = self.congress_api.get_bill_details(
-                        bill_info['congress'],
-                        bill_info['bill_type'],
-                        bill_info['bill_number']
+                    allow_ingest = False
+                    do_refresh = (
+                        bill_sync.should_refresh_for_backfill(existing_bill)
+                        if existing_bill
+                        else True
                     )
-                    
-                    if not bill_data:
-                        logger.warning(f"Failed to fetch bill data for {identifier}")
-                        return False
-                    
-                    # Process bill data into database
-                    bill = self.bill_processor.process_bill_data(bill_data)
-                    if not bill:
-                        logger.warning(f"Failed to process bill data for {identifier}")
-                        return False
                 else:
-                    bill = existing_bill
+                    # Full / gaps: content ingest only when shared marker says stale
+                    allow_ingest = bill_sync.content_may_be_stale(
+                        existing_bill, list_update
+                    )
+                    do_refresh = (
+                        bill_sync.should_refresh_for_backfill(existing_bill)
+                        if existing_bill
+                        else True
+                    )
+
+                result = bill_sync.sync_bill(
+                    bill_info['congress'],
+                    bill_info['bill_type'],
+                    bill_info['bill_number'],
+                    reason=f"backfill:{self.config.processing_mode.value}",
+                    refresh_activity_flag=do_refresh,
+                    allow_content_ingest=allow_ingest,
+                    congress_update_date=list_update,
+                    congress_api=self.congress_api,
+                    bill_processor=self.bill_processor,
+                )
+                bill = result.bill
+                if not bill:
+                    logger.warning(f"Failed to sync bill {identifier}")
+                    return False
+
+                # Catalog walk marker (not used for content staleness)
+                try:
+                    bill.backfill_last_visited_at = datetime.utcnow()
+                    db.session.commit()
+                except Exception:
+                    try:
+                        db.session.rollback()
+                    except Exception:
+                        pass
                 
                 # Perform analysis based on mode and what's needed
-                if bill:
-                    # For analysis-only mode, check what specific components are missing
-                    if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
-                        missing_components = bill_info.get('missing_components', [])
-                        logger.debug(f"Bill {identifier} missing components: {missing_components}")
-                        
-                        # Only perform analysis if specific components are missing
-                        needs_analysis = 'ai_analysis' in missing_components
-                        needs_categories = 'categories' in missing_components
-                        
-                        if not needs_analysis and not needs_categories:
-                            logger.debug(f"Bill {identifier} already has required analysis components")
-                            return "components_complete"
-                    else:
-                        # For other modes, check both old and new analysis structures
-                        has_old_analysis = bool(bill.ai_analysis)
-                        has_new_analysis = bool(bill.get_active_ai_analysis()) if hasattr(bill, 'get_active_ai_analysis') else False
-                        needs_analysis = not has_old_analysis and not has_new_analysis
-                    
-                    # Perform analysis if needed
-                    if (self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY and (needs_analysis or needs_categories)) or \
-                       (self.config.processing_mode != ProcessingMode.ANALYSIS_ONLY and needs_analysis):
-                        import time
-                        
-                        logger.debug(f"Starting comprehensive AI analysis for {identifier}")
-                        
-                        # Get full text for analysis
-                        full_text = bill.get_full_text()
-                        if not full_text:
-                            # Fallback to Congress API text fetch
-                            logger.debug(f"Fetching full text from API for analysis: {identifier}")
-                            full_text = self.congress_api.get_bill_text(
-                                bill.congress, 
-                                bill.bill_type, 
-                                bill.bill_number
+                if self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY:
+                    missing_components = bill_info.get('missing_components', [])
+                    logger.debug(f"Bill {identifier} missing components: {missing_components}")
+                    needs_analysis = 'ai_analysis' in missing_components
+                    needs_categories = 'categories' in missing_components
+                    if not needs_analysis and not needs_categories:
+                        logger.debug(f"Bill {identifier} already has required analysis components")
+                        try:
+                            from services.enrichment_queue import maybe_queue_enrichments
+
+                            maybe_queue_enrichments(
+                                bill,
+                                source="backfill",
+                                analyzer=self.ai_analyzer,
                             )
-                        
-                        if not full_text:
-                            logger.warning(f"No full text available for analysis: {identifier}")
-                            return "no_text"
-                        
-                        text_length = len(full_text)
-                        start_time = time.time()
-                        
-                        logger.info(f"Starting enhanced AI analysis for {identifier} "
-                                   f"(text length: {text_length:,} characters)")
-                        
-                        # Perform comprehensive analysis using EnhancedAIAnalyzer
-                        # This includes: summary, policy implications, stakeholders, complexity, controversy,
-                        # hidden provisions, anomalies, suspicious language, cross-references, risk scoring
-                        analysis = self.ai_analyzer.analyze_bill(bill, bill.title)
-                        
-                        processing_time = time.time() - start_time
-                        
-                        if analysis:
-                            # The EnhancedAIAnalyzer automatically handles new database structure creation
-                            logger.info(f"✅ Enhanced AI analysis completed for: {identifier}")
-                            
-                            # Store policy categories with sneakiness scoring (equivalent to workflow orchestrator)
-                            if 'policy_implications' in analysis:
-                                policy_data = analysis['policy_implications']
-                                # Check for legacy categories format or new category_breakdown format
-                                categories = policy_data.get('categories', [])
-                                if not categories and 'category_breakdown' in policy_data:
-                                    # Convert new format to legacy format for category storage
-                                    categories = []
-                                    for cat_name, cat_data in policy_data['category_breakdown'].items():
-                                        categories.append({
-                                            'area': cat_name,
-                                            'impact_level': 'high' if cat_data.get('relevance_score', 0) >= 0.7 else 'medium',
-                                            'analysis': cat_data.get('reasoning', '')
-                                        })
-                                
-                                if categories:
-                                    self._create_category_mappings_with_sneakiness(bill, categories, analysis)
-                            
-                            # Store hidden provisions with detailed reasoning
-                            if 'hidden_provisions' in analysis:
-                                self._store_hidden_provisions(bill, analysis['hidden_provisions'], analysis)
-                            
-                            # Log comprehensive analysis information (same as workflow orchestrator)
-                            chunks_analyzed = analysis.get('chunks_analyzed', 0)
-                            analysis_method = analysis.get('analysis_method', 'enhanced_backfill')
-                            
-                            logger.info(f"  📊 Method: {analysis_method}")
-                            logger.info(f"  🔧 Chunks analyzed: {chunks_analyzed}")
-                            logger.info(f"  📝 Text processed: {text_length:,} characters")
-                            logger.info(f"  ⏱️ Processing time: {processing_time:.2f} seconds")
-                            if processing_time > 0:
-                                logger.info(f"  🚀 Processing speed: {text_length/processing_time:,.0f} chars/sec")
-                            
-                            # Log analysis components
-                            if 'summary' in analysis:
-                                logger.info(f"  📝 Summary generated")
-                            if 'policy_implications' in analysis:
-                                policy_data = analysis['policy_implications']
-                                primary_area = policy_data.get('primary_category') or policy_data.get('primary_policy_area', 'Unknown')
-                                logger.info(f"  🎯 Primary policy area: {primary_area}")
-                            if 'stakeholders' in analysis:
-                                logger.info(f"  👥 Stakeholder analysis completed")
-                            if 'hidden_provisions' in analysis:
-                                hidden_data = analysis['hidden_provisions']
-                                if isinstance(hidden_data, dict):
-                                    provisions_count = len(hidden_data.get('detected_provisions', []))
-                                    risk_score = hidden_data.get('overall_hidden_risk_score', 0)
-                                    logger.info(f"  🕵️ Hidden provisions: {provisions_count} detected, risk: {risk_score:.2f}")
-                            if 'complexity_assessment' in analysis:
-                                complexity_data = analysis['complexity_assessment']
-                                if isinstance(complexity_data, dict):
-                                    complexity_score = complexity_data.get('complexity_score', 0)
-                                    logger.info(f"  🧮 Complexity score: {complexity_score:.2f}")
-                            if 'controversy_score' in analysis:
-                                controversy_score = analysis.get('controversy_score', 0)
-                                logger.info(f"  ⚡ Controversy score: {controversy_score:.2f}")
-                            if 'overall_risk_score' in analysis:
-                                risk_score = analysis.get('overall_risk_score', 0)
-                                logger.info(f"  🚨 Overall risk score: {risk_score:.2f}")
-                            
-                            # Also set old field for backward compatibility
-                            bill.set_ai_analysis(analysis)
-                            db.session.commit()
-                            
-                            logger.debug(f"Successfully completed comprehensive analysis for {identifier}")
-                            return "analyzed"
-                        else:
-                            logger.warning(f"AI analysis failed for {identifier}")
-                            return "analysis_failed"
-                    
-                    # Handle case where bill only needs category mappings (analysis-only mode)
-                    elif self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY and needs_categories and not needs_analysis:
-                        logger.debug(f"Bill {identifier} needs category mappings only")
-                        
-                        # Get existing analysis to extract categories
-                        active_analysis = bill.get_active_ai_analysis()
-                        if active_analysis:
-                            analysis_data = active_analysis.get_analysis_data()
-                            if analysis_data and 'policy_implications' in analysis_data:
-                                policy_data = analysis_data['policy_implications']
-                                if 'categories' in policy_data:
-                                    # Store category mappings using enhanced AI analyzer method
-                                    self.ai_analyzer._store_policy_categories(bill, policy_data['categories'], analysis_data)
-                                    logger.debug(f"Created category mappings for {identifier}")
-                                    return "categories_added"
-                        
-                        # Fallback: if no usable analysis data, we need full analysis
-                        logger.debug(f"No usable policy data found for {identifier}, needs full analysis")
-                        return "needs_full_analysis"
-                    
-                    else:
-                        logger.debug(f"Bill {identifier} processing complete")
-                        return "complete"
+                        except Exception as enrich_err:
+                            logger.warning(
+                                f"Failed to queue enrichments for {identifier}: {enrich_err}"
+                            )
+                        return "components_complete"
+                else:
+                    needs_analysis = result.needs_analysis or result.needs_resume
+                    needs_categories = False
                 
-                return "processed"
+                if (self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY and (needs_analysis or needs_categories)) or \
+                   (self.config.processing_mode != ProcessingMode.ANALYSIS_ONLY and needs_analysis):
+                    import time
+                    
+                    logger.debug(f"Starting comprehensive AI analysis for {identifier}")
+                    
+                    full_text = bill.get_full_text()
+                    if not full_text:
+                        logger.warning(f"No full text available for analysis: {identifier}")
+                        return "no_text"
+
+                    if not bill_work_lease.try_acquire(
+                        bill.id,
+                        bill_work_lease.KIND_ANALYZE,
+                        self._analysis_holder,
+                    ):
+                        logger.info(
+                            f"Analyze lease held for {identifier}; deferring"
+                        )
+                        return "lease_deferred"
+                    
+                    text_length = len(full_text)
+                    start_time = time.time()
+                    
+                    logger.info(
+                        f"Starting enhanced AI analysis for {identifier} "
+                        f"(text length: {text_length:,} characters)"
+                    )
+                    model_name = getattr(self.ai_analyzer, "model_name", None)
+                    try:
+                        from services.pipeline_activity_log import (
+                            get_backfill_activity_log,
+                        )
+                        from services.ops_alert_service import (
+                            CONTINUATION_FINISHED,
+                            CONTINUATION_QUEUED,
+                            EMPTY_RESULT,
+                            notify_gemini_failure,
+                        )
+
+                        get_backfill_activity_log().append(
+                            f"Starting AI analysis ({text_length:,} chars)",
+                            level="info",
+                            bill_identifier=identifier,
+                        )
+                        notify_gemini_failure(
+                            CONTINUATION_QUEUED,
+                            f"Backfill analysis queued for {identifier}",
+                            severity="info",
+                            bill_identifier=identifier,
+                            bill_id=bill.id,
+                            provider_model=model_name,
+                            source="backfill",
+                            extra={"event": "queued", "pipeline": "backfill"},
+                        )
+                    except Exception:
+                        pass
+
+                    try:
+                        # Analyzer persists AIAnalysis/Summary/categories/hidden provisions/display_ready
+                        analysis = self.ai_analyzer.analyze_bill(
+                            bill, bill.title, allow_budget_waits=True
+                        )
+                    finally:
+                        bill_work_lease.release(
+                            bill.id,
+                            bill_work_lease.KIND_ANALYZE,
+                            self._analysis_holder,
+                        )
+                    
+                    processing_time = time.time() - start_time
+                    
+                    if analysis:
+                        logger.info(f"✅ Enhanced AI analysis completed for: {identifier}")
+                        chunks_analyzed = analysis.get('chunks_analyzed', 0)
+                        analysis_method = analysis.get('analysis_method', 'enhanced_backfill')
+                        is_partial = bool(analysis.get("is_partial"))
+                        
+                        logger.info(f"  📊 Method: {analysis_method}")
+                        logger.info(f"  🔧 Chunks analyzed: {chunks_analyzed}")
+                        logger.info(f"  📝 Text processed: {text_length:,} characters")
+                        logger.info(f"  ⏱️ Processing time: {processing_time:.2f} seconds")
+
+                        try:
+                            from services.pipeline_activity_log import (
+                                get_backfill_activity_log,
+                            )
+                            from services.ops_alert_service import (
+                                CONTINUATION_FINISHED,
+                                notify_gemini_failure,
+                            )
+
+                            get_backfill_activity_log().append(
+                                f"Analysis complete ({analysis_method}"
+                                f"{', partial' if is_partial else ''})",
+                                level="warning" if is_partial else "info",
+                                bill_identifier=identifier,
+                            )
+                            notify_gemini_failure(
+                                CONTINUATION_FINISHED,
+                                f"Backfill analysis finished for {identifier}"
+                                + (" (partial)" if is_partial else ""),
+                                severity="warning" if is_partial else "info",
+                                bill_identifier=identifier,
+                                bill_id=bill.id,
+                                provider_model=model_name,
+                                source="backfill",
+                                completion_percentage=analysis.get(
+                                    "completion_percentage"
+                                ),
+                                extra={
+                                    "event": "finished",
+                                    "pipeline": "backfill",
+                                    "is_partial": is_partial,
+                                },
+                            )
+                        except Exception:
+                            pass
+                        
+                        # bills_analyzed is incremented by the batch loop when
+                        # this returns "analyzed" (avoid double-counting).
+                        if bill.display_ready:
+                            self.state.bills_made_display_ready += 1
+                        if not is_partial:
+                            try:
+                                from services.enrichment_queue import (
+                                    maybe_queue_enrichments,
+                                )
+
+                                maybe_queue_enrichments(
+                                    bill,
+                                    analysis if isinstance(analysis, dict) else None,
+                                    source="backfill",
+                                    analyzer=self.ai_analyzer,
+                                    is_partial=False,
+                                )
+                            except Exception as enrich_err:
+                                logger.warning(
+                                    f"Failed to queue enrichments for "
+                                    f"{identifier}: {enrich_err}"
+                                )
+                        return "analyzed"
+                    else:
+                        logger.warning(f"Analysis returned empty for {identifier}")
+                        try:
+                            from services.pipeline_activity_log import (
+                                get_backfill_activity_log,
+                            )
+                            from services.ops_alert_service import (
+                                EMPTY_RESULT,
+                                notify_gemini_failure,
+                            )
+
+                            get_backfill_activity_log().append(
+                                "Analysis returned empty",
+                                level="error",
+                                bill_identifier=identifier,
+                            )
+                            notify_gemini_failure(
+                                EMPTY_RESULT,
+                                f"Backfill analysis empty for {identifier}",
+                                severity="error",
+                                bill_identifier=identifier,
+                                bill_id=bill.id,
+                                provider_model=model_name,
+                                source="backfill",
+                                extra={"event": "finished", "pipeline": "backfill"},
+                            )
+                        except Exception:
+                            pass
+                        return "analysis_empty"
+                
+                elif self.config.processing_mode == ProcessingMode.ANALYSIS_ONLY and needs_categories:
+                    active_analysis = bill.get_active_ai_analysis()
+                    if active_analysis:
+                        analysis_data = active_analysis.get_analysis_data()
+                        if analysis_data and 'policy_implications' in analysis_data:
+                            policy_data = analysis_data['policy_implications']
+                            if 'categories' in policy_data:
+                                self.ai_analyzer._store_policy_categories(
+                                    bill, policy_data['categories'], analysis_data
+                                )
+                                logger.debug(f"Created category mappings for {identifier}")
+                                return "categories_added"
+                    logger.debug(f"No usable policy data found for {identifier}, needs full analysis")
+                    return "needs_full_analysis"
+                
+                else:
+                    try:
+                        from services.enrichment_queue import maybe_queue_enrichments
+
+                        maybe_queue_enrichments(
+                            bill,
+                            source="backfill",
+                            analyzer=self.ai_analyzer,
+                        )
+                    except Exception:
+                        pass
+                    if result.created or allow_ingest:
+                        return "ingested"
+                    if result.actions_added or result.status_changed:
+                        return "refreshed_only"
+                    return "skipped_fresh"
                 
         except Exception as e:
             logger.error(f"Error processing bill {identifier}: {e}")
             return False
     
-    def _create_category_mappings_with_sneakiness(self, bill: Bill, categories: List[Dict], analysis: Dict = None):
-        """Store policy category mappings for the bill, including sneakiness score per category"""
-        try:
-            import re
-            import json
-            categories_stored = 0
-
-            # Prepare sneakiness mapping if analysis is provided
-            sneakiness_by_category = {}
-            if analysis and 'hidden_provisions' in analysis:
-                hidden_provisions = analysis['hidden_provisions'].get('detected_provisions', [])
-                # Build a mapping: category_name -> max sneakiness score
-                for provision in hidden_provisions:
-                    provision_text = (provision.get('text') or '') + ' ' + (provision.get('type') or '')
-                    risk_level = provision.get('risk_level', 'low')
-                    confidence = provision.get('confidence_score', 0.5)
-                    risk_value = {'low': 0.2, 'medium': 0.5, 'high': 0.8}.get(risk_level, 0.2)
-                    sneakiness_score = risk_value * confidence
-                    for cat in categories:
-                        area = cat.get('area', '')
-                        if area and re.search(re.escape(area), provision_text, re.IGNORECASE):
-                            prev = sneakiness_by_category.get(area, 0.0)
-                            sneakiness_by_category[area] = max(prev, sneakiness_score)
-            
-            for category_data in categories:
-                area = category_data.get('area')
-                if not area:
-                    continue
-                try:
-                    # Find or create policy category
-                    policy_category = PolicyCategory.query.filter_by(name=area).first()
-                    if not policy_category:
-                        policy_category = PolicyCategory(
-                            name=area,
-                            display_name=area.title(),
-                            description=f"Policy area: {area}",
-                            color='#007bff',
-                            icon='policy',
-                            is_active=True
-                        )
-                        db.session.add(policy_category)
-                        db.session.flush()
-                        logger.info(f"Created new policy category: {area}")
-                    
-                    mapping = BillCategoryMapping.query.filter_by(
-                        bill_id=bill.id,
-                        policy_category_id=policy_category.id
-                    ).first()
-                    
-                    # Extract relevance score from category data or use default
-                    relevance_score = category_data.get('impact_level', 'medium')
-                    if relevance_score == 'high':
-                        score = 0.9
-                    elif relevance_score == 'medium':
-                        score = 0.7
-                    elif relevance_score == 'low':
-                        score = 0.5
-                    else:
-                        score = 0.8
-                    
-                    sneakiness_score = sneakiness_by_category.get(area, 0.0)
-                    
-                    # Extract section reference and title information
-                    section_reference = None
-                    if 'section' in category_data:
-                        section_ref = category_data['section']
-                    elif 'reasoning' in category_data:
-                        # Try to extract section info from reasoning text
-                        reasoning = category_data['reasoning']
-                        import re
-                        section_match = re.search(r'[Ss]ection\s+(\d+[\w\-\.]*)', reasoning)
-                        if section_match:
-                            section_reference = f"Section {section_match.group(1)}"
-                    
-                    # Include title in section reference if available
-                    if category_data.get('title') and section_reference:
-                        section_reference = f"{section_reference}: {category_data['title'][:100]}"
-                    elif category_data.get('title'):
-                        section_reference = category_data['title'][:150]
-                    
-                    if not mapping:
-                        mapping = BillCategoryMapping(
-                            bill_id=bill.id,
-                            policy_category_id=policy_category.id,
-                            relevance_score=score,
-                            category_specific_analysis=json.dumps(category_data),
-                            sneakiness_score=sneakiness_score,
-                            section_reference=section_reference
-                        )
-                        db.session.add(mapping)
-                        categories_stored += 1
-                        logger.info(f"Created category mapping: {bill.get_bill_identifier()} -> {area} (score: {score}, sneakiness: {sneakiness_score})")
-                    else:
-                        mapping.category_specific_analysis = json.dumps(category_data)
-                        mapping.sneakiness_score = sneakiness_score
-                        mapping.section_reference = section_reference
-                        logger.info(f"Updated existing category mapping: {bill.get_bill_identifier()} -> {area} (sneakiness: {sneakiness_score})")
-                        
-                except Exception as category_error:
-                    logger.error(f"Error processing category '{area}': {category_error}")
-                    continue
-            
-            if categories_stored > 0:
-                db.session.commit()
-                logger.info(f"Successfully stored {categories_stored} policy category mappings for {bill.get_bill_identifier()}")
-                
-                # Update display_ready status after policy categories are stored
-                if hasattr(bill, 'update_display_ready_status'):
-                    status_changed = bill.update_display_ready_status()
-                    if status_changed:
-                        logger.info(f"Bill {bill.get_bill_identifier()} is now display ready")
-            else:
-                logger.warning(f"No new policy category mappings were stored for {bill.get_bill_identifier()}")
-                
-        except Exception as e:
-            logger.error(f"Error storing policy categories for {bill.get_bill_identifier()}: {e}")
-            db.session.rollback()
-    
-    def _store_hidden_provisions(self, bill: Bill, hidden_provisions_data: Dict, full_analysis: Dict):
-        """Store detected hidden provisions (sneaky riders) via shared helper."""
-        try:
-            from services.hidden_provisions import store_hidden_provisions
-
-            with app.app_context():
-                store_hidden_provisions(
-                    bill,
-                    hidden_provisions_data,
-                    full_analysis=full_analysis,
-                    replace=True,
-                    provider_model_fallback=getattr(self.ai_analyzer, "model_name", None),
-                )
-        except Exception as e:
-            logger.error(
-                f"Error storing hidden provisions for {bill.get_bill_identifier()}: {e}"
-            )
-            try:
-                db.session.rollback()
-            except Exception:
-                pass
-
-    def _create_category_mappings(self, bill: Bill, analysis: Dict):
-        """Create category mappings from analysis results"""
-        # Check for categories in policy_implications
-        categories = []
-        if 'policy_implications' in analysis and 'categories' in analysis['policy_implications']:
-            categories = analysis['policy_implications']['categories']
-        elif 'categories' in analysis:
-            categories = analysis['categories']
-        
-        if not categories:
-            logger.debug(f"No categories found in analysis for bill {bill.get_bill_identifier()}")
-            return
-        
-        logger.debug(f"Creating category mappings for {len(categories)} categories")
-        
-        for category_info in categories:
-            # Handle different category formats
-            category_name = category_info.get('area', category_info.get('name', '')).lower()
-            
-            # Convert impact_level to relevance score
-            impact_level = category_info.get('impact_level', 'medium')
-            if impact_level == 'high':
-                relevance = 0.8
-            elif impact_level == 'medium':
-                relevance = 0.6
-            elif impact_level == 'low':
-                relevance = 0.4
-            else:
-                relevance = float(category_info.get('relevance', 0.5))
-            
-            # Get sneakiness score from analysis
-            sneakiness = float(category_info.get('sneakiness_score', category_info.get('sneakiness', 0.0)))
-            
-            logger.debug(f"Processing category: {category_name} with relevance {relevance}")
-            
-            if relevance > 0.1:  # Only significant relevance
-                # Try to find matching policy category by name conversion
-                policy_category = self._find_matching_policy_category(category_name)
-                
-                if policy_category:
-                    # Check if mapping already exists
-                    existing_mapping = BillCategoryMapping.query.filter_by(
-                        bill_id=bill.id,
-                        policy_category_id=policy_category.id
-                    ).first()
-                    
-                    if not existing_mapping:
-                        mapping = BillCategoryMapping(
-                            bill_id=bill.id,
-                            policy_category_id=policy_category.id,
-                            relevance_score=relevance,
-                            sneakiness_score=sneakiness
-                        )
-                        
-                        # Store the category-specific analysis
-                        if 'description' in category_info:
-                            analysis_data = {
-                                'analysis': category_info['description'],
-                                'impact_level': category_info.get('impact_level', 'unknown'),
-                                'area': category_info.get('area', category_name),
-                                'sneakiness_score': sneakiness
-                            }
-                            
-                            # Add sneakiness explanation if available
-                            if 'sneakiness_explanation' in category_info:
-                                analysis_data['sneakiness_explanation'] = category_info['sneakiness_explanation']
-                            
-                            mapping.set_category_analysis(analysis_data)
-                        
-                        db.session.add(mapping)
-                        logger.debug(f"Created mapping: {bill.get_bill_identifier()} -> {policy_category.display_name}")
-                    else:
-                        logger.debug(f"Mapping already exists: {bill.get_bill_identifier()} -> {policy_category.display_name}")
-                else:
-                    logger.warning(f"No matching policy category found for: {category_name}")
-    
-    def _find_matching_policy_category(self, category_name: str) -> Optional['PolicyCategory']:
-        """Find matching policy category with flexible name matching"""
-        category_name = category_name.lower().strip()
-        
-        # Direct name match
-        policy_category = PolicyCategory.query.filter_by(name=category_name.replace(' ', '_').replace('&', 'and')).first()
-        if policy_category:
-            return policy_category
-        
-        # Mapping of AI category names to database names
-        category_mappings = {
-            'public lands and natural resources': 'public_lands_and_natural_resources',
-            'native american affairs': 'native_american_affairs', 
-            'economic development': 'economic_development',
-            'government operations': 'government_operations_and_politics',
-            'social services and welfare': 'social_welfare',
-            'social security': 'social_security_and_retirement',
-            'budget and fiscal policy': 'budget_and_fiscal_policy',
-            'healthcare': 'healthcare',
-            'education': 'education',
-            'environment': 'environmental_protection',
-            'transportation': 'transportation',
-            'energy': 'energy',
-            'defense': 'defense_and_national_security',
-            'immigration': 'immigration',
-            'taxation': 'taxation',
-            'housing': 'housing_and_urban_development',
-            'labor': 'labor_and_employment',
-            'agriculture': 'agriculture_and_food',
-            'technology': 'communications_and_technology',
-            'civil rights': 'civil_rights_and_liberties'
-        }
-        
-        if category_name in category_mappings:
-            return PolicyCategory.query.filter_by(name=category_mappings[category_name]).first()
-        
-        # Partial match search
-        for policy_cat in PolicyCategory.query.all():
-            if category_name in policy_cat.name or policy_cat.name in category_name:
-                return policy_cat
-        
-        return None
-    
     def get_status(self) -> Dict:
         """Get current backfill status and progress"""
+        catalog = {}
+        try:
+            with app.app_context():
+                row = self._get_or_create_catalog_state()
+                catalog = {
+                    "next_index": row.next_index,
+                    "sort_key": row.sort_key,
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                }
+        except Exception as e:
+            catalog = {"error": str(e)}
+
         return {
             'congress_session': self.state.congress_session,
             'status': self.state.status,
@@ -1145,10 +1243,19 @@ class BackfillOrchestrator:
                 'total_discovered': self.state.total_bills_discovered,
                 'offset': self.state.discovery_offset
             },
+            'catalog': catalog,
+            'window': {
+                'start': self.state.stats.get('window_start'),
+                'size': self.state.stats.get('window_size'),
+            },
             'processing': {
                 'bills_processed': self.state.bills_processed,
                 'bills_analyzed': self.state.bills_analyzed,
                 'bills_failed': self.state.bills_failed,
+                'visited': self.state.stats.get('visited', 0),
+                'skipped_fresh': self.state.stats.get('skipped_fresh', 0),
+                'refreshed_only': self.state.stats.get('refreshed_only', 0),
+                'ingested': self.state.stats.get('ingested', 0),
                 'current_batch': self.state.current_batch,
                 'last_processed': self.state.last_processed_bill
             },
@@ -1157,7 +1264,10 @@ class BackfillOrchestrator:
                 'api_quota_hits': self.state.api_quota_hits,
                 'recent_errors': self.state.errors[-5:] if self.state.errors else []
             },
-            'stats': self.state.stats
+            'stats': self.state.stats,
+            'max_bills_per_session': self.config.max_bills_per_session,
+            'start_index': self.config.start_index,
+            'continue_from_cursor': self.config.continue_from_cursor,
         }
     
     def pause(self):
@@ -1307,20 +1417,13 @@ def main():
         **production_config_overrides
     )
     
-    # Create orchestrator with production-specific state file location
+    # Create orchestrator — set prod state file BEFORE __init__ loads state
     if args.prod:
-        # Use production-specific state file location
-        original_init = BackfillOrchestrator.__init__
-        
-        def production_init(self, config=None):
-            original_init(self, config)
-            # Override state file location for production
-            self.state_file = Path("logs") / f"backfill_state_prod_{self.config.congress_session}.json"
-            logger.info(f"📁 Using production state file: {self.state_file}")
-        
-        BackfillOrchestrator.__init__ = production_init
-    
-    orchestrator = BackfillOrchestrator(config)
+        state_file = Path("logs") / f"backfill_state_prod_{config.congress_session}.json"
+        logger.info(f"📁 Using production state file: {state_file}")
+        orchestrator = BackfillOrchestrator(config, state_file=state_file)
+    else:
+        orchestrator = BackfillOrchestrator(config)
     
     # Handle commands
     if args.reset:

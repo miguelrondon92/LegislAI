@@ -10,7 +10,7 @@
 
 ### ETL Agent
 - Owns discovery and fetch of congressional data.
-- Files: `services/congress_api.py`, `services/congress_rss.py`, `services/rss_monitoring.py`, `services/rss_debugger.py`, `services/bill_processor.py`, `services/workflow_bill_processor.py`, `services/backfill_orchestrator.py`, related `scripts/monitoring/`, `scripts/debug/debug_congress_api.py`.
+- Files: `services/congress_api.py`, `services/congress_rss.py`, `services/rss_monitoring.py`, `services/rss_debugger.py`, `services/bill_processor.py`, `services/bill_sync.py`, `services/backfill_orchestrator.py`, related `scripts/monitoring/`, `scripts/debug/debug_congress_api.py`.
 - Must not invent DB columns; propose fields via handoff to Database.
 - Must not change templates; emit handoff for Frontend when new bill fields appear in UI.
 
@@ -22,7 +22,7 @@
 
 ### Analysis Agent
 - Owns AI analysis pipeline and storage of analysis artifacts.
-- Files: `services/enhanced_ai_analyzer.py`, `services/analysis_enrichers.py`, `utils/bill_chunker.py`, `utils/text_processing.py`, `utils/constants.py` (policy categories — coordinate `GEMINI_MODEL` with Gemini Ops).
+- Files: `services/enhanced_ai_analyzer.py`, `services/analysis_enrichers.py`, `services/enrichment_queue.py`, `utils/bill_chunker.py`, `utils/text_processing.py`, `utils/constants.py` (policy categories — coordinate `GEMINI_MODEL` with Gemini Ops).
 - **Always read current `GEMINI_MODEL` / `EnhancedAIAnalyzer.model_name` before analysis work** — never hardcode a model string.
 - Every new `AIAnalysis` / `Summary` / `HiddenProvision` write **must** stamp `provider_model` (column + `analysis_data` JSON). Historical rows keep their stamped model when the constant later changes.
 - Size-aware: Tier A `single_pass_full_text` (~2 Gemini calls); Tier B `map_reduce_macro_chunks` with resume. Stakeholders + deep policy are **async enrichers**, not core.
@@ -41,7 +41,7 @@
 - Owns HTTP surface and glue between services and templates.
 - Files: `routes.py`, `auth.py`, `app.py`, `workflow_admin.py`, `utils.py` (route helpers), `services/workflow_orchestrator.py` (API-facing workflow status only when coordinating with ETL/Analysis).
 - Keeps search / bill detail / profile / alerts / workflow endpoints consistent with model methods.
-- UI analysis waves: `allow_budget_waits=False`; separate `_analyzing_bill_ids` vs `_enriching_bill_ids`; pass `enrichment_flags` into `bill_analysis.html`.
+- UI analysis waves: `allow_budget_waits=False`; DB leases via `bill_work_lease` (`analyze` vs `enrich`); pass `enrichment_flags` into `bill_analysis.html`.
 - Never hardcodes API keys; use env vars already loaded by the app.
 
 ### Frontend Agent

@@ -80,7 +80,7 @@ def test_workflow_integration():
         orchestrator = WorkflowOrchestrator()
         orchestrator.is_running = True  # Enable processing
         
-        success, metadata = orchestrator._perform_ai_analysis(bill_without_analysis)
+        success, metadata, _analysis_ran = orchestrator._perform_ai_analysis(bill_without_analysis)
         
         logger.info(f"WorkflowOrchestrator analysis result: {success}")
         

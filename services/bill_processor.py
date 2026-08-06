@@ -409,109 +409,11 @@ class BillProcessor:
             return False
     
     def _process_bill_actions(self, bill, action_list):
-        """Process and store bill actions from Congress API data"""
+        """Process and store bill actions — delegates to shared bill_sync helper."""
         try:
-            for action_data in action_list:
-                # Check if action already exists
-                action_date = action_data.get('actionDate')
-                action_text = action_data.get('text', '')
-                
-                if not action_date or not action_text:
-                    continue
-                
-                # Parse action date
-                try:
-                    parsed_date = datetime.fromisoformat(action_date + 'T00:00:00')
-                except:
-                    continue
-                
-                # Check if this action already exists
-                from db_models import BillAction
-                existing_action = BillAction.query.filter_by(
-                    bill_id=bill.id,
-                    action_date=parsed_date,
-                    action_text=action_text
-                ).first()
-                
-                if existing_action:
-                    continue  # Skip if already exists
-                
-                # Determine action type from text
-                action_type = self._categorize_action_type(action_text)
-                
-                # Create action description
-                action_description = self._generate_action_description(action_text, action_type)
-                
-                # Get source system info
-                source_system = action_data.get('sourceSystem', {})
-                source_system_name = source_system.get('name', 'Congress.gov') if source_system else 'Congress.gov'
-                
-                # Create new action
-                bill_action = BillAction(
-                    bill_id=bill.id,
-                    action_date=parsed_date,
-                    action_type=action_type,
-                    action_text=action_text,
-                    action_description=action_description,
-                    source_system='congress_api',
-                    source_system_name=source_system_name
-                )
-                
-                db.session.add(bill_action)
-                
-            db.session.commit()
-            logging.info(f"Processed {len(action_list)} actions for bill {bill.get_bill_identifier()}")
-            
+            from services.bill_sync import sync_bill_actions
+
+            sync_bill_actions(bill, action_list or [])
         except Exception as e:
             logging.error(f"Error processing bill actions: {str(e)}")
             db.session.rollback()
-    
-    def _categorize_action_type(self, action_text):
-        """Categorize action text into action types"""
-        action_text_lower = action_text.lower()
-        
-        # Define action type patterns
-        action_patterns = {
-            'introduced': ['introduced', 'introduction'],
-            'referred': ['referred', 'referred to'],
-            'reported': ['reported', 'reported by'],
-            'passed': ['passed', 'agreed to', 'adopted'],
-            'failed': ['failed', 'rejected', 'not agreed to'],
-            'enacted': ['enacted', 'became law', 'signed'],
-            'vetoed': ['vetoed', 'veto'],
-            'amended': ['amended', 'amendment'],
-            'scheduled': ['scheduled', 'placed on calendar'],
-            'hearing': ['hearing', 'heard'],
-            'markup': ['markup', 'marked up'],
-            'conference': ['conference', 'conferees'],
-            'resolved': ['resolved', 'resolution'],
-            'withdrawn': ['withdrawn', 'withdrawal']
-        }
-        
-        for action_type, patterns in action_patterns.items():
-            if any(pattern in action_text_lower for pattern in patterns):
-                return action_type
-        
-        return 'other'
-    
-    def _generate_action_description(self, action_text, action_type):
-        """Generate a human-readable description of the action"""
-        descriptions = {
-            'introduced': 'Bill was introduced in Congress',
-            'referred': 'Bill was referred to committee for review',
-            'reported': 'Committee reported the bill favorably',
-            'passed': 'Bill was passed by the chamber',
-            'failed': 'Bill failed to pass',
-            'enacted': 'Bill became law',
-            'vetoed': 'Bill was vetoed by the President',
-            'amended': 'Bill was amended',
-            'scheduled': 'Bill was scheduled for consideration',
-            'hearing': 'Public hearing was held on the bill',
-            'markup': 'Committee marked up the bill',
-            'conference': 'Conference committee was formed',
-            'resolved': 'Differences between chambers were resolved',
-            'withdrawn': 'Bill was withdrawn from consideration',
-            'other': 'Other legislative action occurred'
-        }
-        
-        return descriptions.get(action_type, 'Legislative action occurred')

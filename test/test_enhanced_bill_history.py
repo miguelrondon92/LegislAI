@@ -30,7 +30,7 @@ def test_bill_actions_fetch():
     try:
         from app import app, db
         from db_models import Bill, BillAction
-        from routes import fetch_bill_actions_from_api
+        from services import bill_sync
         
         with app.app_context():
             # Get a bill to test
@@ -48,9 +48,9 @@ def test_bill_actions_fetch():
             
             logger.info("Cleared existing actions for fresh test")
             
-            # Fetch actions from API
+            # Fetch actions from API via shared bill_sync
             logger.info("Fetching actions from Congress API...")
-            fetch_bill_actions_from_api(bill)
+            bill_sync.refresh_activity(bill)
             
             # Refresh bill to get new actions
             db.session.refresh(bill)

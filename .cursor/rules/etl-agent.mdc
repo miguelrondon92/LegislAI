@@ -1,6 +1,6 @@
 ---
 description: ETL agent — Congress API, RSS, bill processors, backfill
-globs: services/congress_*.py,services/rss_*.py,services/*bill_processor*.py,services/backfill_*.py,scripts/monitoring/**/*,scripts/debug/debug_congress_api.py
+globs: services/congress_*.py,services/rss_*.py,services/*bill_processor*.py,services/bill_sync.py,services/backfill_*.py,scripts/monitoring/**/*,scripts/debug/debug_congress_api.py
 alwaysApply: false
 ---
 
