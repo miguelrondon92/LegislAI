@@ -78,6 +78,73 @@ class GeminiRateBudgetTest(unittest.TestCase):
         self.assertFalse(errors, errors)
         self.assertEqual(order, ["first", "second"])
 
+    def test_priority_admits_before_earlier_normal(self):
+        """Later priority waiter is admitted before an earlier normal waiter."""
+        budget = GeminiRateBudget(
+            max_requests_per_minute=1,
+            usable_tpm_headroom=10_000,
+            persist_to_db=False,
+        )
+        self.assertTrue(budget.admit(1, wait=False))
+
+        order = []
+        errors = []
+
+        def waiter(name, priority):
+            try:
+                ok = budget.admit(1, wait=True, max_waits=5, priority=priority)
+                if ok:
+                    order.append(name)
+            except Exception as e:
+                errors.append(e)
+
+        t_normal = threading.Thread(target=waiter, args=("normal", False))
+        t_priority = threading.Thread(target=waiter, args=("priority", True))
+        t_normal.start()
+        time.sleep(0.15)  # normal queued first
+        t_priority.start()
+        time.sleep(0.15)
+
+        def _free_window():
+            with budget._cond:
+                budget.minute_start_time = time.time() - 61
+                budget.requests_this_minute = 0
+                budget.tokens_this_minute = 0
+                budget._cond.notify_all()
+
+        _free_window()
+        time.sleep(0.3)
+        _free_window()
+        t_normal.join(timeout=15)
+        t_priority.join(timeout=15)
+        self.assertFalse(errors, errors)
+        self.assertEqual(order, ["priority", "normal"])
+
+    def test_status_reports_lane_depths(self):
+        budget = GeminiRateBudget(
+            max_requests_per_minute=1,
+            usable_tpm_headroom=10_000,
+            persist_to_db=False,
+        )
+        self.assertTrue(budget.admit(1, wait=False))
+
+        def run():
+            budget.admit(1, wait=True, max_waits=5, priority=False)
+
+        t = threading.Thread(target=run)
+        t.start()
+        time.sleep(0.15)
+        st = budget.status()
+        self.assertGreaterEqual(st["normal_depth"], 1)
+        self.assertEqual(st["priority_depth"], 0)
+        self.assertEqual(st["queue_depth"], st["normal_depth"] + st["priority_depth"])
+        with budget._cond:
+            budget.minute_start_time = time.time() - 61
+            budget.requests_this_minute = 0
+            budget.tokens_this_minute = 0
+            budget._cond.notify_all()
+        t.join(timeout=15)
+
     def test_reset_shared_singleton(self):
         b1 = reset_shared_gemini_budget_for_tests()
         b1.persist_to_db = False

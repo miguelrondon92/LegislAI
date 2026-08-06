@@ -161,15 +161,15 @@ Core analysis writes category labels separately from deep policy narrative:
 - `policy_analysis`: deep narrative for **Policy Analysis** card; `status` pending|ready|skipped
 - `stakeholders`: template-canonical shape for **Stakeholder Analysis** card; `status` pending|ready|skipped
 
-Downstream enrichers (`services/analysis_enrichers.py` → `run_downstream_enrichments`) fill `policy_analysis` and `stakeholders` asynchronously when RPM allows. Merge into a **new** `AIAnalysis` version; stamp `provider_model`. `display_ready` does **not** wait on enrichments.
+Downstream enrichers (`services/analysis_enrichers.py` → `run_downstream_enrichments`) fill `policy_analysis` and `stakeholders` asynchronously when RPM allows. Queued via `services/enrichment_queue.py` from **routes, RSS (`WorkflowOrchestrator`), and backfill** after non-partial core (and when revisiting bills with pending stubs). Merge into a **new** `AIAnalysis` version; stamp `provider_model`. `display_ready` does **not** wait on enrichments.
 
-**Quota gate (required):** use `enrichment_quota_ok(analyzer)` which reads `get_rate_limit_status()["remaining_requests"]` (need ≥ 2). Do **not** use `get_quota_info()["status"]["safe_remaining_requests"]` — that nest does not exist (always looked like 0 and caused false `local_minute_budget` skip spam). On real deferral: keep `pending`, do not persist a skip version, routes cooldown via `_enrichment_defer_until`.
+**Quota gate (required):** use `enrichment_quota_ok(analyzer)` which reads `get_rate_limit_status()["remaining_requests"]` (need ≥ 2). Do **not** use `get_quota_info()["status"]["safe_remaining_requests"]` — that nest does not exist (always looked like 0 and caused false `local_minute_budget` skip spam). On real deferral: keep `pending`, do not persist a skip version, shared cooldown via `enrichment_queue.mark_enrichment_deferred`.
 
-Ops classes: `enrichment_queued`, `enrichment_finished` (plus existing Gemini failure classes). Extra may include `limit_cause`, `remaining_requests`, `event=deferred|queued|finished`.
+Ops classes: `enrichment_queued`, `enrichment_finished` (plus existing Gemini failure classes). Extra may include `limit_cause`, `remaining_requests`, `event=deferred|queued|finished`, `pipeline` (`routes`|`rss`|`backfill`).
 
 API: enrich uses DB lease kind `enrich` via `bill_work_lease` (must not block Tier B resume / `analyze` lease). Template context: `enrichment_flags` (`stakeholders_pending`, `policy_analysis_pending`, `any_enrichment_pending`, `enrichment_queued`).
 
-Tests: `test/test_downstream_enrichers.py`, `test/test_size_aware_analysis.py`.
+Tests: `test/test_downstream_enrichers.py`, `test/test_enrichment_queue.py`, `test/test_size_aware_analysis.py`.
 
 ### Hidden provisions (DB source of truth)
 
@@ -184,7 +184,7 @@ Tests: `test/test_hidden_provisions_store.py`.
 
 If you rename or remove keys, update:
 1. `services/enhanced_ai_analyzer.py` + `services/analysis_enrichers.py` writers
-2. Category extraction / enrichment queue in `routes.py`
+2. Category extraction / enrichment queue in `routes.py` + `services/enrichment_queue.py` (also RSS/backfill call sites)
 3. `templates/bill_analysis.html`
 4. Tests under `test/`
 

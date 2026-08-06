@@ -77,6 +77,8 @@ class EnhancedAIAnalyzer:
         self.macro_chunk_target_tokens = 120_000  # Tier B map chunk size
         self.estimated_tokens_per_char = 0.30  # dense legislative text
         self.max_budget_waits_per_analysis = 2
+        # Per-thread Gemini admit priority (search=True); cleared after analyze_bill
+        self._call_tls = threading.local()
         self.max_chunks_per_bill = 50  # Tier B macro-chunk safety cap (not a shredding target)
 
         # Initialize bill chunker (macro sizing set per Tier B run)
@@ -226,6 +228,12 @@ class EnhancedAIAnalyzer:
         )
         return True
 
+    def _current_admit_priority(self) -> bool:
+        tls = getattr(self, "_call_tls", None)
+        if tls is None:
+            return False
+        return bool(getattr(tls, "priority", False))
+
     def _wait_for_rate_limit(self, estimated_tokens: int = 0):
         """Wait until shared budget can accept estimated_tokens (does not record)."""
         if not self._check_rate_limit(estimated_tokens):
@@ -235,18 +243,23 @@ class EnhancedAIAnalyzer:
         self._budget.wait_for_capacity(
             estimated_tokens,
             max_waits=max(1, self.max_budget_waits_per_analysis),
+            priority=self._current_admit_priority(),
         )
 
-    def analyze_bill(self, bill_or_text, title=None, allow_budget_waits=True) -> Dict:
+    def analyze_bill(
+        self, bill_or_text, title=None, allow_budget_waits=True, priority=False
+    ) -> Dict:
         """Size-aware analysis: Tier A full-text two-pass, Tier B map-reduce + resume.
 
         allow_budget_waits: when True (offline/backfill), may sleep for local minute
         resets to expand a Tier B wave. UI async paths should pass False.
+        priority: when True (bill search), join the Gemini admit priority lane.
         """
         start_time = time.time()
         logger.info(f"[AI] Starting analysis for bill: {title}")
         self._allow_budget_waits = bool(allow_budget_waits)
         self._hit_gemini_api_429 = False
+        self._call_tls.priority = bool(priority)
 
         if not self.client:
             logging.warning("Gemini client not available")
@@ -266,6 +279,7 @@ class EnhancedAIAnalyzer:
                 )
             except Exception:
                 pass
+            self._call_tls.priority = False
             return {}
 
         try:
@@ -379,6 +393,8 @@ class EnhancedAIAnalyzer:
             except Exception:
                 pass
             return {}
+        finally:
+            self._call_tls.priority = False
 
     def _is_usable_map_finding(self, finding: Optional[Dict]) -> bool:
         """True when a Tier B map finding has real content (recovery contract)."""
@@ -2288,11 +2304,12 @@ Return a single JSON object with:
 
         for attempt in range(self.max_retries + 1):
             try:
-                # Shared FIFO budget: wait + record in one admit
+                # Shared dual-lane FIFO budget: wait + record in one admit
                 if not self._budget.admit(
                     estimated_tokens,
                     wait=True,
                     max_waits=max(1, self.max_budget_waits_per_analysis),
+                    priority=self._current_admit_priority(),
                 ):
                     logger.error(
                         f"🚫 Shared Gemini budget denied request on attempt {attempt + 1}"

@@ -38,7 +38,10 @@ def reset_shared_gemini_budget_for_tests() -> "GeminiRateBudget":
 
 class GeminiRateBudget:
     """
-    Shared RPM/TPM window with FIFO admit queue (in-process).
+    Shared RPM/TPM window with dual-lane FIFO admit queue (in-process).
+
+    Priority lane (search) is always drained before the normal lane (RSS/backfill).
+    Within each lane, order is FIFO.
 
     Cross-process: counters are also persisted to gemini_rate_budget_state so
     Flask + CLI backfill share the same ceiling (not FIFO fairness).
@@ -58,13 +61,46 @@ class GeminiRateBudget:
 
         self._lock = threading.Lock()
         self._cond = threading.Condition(self._lock)
-        self._queue: Deque[str] = deque()
+        self._priority: Deque[str] = deque()
+        self._normal: Deque[str] = deque()
 
         self.requests_this_minute = 0
         self.tokens_this_minute = 0
         self.minute_start_time: Optional[float] = None
         self.request_count = 0
         self.last_request_time: Optional[float] = None
+
+    def _enqueue_unlocked(self, ticket: str, priority: bool) -> None:
+        if priority:
+            self._priority.append(ticket)
+        else:
+            self._normal.append(ticket)
+
+    def _head_ticket_unlocked(self) -> Optional[str]:
+        if self._priority:
+            return self._priority[0]
+        if self._normal:
+            return self._normal[0]
+        return None
+
+    def _is_head_unlocked(self, ticket: str) -> bool:
+        return self._head_ticket_unlocked() == ticket
+
+    def _remove_unlocked(self, ticket: str) -> None:
+        if ticket in self._priority:
+            self._priority.remove(ticket)
+        elif ticket in self._normal:
+            self._normal.remove(ticket)
+
+    def _pop_head_unlocked(self) -> Optional[str]:
+        if self._priority:
+            return self._priority.popleft()
+        if self._normal:
+            return self._normal.popleft()
+        return None
+
+    def _depth_unlocked(self) -> int:
+        return len(self._priority) + len(self._normal)
 
     def _reset_window_if_needed_unlocked(self) -> None:
         now = time.time()
@@ -176,28 +212,29 @@ class GeminiRateBudget:
         estimated_tokens: int = 0,
         *,
         max_waits: int = 2,
+        priority: bool = False,
     ) -> bool:
         """
-        FIFO wait until this caller is head and budget can accept tokens.
+        Dual-lane FIFO wait until this caller is head and budget can accept tokens.
         Does not record — caller must record/admit separately.
         """
         ticket = str(uuid.uuid4())
         with self._cond:
-            self._queue.append(ticket)
+            self._enqueue_unlocked(ticket, priority)
             waits_used = 0
             try:
                 while True:
                     self._pull_from_db_unlocked()
                     self._reset_window_if_needed_unlocked()
-                    is_head = self._queue and self._queue[0] == ticket
+                    is_head = self._is_head_unlocked(ticket)
                     if is_head and self._can_admit_unlocked(estimated_tokens):
-                        self._queue.popleft()
+                        self._pop_head_unlocked()
                         self._cond.notify_all()
                         return True
 
                     if is_head and not self._can_admit_unlocked(estimated_tokens):
                         if waits_used >= max_waits:
-                            self._queue.remove(ticket)
+                            self._remove_unlocked(ticket)
                             self._cond.notify_all()
                             return False
                         wait_s = self._seconds_until_reset_unlocked()
@@ -219,8 +256,7 @@ class GeminiRateBudget:
 
                     self._cond.wait(timeout=1.0)
             except Exception:
-                if ticket in self._queue:
-                    self._queue.remove(ticket)
+                self._remove_unlocked(ticket)
                 self._cond.notify_all()
                 raise
 
@@ -230,38 +266,40 @@ class GeminiRateBudget:
         *,
         wait: bool = True,
         max_waits: int = 2,
+        priority: bool = False,
     ) -> bool:
         """
-        FIFO admit for one Gemini call. Records on success.
+        Dual-lane FIFO admit for one Gemini call. Records on success.
 
+        priority=True joins the search lane (served before normal).
         wait=False: fail immediately if not head-of-queue with budget.
         wait=True: stay in queue until admitted or max_waits minute resets exhausted.
         """
         ticket = str(uuid.uuid4())
         with self._cond:
-            self._queue.append(ticket)
+            self._enqueue_unlocked(ticket, priority)
             waits_used = 0
             try:
                 while True:
                     self._pull_from_db_unlocked()
                     self._reset_window_if_needed_unlocked()
 
-                    is_head = self._queue and self._queue[0] == ticket
+                    is_head = self._is_head_unlocked(ticket)
                     if is_head and self._can_admit_unlocked(estimated_tokens):
                         ok = self._record_unlocked(estimated_tokens)
                         if ok:
-                            self._queue.popleft()
+                            self._pop_head_unlocked()
                             self._cond.notify_all()
                             return True
 
                     if not wait:
-                        self._queue.remove(ticket)
+                        self._remove_unlocked(ticket)
                         self._cond.notify_all()
                         return False
 
                     if is_head and not self._can_admit_unlocked(estimated_tokens):
                         if waits_used >= max_waits:
-                            self._queue.remove(ticket)
+                            self._remove_unlocked(ticket)
                             self._cond.notify_all()
                             return False
                         wait_s = self._seconds_until_reset_unlocked()
@@ -274,11 +312,12 @@ class GeminiRateBudget:
                             continue
                         logger.info(
                             "⏳ Gemini budget: waiting %.1fs for minute reset "
-                            "(wait %s/%s, queue depth %s)",
+                            "(wait %s/%s, queue depth %s, priority=%s)",
                             wait_s,
                             waits_used + 1,
                             max_waits,
-                            len(self._queue),
+                            self._depth_unlocked(),
+                            priority,
                         )
                         self._cond.wait(timeout=min(wait_s, 10.0))
                         if self._seconds_until_reset_unlocked() <= 0:
@@ -292,8 +331,7 @@ class GeminiRateBudget:
                     # Not head — wait for notify
                     self._cond.wait(timeout=1.0)
             except Exception:
-                if ticket in self._queue:
-                    self._queue.remove(ticket)
+                self._remove_unlocked(ticket)
                 self._cond.notify_all()
                 raise
 
@@ -332,6 +370,8 @@ class GeminiRateBudget:
             remaining_tokens = max(
                 0, self.usable_tpm_headroom - self.tokens_this_minute
             )
+            priority_depth = len(self._priority)
+            normal_depth = len(self._normal)
             return {
                 "requests_this_minute": self.requests_this_minute,
                 "max_requests_per_minute": self.max_requests_per_minute,
@@ -354,5 +394,7 @@ class GeminiRateBudget:
                     (self.requests_this_minute / self.max_requests_per_minute) * 100
                 ),
                 "safe_remaining_requests": max(0, remaining_requests - 2),
-                "queue_depth": len(self._queue),
+                "queue_depth": priority_depth + normal_depth,
+                "priority_depth": priority_depth,
+                "normal_depth": normal_depth,
             }

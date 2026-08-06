@@ -21,14 +21,10 @@ bill_processor = BillProcessor(congress_api=congress_api, ai_analyzer=ai_analyze
 
 # Lease holders for cross-ingestor coordination (DB-backed)
 _ANALYSIS_HOLDER = bill_work_lease.default_holder("routes")
-_ENRICH_HOLDER = bill_work_lease.default_holder("routes-enrich")
 
 # Activity-refresh lock (TTL-gated Congress actions sync) — process-local is fine
 _refreshing_bill_ids = set()
 _refreshing_lock = threading.Lock()
-# After a real RPM deferral, don't re-queue until local minute resets
-_enrichment_defer_until = {}
-_enrichment_defer_lock = threading.Lock()
 
 # Initialize workflow orchestrator as a global instance
 workflow_orchestrator = None
@@ -451,98 +447,13 @@ def _release_analysis_slot(bill_id):
     )
 
 
-def _try_acquire_enrichment_slot(bill_id):
-    return bill_work_lease.try_acquire(
-        bill_id, bill_work_lease.KIND_ENRICH, _ENRICH_HOLDER
-    )
-
-
-def _release_enrichment_slot(bill_id):
-    bill_work_lease.release(
-        bill_id, bill_work_lease.KIND_ENRICH, _ENRICH_HOLDER
-    )
-
-
-def _enrichment_is_deferred(bill_id) -> bool:
-    if bill_id is None:
-        return False
-    with _enrichment_defer_lock:
-        until = _enrichment_defer_until.get(bill_id)
-        if until is None:
-            return False
-        if _time_module.time() >= until:
-            _enrichment_defer_until.pop(bill_id, None)
-            return False
-        return True
-
-
-def _mark_enrichment_deferred(bill_id, reset_seconds: float) -> None:
-    if bill_id is None:
-        return
-    wait = max(5.0, float(reset_seconds or 60.0))
-    with _enrichment_defer_lock:
-        _enrichment_defer_until[bill_id] = _time_module.time() + wait
-
-
 def _perform_enrichment_async(bill):
     """Queue stakeholder + policy_analysis enrichers after core analysis."""
-    bill_id = getattr(bill, "id", None)
-    bill_ident = None
-    try:
-        bill_ident = bill.get_bill_identifier()
-    except Exception:
-        bill_ident = None
+    from services.enrichment_queue import queue_downstream_enrichments
 
-    if _enrichment_is_deferred(bill_id):
-        logging.info(
-            f"Enrichment deferred (local RPM) for bill id={bill_id} ident={bill_ident}"
-        )
-        return
-
-    from services.analysis_enrichers import enrichment_quota_ok
-
-    ok, remaining, reset_in = enrichment_quota_ok(ai_analyzer)
-    if not ok:
-        _mark_enrichment_deferred(bill_id, reset_in or 60.0)
-        logging.info(
-            f"Enrichment not queued for bill id={bill_id}: "
-            f"remaining_requests={remaining} (local_minute_budget)"
-        )
-        return
-
-    if not _try_acquire_enrichment_slot(bill_id):
-        logging.info(f"Enrichment already in flight for bill id={bill_id}")
-        return
-
-    def enrich_worker():
-        from db_models import Bill
-        from services.analysis_enrichers import run_downstream_enrichments
-
-        try:
-            with app.app_context():
-                fresh = Bill.query.get(bill_id) if bill_id else None
-                if not fresh:
-                    return
-                logging.info(
-                    f"Starting downstream enrichments for {fresh.get_bill_identifier()}"
-                )
-                result = run_downstream_enrichments(fresh, ai_analyzer)
-                if isinstance(result, dict) and result.get("enrichments_deferred"):
-                    _mark_enrichment_deferred(
-                        bill_id, result.get("enrichments_retry_after_seconds") or 60.0
-                    )
-                logging.info(
-                    f"Downstream enrichments done for {fresh.get_bill_identifier()}"
-                )
-        except Exception as e:
-            logging.error(f"Enrichment failed for bill id={bill_id}: {e}")
-            import traceback
-
-            logging.error(traceback.format_exc())
-        finally:
-            _release_enrichment_slot(bill_id)
-
-    threading.Thread(target=enrich_worker, daemon=True).start()
+    queue_downstream_enrichments(
+        bill, source="routes", analyzer=ai_analyzer
+    )
 
 
 def _enrichment_pending_flags(analysis_data) -> dict:
@@ -693,7 +604,10 @@ def _perform_analysis_if_needed(bill, force_continue=False, allow_budget_waits=F
                         f"(text length: {text_length:,} characters)")
             
             analysis = ai_analyzer.analyze_bill(
-                bill, bill.title, allow_budget_waits=allow_budget_waits
+                bill,
+                bill.title,
+                allow_budget_waits=allow_budget_waits,
+                priority=True,
             )
             
             processing_time = time.time() - start_time
@@ -1384,6 +1298,13 @@ def bill_analysis(congress, bill_type, bill_number):
         logging.warning(f"Hidden provisions heal failed: {e}")
 
     # Queue downstream enrichments when core is done but stakeholders/policy_analysis pending
+    from services.enrichment_queue import (
+        enrichment_is_deferred,
+        mark_enrichment_deferred,
+        queue_downstream_enrichments,
+    )
+    from services.analysis_enrichers import enrichment_quota_ok
+
     enrichment_flags = _enrichment_pending_flags(
         analysis if isinstance(analysis, dict) else None
     )
@@ -1393,16 +1314,17 @@ def bill_analysis(congress, bill_type, bill_number):
         and not analysis.get("error")
         and not analysis.get("is_partial")
         and enrichment_flags["any_enrichment_pending"]
-        and not _enrichment_is_deferred(getattr(bill, "id", None))
+        and not enrichment_is_deferred(getattr(bill, "id", None))
     ):
-        from services.analysis_enrichers import enrichment_quota_ok
-
         ok, _remaining, reset_in = enrichment_quota_ok(ai_analyzer)
         if ok:
-            _perform_enrichment_async(bill)
-            enrichment_flags["enrichment_queued"] = True
+            enrichment_flags["enrichment_queued"] = bool(
+                queue_downstream_enrichments(
+                    bill, source="routes", analyzer=ai_analyzer
+                )
+            )
         else:
-            _mark_enrichment_deferred(getattr(bill, "id", None), reset_in or 60.0)
+            mark_enrichment_deferred(getattr(bill, "id", None), reset_in or 60.0)
             enrichment_flags["enrichment_queued"] = False
     else:
         enrichment_flags["enrichment_queued"] = False

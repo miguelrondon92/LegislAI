@@ -38,6 +38,7 @@ Use these instead of raw legacy columns when possible:
 Downstream stakeholder + policy narrative are stored on the active `AIAnalysis.analysis_data`:
 
 - Written as `pending` stubs by core Tier A/B completion
+- Queued via `services/enrichment_queue.py` from routes, RSS, and backfill
 - Filled by `services/analysis_enrichers.run_downstream_enrichments` when RPM allows
 - Canonical shapes: see [pipeline-contract.md](pipeline-contract.md) (§ Policy areas vs enrichments)
 

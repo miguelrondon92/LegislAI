@@ -22,7 +22,7 @@
 
 ### Analysis Agent
 - Owns AI analysis pipeline and storage of analysis artifacts.
-- Files: `services/enhanced_ai_analyzer.py`, `services/analysis_enrichers.py`, `utils/bill_chunker.py`, `utils/text_processing.py`, `utils/constants.py` (policy categories — coordinate `GEMINI_MODEL` with Gemini Ops).
+- Files: `services/enhanced_ai_analyzer.py`, `services/analysis_enrichers.py`, `services/enrichment_queue.py`, `utils/bill_chunker.py`, `utils/text_processing.py`, `utils/constants.py` (policy categories — coordinate `GEMINI_MODEL` with Gemini Ops).
 - **Always read current `GEMINI_MODEL` / `EnhancedAIAnalyzer.model_name` before analysis work** — never hardcode a model string.
 - Every new `AIAnalysis` / `Summary` / `HiddenProvision` write **must** stamp `provider_model` (column + `analysis_data` JSON). Historical rows keep their stamped model when the constant later changes.
 - Size-aware: Tier A `single_pass_full_text` (~2 Gemini calls); Tier B `map_reduce_macro_chunks` with resume. Stakeholders + deep policy are **async enrichers**, not core.

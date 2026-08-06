@@ -993,6 +993,18 @@ class BackfillOrchestrator:
                     needs_categories = 'categories' in missing_components
                     if not needs_analysis and not needs_categories:
                         logger.debug(f"Bill {identifier} already has required analysis components")
+                        try:
+                            from services.enrichment_queue import maybe_queue_enrichments
+
+                            maybe_queue_enrichments(
+                                bill,
+                                source="backfill",
+                                analyzer=self.ai_analyzer,
+                            )
+                        except Exception as enrich_err:
+                            logger.warning(
+                                f"Failed to queue enrichments for {identifier}: {enrich_err}"
+                            )
                         return "components_complete"
                 else:
                     needs_analysis = result.needs_analysis or result.needs_resume
@@ -1121,6 +1133,24 @@ class BackfillOrchestrator:
                         # this returns "analyzed" (avoid double-counting).
                         if bill.display_ready:
                             self.state.bills_made_display_ready += 1
+                        if not is_partial:
+                            try:
+                                from services.enrichment_queue import (
+                                    maybe_queue_enrichments,
+                                )
+
+                                maybe_queue_enrichments(
+                                    bill,
+                                    analysis if isinstance(analysis, dict) else None,
+                                    source="backfill",
+                                    analyzer=self.ai_analyzer,
+                                    is_partial=False,
+                                )
+                            except Exception as enrich_err:
+                                logger.warning(
+                                    f"Failed to queue enrichments for "
+                                    f"{identifier}: {enrich_err}"
+                                )
                         return "analyzed"
                     else:
                         logger.warning(f"Analysis returned empty for {identifier}")
@@ -1168,6 +1198,16 @@ class BackfillOrchestrator:
                     return "needs_full_analysis"
                 
                 else:
+                    try:
+                        from services.enrichment_queue import maybe_queue_enrichments
+
+                        maybe_queue_enrichments(
+                            bill,
+                            source="backfill",
+                            analyzer=self.ai_analyzer,
+                        )
+                    except Exception:
+                        pass
                     if result.created or allow_ingest:
                         return "ingested"
                     if result.actions_added or result.status_changed:

@@ -535,11 +535,25 @@ class WorkflowOrchestrator:
                         if hasattr(active_analysis, "get_analysis_data")
                         else None
                     )
-                    # Resume Tier B partials; otherwise skip
+                    # Resume Tier B partials; otherwise skip core but heal enrichments
                     needs_resume = bill_sync._tier_b_needs_resume_local(data)
                     if not needs_resume:
                         print(f"[DEBUG] Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
                         self.logger.info(f"Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
+                        try:
+                            from services.enrichment_queue import maybe_queue_enrichments
+
+                            maybe_queue_enrichments(
+                                bill,
+                                data if isinstance(data, dict) else None,
+                                source="rss",
+                                analyzer=self.ai_analyzer,
+                            )
+                        except Exception as enrich_err:
+                            self.logger.warning(
+                                f"Failed to queue enrichments for "
+                                f"{bill.get_bill_identifier()}: {enrich_err}"
+                            )
                         return True, None, False
                 # Check if workflow has been stopped due to rate limiting
                 if not self.is_running:
@@ -689,6 +703,21 @@ class WorkflowOrchestrator:
                         )
                     except Exception:
                         pass
+                    if not is_partial:
+                        try:
+                            from services.enrichment_queue import maybe_queue_enrichments
+
+                            maybe_queue_enrichments(
+                                bill,
+                                analysis if isinstance(analysis, dict) else None,
+                                source="rss",
+                                analyzer=self.ai_analyzer,
+                                is_partial=False,
+                            )
+                        except Exception as enrich_err:
+                            self.logger.warning(
+                                f"Failed to queue enrichments for {ident}: {enrich_err}"
+                            )
                     return True, metadata, True
                 else:
                     print(f"[DEBUG] AI analysis returned None for {ident}")
