@@ -156,6 +156,10 @@ class Bill(db.Model):
     full_text = db.Column(db.Text, nullable=True)
     full_text_fetched_at = db.Column(db.DateTime, nullable=True)
     content_hash = db.Column(db.String(64), nullable=True)
+    # Shared ETL marker: last Congress updateDate synced by RSS, search, or backfill
+    synced_congress_update_date = db.Column(db.String(40), nullable=True)
+    # Catalog walk only — not used for content staleness
+    backfill_last_visited_at = db.Column(db.DateTime, nullable=True)
     version = db.Column(db.Integer, nullable=False, default=1)
     active = db.Column(db.Boolean, nullable=False, default=True)
     display_ready = db.Column(db.Boolean, nullable=False, default=False)
@@ -815,3 +819,58 @@ class OpsAlert(db.Model):
 
     def __repr__(self):
         return f'<OpsAlert {self.id} {self.failure_class} bill={self.bill_identifier}>'
+
+
+class BillWorkLease(db.Model):
+    """Cross-process per-bill work lease (analyze / enrich) so ingestors do not collide."""
+    __tablename__ = 'bill_work_lease'
+    __table_args__ = (
+        db.UniqueConstraint('bill_id', 'work_kind', name='uq_bill_work_lease'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    bill_id = db.Column(db.Integer, db.ForeignKey('bill.id'), nullable=False, index=True)
+    work_kind = db.Column(db.String(20), nullable=False)  # analyze | enrich
+    holder = db.Column(db.String(120), nullable=False)
+    acquired_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+    bill = db.relationship('Bill', backref=db.backref('work_leases', lazy=True))
+
+    def __repr__(self):
+        return f'<BillWorkLease bill={self.bill_id} kind={self.work_kind} holder={self.holder}>'
+
+
+class GeminiRateBudgetState(db.Model):
+    """Single-row shared Gemini RPM/TPM counters for cross-process ceiling."""
+    __tablename__ = 'gemini_rate_budget_state'
+
+    id = db.Column(db.Integer, primary_key=True)  # always row id=1
+    minute_start_epoch = db.Column(db.Float, nullable=False, default=0.0)
+    requests_this_minute = db.Column(db.Integer, nullable=False, default=0)
+    tokens_this_minute = db.Column(db.Integer, nullable=False, default=0)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return (
+            f'<GeminiRateBudgetState rpm={self.requests_this_minute} '
+            f'tpm={self.tokens_this_minute}>'
+        )
+
+
+class BackfillCatalogState(db.Model):
+    """Per-congress catalog cursor for ordered backfill windows."""
+    __tablename__ = 'backfill_catalog_state'
+
+    SORT_INTRODUCED_ASC = 'introducedDate+asc'
+
+    congress = db.Column(db.Integer, primary_key=True)
+    sort_key = db.Column(db.String(64), nullable=False, default=SORT_INTRODUCED_ASC)
+    next_index = db.Column(db.Integer, nullable=False, default=0)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return (
+            f'<BackfillCatalogState congress={self.congress} '
+            f'next={self.next_index} sort={self.sort_key}>'
+        )

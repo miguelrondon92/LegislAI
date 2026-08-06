@@ -147,25 +147,39 @@ class ColdLoadQueuesAsyncTest(unittest.TestCase):
     @mock.patch("threading.Thread", ImmediateThread)
     def test_search_miss_queues_async_after_process(self):
         from routes import _get_or_fetch_bill_by_number
+        from services.bill_sync import SyncResult
 
         bill = mock.Mock()
         bill.id = 77
         bill.get_bill_identifier.return_value = "119-HR77"
+        bill.get_active_ai_analysis.return_value = None
+        bill.ai_analysis = None
 
-        with mock.patch("routes.Bill") as MockBill:
-            MockBill.query.filter_by.return_value.order_by.return_value.first.return_value = None
-            with mock.patch("routes.congress_api") as mock_api:
-                mock_api.get_bill_by_number.return_value = {"congress": 119}
-                with mock.patch("routes.bill_processor") as mock_proc:
-                    mock_proc.process_bill_data.return_value = bill
-                    with mock.patch("routes._perform_analysis_async") as mock_async:
+        sync_result = SyncResult(
+            bill=bill,
+            created=True,
+            needs_analysis=True,
+            reason="search",
+        )
+
+        with mock.patch(
+            "routes.bill_sync.resolve_active_bill", return_value=None
+        ):
+            with mock.patch(
+                "routes.bill_sync.sync_bill", return_value=sync_result
+            ) as mock_sync:
+                with mock.patch("routes._perform_analysis_async") as mock_async:
+                    with mock.patch(
+                        "routes._parse_bill_identifier",
+                        return_value=(119, "hr", 77),
+                    ):
                         with mock.patch(
-                            "routes._parse_bill_identifier",
-                            return_value=(119, "hr", 77),
+                            "routes._analysis_is_in_flight", return_value=False
                         ):
                             result = _get_or_fetch_bill_by_number("HR 77", 119)
-                        mock_async.assert_called_once_with(bill)
-                        self.assertIs(result, bill)
+                    mock_sync.assert_called_once()
+                    mock_async.assert_called_once_with(bill, force_continue=False)
+                    self.assertIs(result, bill)
 
 
 class SharedCongressApiTest(unittest.TestCase):

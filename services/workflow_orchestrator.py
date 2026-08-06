@@ -18,10 +18,10 @@ import json
 
 from db_models import Bill, BillAction, User, Alert, UserBillAlignment, PolicyCategory, UserPolicySubscription
 from services.rss_monitoring import PersistentRSSMonitor
-from services.workflow_bill_processor import WorkflowBillProcessor
-from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
-# from services.notification_service import NotificationService  # Disabled to avoid circular imports
-from services.congress_api import CongressAPI
+from services.enhanced_ai_analyzer import get_shared_ai_analyzer
+from services.congress_api import get_shared_congress_api
+from services import bill_sync
+from services import bill_work_lease
 from services.database_session import get_db_session, get_global_session
 
 # Use the independent database session
@@ -67,6 +67,11 @@ class WorkflowItem:
     chunks_analyzed: Optional[int] = None
     analysis_method: Optional[str] = None
     processing_time: Optional[float] = None
+    # SyncResult flags — gate notifications on real changes
+    sync_created: bool = False
+    sync_actions_added: int = 0
+    sync_status_changed: bool = False
+    analysis_ran: bool = False
 
 class WorkflowOrchestrator:
     """
@@ -79,16 +84,18 @@ class WorkflowOrchestrator:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.rss_monitor = PersistentRSSMonitor()
-        self.bill_processor = WorkflowBillProcessor()
-        self.ai_analyzer = EnhancedAIAnalyzer()
+        self.ai_analyzer = get_shared_ai_analyzer()
         # Use notification helper to avoid circular imports
         self.notification_service = None  # Will use notification_helper instead
-        self.congress_api = CongressAPI()
+        self.congress_api = get_shared_congress_api()
+        self._analysis_holder = bill_work_lease.default_holder("workflow")
         
         # Workflow state
         self.workflow_queue: List[WorkflowItem] = []
         self.processing_lock = threading.Lock()
         self.is_running = False
+        # Bill-level queue dedupe (RSS entry ids alone can enqueue the same bill twice)
+        self._queued_bill_keys: Set[str] = set()
         
         # Statistics
         self.stats = {
@@ -199,12 +206,17 @@ class WorkflowOrchestrator:
         
         while self.is_running:
             try:
-                # Find bills without AI analysis using the workflow bill processor
-                bills_without_analysis = self.bill_processor.get_bills_without_analysis(limit=10)
+                # Find bills without AI analysis via shared bill_sync helper
+                bills_without_analysis = bill_sync.get_bills_without_analysis(limit=10)
                 
                 for bill in bills_without_analysis:
                     if not self.is_running:
                         break
+                    
+                    bill_key = f"{bill.congress}-{bill.bill_type}-{bill.bill_number}"
+                    with self.processing_lock:
+                        if bill_key in self._queued_bill_keys:
+                            continue
                     
                     # Create workflow item for backfill
                     workflow_item = WorkflowItem(
@@ -221,6 +233,7 @@ class WorkflowOrchestrator:
                     
                     # Add to processing queue
                     with self.processing_lock:
+                        self._queued_bill_keys.add(bill_key)
                         self.workflow_queue.append(workflow_item)
                     
                     self.stats['bills_discovered'] += 1
@@ -265,6 +278,35 @@ class WorkflowOrchestrator:
             bill_info = self._extract_bill_info(item)
             if not bill_info:
                 return
+
+            bill_key = (
+                f"{bill_info['congress']}-{bill_info['bill_type']}-"
+                f"{bill_info['bill_number']}"
+            )
+            with self.processing_lock:
+                if bill_key in self._queued_bill_keys:
+                    self.logger.info(
+                        "Skipping duplicate queue entry for %s", bill_key
+                    )
+                    return
+
+            discovered_at = datetime.utcnow()
+            published = item.get("published") or item.get("discovered_at")
+            if published:
+                try:
+                    # email.utils handles common RSS date formats
+                    from email.utils import parsedate_to_datetime
+
+                    discovered_at = parsedate_to_datetime(published).replace(
+                        tzinfo=None
+                    )
+                except Exception:
+                    try:
+                        discovered_at = datetime.fromisoformat(
+                            str(published).replace("Z", "+00:00")
+                        ).replace(tzinfo=None)
+                    except Exception:
+                        discovered_at = datetime.utcnow()
             
             # Create workflow item
             workflow_item = WorkflowItem(
@@ -274,12 +316,13 @@ class WorkflowOrchestrator:
                 bill_number=bill_info['bill_number'],
                 title=item['title'],
                 source='rss',
-                discovered_at=datetime.utcnow(),
+                discovered_at=discovered_at,
                 status=WorkflowStatus.PENDING
             )
             
             # Add to processing queue
             with self.processing_lock:
+                self._queued_bill_keys.add(bill_key)
                 self.workflow_queue.append(workflow_item)
             
             self.stats['bills_discovered'] += 1
@@ -291,42 +334,65 @@ class WorkflowOrchestrator:
             self.stats['errors'] += 1
     
     def _extract_bill_info(self, item: Dict) -> Optional[Dict]:
-        """Extract bill information from RSS item"""
+        """Extract bill information from RSS item (all eight Congress bill types)."""
         try:
-            title = item['title']
-            link = item['link']
-            
-            # Try to extract bill info from title or link
             import re
-            
-            # Pattern for bill identifiers
-            bill_pattern = r'([HS]\.?R?\.?\s*(\d+))'
-            match = re.search(bill_pattern, title, re.IGNORECASE)
-            
-            if match:
-                bill_identifier = match.group(1)
-                bill_number = int(match.group(2))
-                
-                # Determine bill type and congress
-                if 'H.R.' in bill_identifier or 'HR' in bill_identifier:
-                    bill_type = 'hr'
-                elif 'S.' in bill_identifier or 'S' in bill_identifier:
-                    bill_type = 's'
-                else:
-                    return None
-                
-                # Extract congress from link or use current
-                congress_match = re.search(r'/bill/(\d+)/', link)
-                congress = int(congress_match.group(1)) if congress_match else 119  # Default to current
-                
-                return {
-                    'identifier': bill_identifier,
-                    'congress': congress,
-                    'bill_type': bill_type,
-                    'bill_number': bill_number
-                }
-            
-            return None
+
+            title = item.get('title') or ''
+            link = item.get('link') or ''
+
+            # Prefer congress.gov URL path: /bill/{congress}/{type-slug}/{number}
+            slug_to_type = {v: k for k, v in Bill._CONGRESS_GOV_TYPE_SLUGS.items()}
+            url_match = re.search(
+                r'/bill/(\d+)(?:th|st|nd|rd)?-?congress/([a-z-]+)/(\d+)',
+                link,
+                re.IGNORECASE,
+            )
+            if url_match:
+                congress = int(url_match.group(1))
+                slug = url_match.group(2).lower()
+                bill_number = int(url_match.group(3))
+                bill_type = slug_to_type.get(slug)
+                if bill_type:
+                    return {
+                        'identifier': f"{congress}-{bill_type.upper()}{bill_number}",
+                        'congress': congress,
+                        'bill_type': bill_type,
+                        'bill_number': bill_number,
+                    }
+
+            # Title patterns — longest prefixes first to avoid HR matching H.Res
+            title_patterns = [
+                (r'\bH\.?\s*Con\.?\s*Res\.?\s*(\d+)', 'hconres'),
+                (r'\bS\.?\s*Con\.?\s*Res\.?\s*(\d+)', 'sconres'),
+                (r'\bH\.?\s*J\.?\s*Res\.?\s*(\d+)', 'hjres'),
+                (r'\bS\.?\s*J\.?\s*Res\.?\s*(\d+)', 'sjres'),
+                (r'\bH\.?\s*Res\.?\s*(\d+)', 'hres'),
+                (r'\bS\.?\s*Res\.?\s*(\d+)', 'sres'),
+                (r'\bH\.?\s*R\.?\s*(\d+)', 'hr'),
+                (r'\bS\.?\s*(\d+)\b', 's'),
+            ]
+            bill_type = None
+            bill_number = None
+            for pattern, btype in title_patterns:
+                match = re.search(pattern, title, re.IGNORECASE)
+                if match:
+                    bill_type = btype
+                    bill_number = int(match.group(1))
+                    break
+
+            if not bill_type or bill_number is None:
+                return None
+
+            congress_match = re.search(r'/bill/(\d+)', link)
+            congress = int(congress_match.group(1)) if congress_match else 119
+
+            return {
+                'identifier': f"{congress}-{bill_type.upper()}{bill_number}",
+                'congress': congress,
+                'bill_type': bill_type,
+                'bill_number': bill_number,
+            }
             
         except Exception as e:
             self.logger.error(f"Error extracting bill info: {e}")
@@ -335,11 +401,12 @@ class WorkflowOrchestrator:
     def _process_workflow_item(self, item: WorkflowItem):
         print(f"[DEBUG] Entered _process_workflow_item for: {item.bill_identifier}")
         self.logger.info(f"[DEBUG] Entered _process_workflow_item for: {item.bill_identifier}")
+        bill_key = f"{item.congress}-{item.bill_type}-{item.bill_number}"
         try:
             self.logger.info(f"Processing workflow item: {item.bill_identifier} (source: {item.source})")
             item.status = WorkflowStatus.PROCESSING
             item.processing_started = datetime.utcnow()
-            # Step 1: Fetch and store bill data (if not already in database)
+            # Step 1: Shared sync — refresh activity for existing bills; ingest if missing
             bill = self._fetch_and_store_bill(item)
             if not bill:
                 print(f"[DEBUG] _fetch_and_store_bill returned None for: {item.bill_identifier}")
@@ -350,32 +417,44 @@ class WorkflowOrchestrator:
             print(f"[DEBUG] _fetch_and_store_bill returned bill for: {item.bill_identifier}")
             item.bill_id = bill.id
             self.stats['bills_processed'] += 1
-            # Step 2: Perform AI analysis and store in database
-            analysis_success, analysis_metadata = self._perform_ai_analysis(bill)
+            # Step 2: Perform AI analysis when needed (skip if already complete)
+            analysis_success, analysis_metadata, analysis_ran = self._perform_ai_analysis(bill)
+            item.analysis_ran = analysis_ran
             if analysis_success:
                 item.analysis_completed = True
-                self.stats['bills_analyzed'] += 1
+                if analysis_ran:
+                    self.stats['bills_analyzed'] += 1
                 # Store chunked analysis metadata
                 if analysis_metadata:
                     item.text_length = analysis_metadata.get('text_length')
                     item.chunks_analyzed = analysis_metadata.get('chunks_analyzed')
                     item.analysis_method = analysis_metadata.get('analysis_method')
                     item.processing_time = analysis_metadata.get('processing_time')
-                # Step 3: Generate user alerts based on preferences
-                # Use notification helper to avoid code duplication and ensure consistency
-                try:
-                    from services.notification_helper import trigger_bill_analysis_notification
-                    trigger_bill_analysis_notification(bill.id)
-                    item.alerts_generated = True
-                    self.stats['alerts_generated'] += 1  # Increment since notifications were triggered
-                    self.logger.info(f"Triggered notifications for bill {bill.get_bill_identifier()}")
-                except Exception as e:
-                    self.logger.warning(f"Could not trigger notifications for bill {bill.get_bill_identifier()}: {e}")
-                    # Fallback to old alert generation system
-                    alerts_generated = self._generate_user_alerts(bill)
-                    if alerts_generated:
+                # Step 3: Notify only on real changes (new bill, new actions, or newly run analysis)
+                should_notify = (
+                    item.sync_created
+                    or item.sync_actions_added > 0
+                    or item.sync_status_changed
+                    or analysis_ran
+                )
+                if should_notify:
+                    try:
+                        from services.notification_helper import trigger_bill_analysis_notification
+                        trigger_bill_analysis_notification(bill.id)
                         item.alerts_generated = True
-                        self.stats['alerts_generated'] += alerts_generated
+                        self.stats['alerts_generated'] += 1
+                        self.logger.info(f"Triggered notifications for bill {bill.get_bill_identifier()}")
+                    except Exception as e:
+                        self.logger.warning(f"Could not trigger notifications for bill {bill.get_bill_identifier()}: {e}")
+                        alerts_generated = self._generate_user_alerts(bill)
+                        if alerts_generated:
+                            item.alerts_generated = True
+                            self.stats['alerts_generated'] += alerts_generated
+                else:
+                    self.logger.info(
+                        "Skipping notifications for unchanged bill %s",
+                        bill.get_bill_identifier(),
+                    )
             # Mark as completed
             item.status = WorkflowStatus.COMPLETED
             item.processing_completed = datetime.utcnow()
@@ -387,216 +466,313 @@ class WorkflowOrchestrator:
             item.status = WorkflowStatus.FAILED
             item.error_message = str(e)
             self.stats['errors'] += 1
+        finally:
+            with self.processing_lock:
+                self._queued_bill_keys.discard(bill_key)
     
     def _fetch_and_store_bill(self, item: WorkflowItem) -> Optional[Bill]:
         print(f"[DEBUG] Entered _fetch_and_store_bill for: {item.bill_identifier}")
         self.logger.info(f"[DEBUG] Entered _fetch_and_store_bill for: {item.bill_identifier}")
         try:
-            # If bill_id is already set (backfill case), return existing bill
-            if item.bill_id:
-                with get_db_session() as db_session:
-                    bill = db_session.query(Bill).get(item.bill_id)
-                if bill:
-                    print(f"[DEBUG] Using existing bill: {item.bill_identifier}")
-                    self.logger.info(f"[DEBUG] Using existing bill: {item.bill_identifier}")
-                    return bill
-            # Check if bill already exists
-            existing_bill = self.bill_processor.get_bill_by_identifier(
-                item.congress, item.bill_type, item.bill_number
-            )
-            if existing_bill:
-                print(f"[DEBUG] Bill already exists: {item.bill_identifier}")
-                self.logger.info(f"[DEBUG] Bill already exists: {item.bill_identifier}")
-                return existing_bill
-            # Fetch bill data from Congress API
-            bill_data = self.congress_api.get_bill_details(
-                item.congress, 
-                item.bill_type, 
-                item.bill_number
-            )
-            if not bill_data:
-                print(f"[DEBUG] Could not fetch bill data: {item.bill_identifier}")
-                self.logger.warning(f"[DEBUG] Could not fetch bill data: {item.bill_identifier}")
-                return None
-            # Process and store bill
-            bill = self.bill_processor.process_bill_data(bill_data)
-            if bill:
-                print(f"[DEBUG] Stored new bill: {item.bill_identifier}")
-                self.logger.info(f"[DEBUG] Stored new bill: {item.bill_identifier}")
-                return bill
-            else:
-                print(f"[DEBUG] Failed to process bill: {item.bill_identifier}")
-                self.logger.error(f"[DEBUG] Failed to process bill: {item.bill_identifier}")
+            from app import app
+
+            with app.app_context():
+                # RSS always refreshes activity; backfill uses content ingest when needed
+                allow_content = item.source == 'backfill' and item.bill_id is None
+                result = bill_sync.sync_bill(
+                    item.congress,
+                    item.bill_type,
+                    item.bill_number,
+                    reason=f"workflow:{item.source}",
+                    refresh_activity_flag=True,
+                    allow_content_ingest=allow_content,
+                    congress_api=self.congress_api,
+                )
+                item.sync_created = result.created
+                item.sync_actions_added = result.actions_added
+                item.sync_status_changed = result.status_changed
+                if result.bill:
+                    print(
+                        f"[DEBUG] sync_bill ok for {item.bill_identifier} "
+                        f"(created={result.created}, actions+={result.actions_added})"
+                    )
+                    self.logger.info(
+                        "sync_bill %s created=%s actions_added=%s status_changed=%s",
+                        item.bill_identifier,
+                        result.created,
+                        result.actions_added,
+                        result.status_changed,
+                    )
+                    return result.bill
+                print(f"[DEBUG] sync_bill returned no bill for: {item.bill_identifier}")
+                self.logger.warning(f"sync_bill returned no bill for: {item.bill_identifier}")
                 return None
         except Exception as e:
             print(f"[DEBUG] Exception in _fetch_and_store_bill for {item.bill_identifier}: {e}")
             self.logger.error(f"Error fetching/storing bill {item.bill_identifier}: {e}")
             return None
     
-    def _perform_ai_analysis(self, bill: Bill) -> tuple[bool, Optional[Dict]]:
-        """Perform AI analysis on the bill and store in database using chunked analysis"""
+    def _perform_ai_analysis(self, bill: Bill) -> tuple:
+        """
+        Perform AI analysis on the bill via EnhancedAIAnalyzer.
+        Returns (success, metadata_dict_or_None, analysis_ran).
+        analysis_ran is False when skipped because analysis already complete.
+        """
         import time
         print(f"[DEBUG] Entered _perform_ai_analysis for bill: {bill.get_bill_identifier()}")
         self.logger.info(f"[DEBUG] Entered _perform_ai_analysis for bill: {bill.get_bill_identifier()}")
+        lease_held = False
         try:
-            # Check if analysis already exists (prioritize new table structure)
-            active_analysis = bill.get_active_ai_analysis()
-            if active_analysis or bill.get_ai_analysis():
-                print(f"[DEBUG] Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
-                self.logger.info(f"[DEBUG] Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
-                return True, None
-            # Check if workflow has been stopped due to rate limiting
-            if not self.is_running:
-                print(f"[DEBUG] Skipping: Workflow stopped due to rate limiting for {bill.get_bill_identifier()}")
-                self.logger.info(f"[DEBUG] Skipping: Workflow stopped due to rate limiting for {bill.get_bill_identifier()}")
-                return False, None
-            # Check AI analyzer rate limit status with detailed quota info
-            quota_info = self.ai_analyzer.get_quota_info()
-            if quota_info['status']['is_at_limit']:
-                print(f"[DEBUG] Skipping: AI analyzer at rate limit for {bill.get_bill_identifier()}")
-                self.logger.info(f"[DEBUG] Skipping: AI analyzer at rate limit for {bill.get_bill_identifier()}")
-                return False, None
-            if quota_info['status']['is_approaching_limit']:
-                print(f"[DEBUG] Skipping: AI analyzer very close to rate limit for {bill.get_bill_identifier()}")
-                self.logger.info(f"[DEBUG] Skipping: AI analyzer very close to rate limit for {bill.get_bill_identifier()}")
-                return False, None
-            # Warn if approaching rate limit
-            if quota_info['current_usage']['percentage_used'] > 80:
-                print(f"[DEBUG] Approaching AI rate limit for {bill.get_bill_identifier()}")
-                self.logger.info(f"[DEBUG] Approaching AI rate limit for {bill.get_bill_identifier()}")
-            # Log quota status for debugging
-            print(f"[DEBUG] AI Quota: {quota_info['current_usage']['requests_this_minute']}/{quota_info['current_usage']['max_requests_per_minute']} used, {quota_info['current_usage']['safe_remaining_requests']} safe remaining")
-            self.logger.info(f"[DEBUG] AI Quota: {quota_info['current_usage']['requests_this_minute']}/{quota_info['current_usage']['max_requests_per_minute']} used, {quota_info['current_usage']['safe_remaining_requests']} safe remaining")
-            # Fetch full text from Congress API (not stored in database)
-            print(f"[DEBUG] Fetching full text for analysis: {bill.get_bill_identifier()}")
-            self.logger.info(f"[DEBUG] Fetching full text for analysis: {bill.get_bill_identifier()}")
-            full_text = self.congress_api.get_bill_text(bill.congress, bill.bill_type, bill.bill_number)
-            if not full_text:
-                print(f"[DEBUG] No full text available for analysis: {bill.get_bill_identifier()} (skipping)")
-                self.logger.info(f"[DEBUG] No full text available for analysis: {bill.get_bill_identifier()} (skipping)")
-                return False, None
-            
-            # Track processing time
-            start_time = time.time()
-            text_length = len(full_text)
-            
-            self.logger.info(f"Starting chunked AI analysis for {bill.get_bill_identifier()} "
-                           f"(text length: {text_length:,} characters)")
-            
-            # Perform chunked analysis
-            analysis = self.ai_analyzer.analyze_bill(full_text, bill.title)
-            
-            # Calculate processing time
-            processing_time = time.time() - start_time
-            
-            if analysis:
-                # Analysis, policy categories, and summaries are now stored automatically by the EnhancedAIAnalyzer
-                # using the new table structure with proper versioning and display_ready status updates
-                print(f"[DEBUG] AI analysis completed and stored for {bill.get_bill_identifier()}")
-                self.logger.info(f"[DEBUG] AI analysis completed and stored for {bill.get_bill_identifier()}")
+            from app import app
+
+            with app.app_context():
+                # Re-bind bill in this app context
+                bill = Bill.query.get(bill.id) or bill
+                active_analysis = bill.get_active_ai_analysis()
+                if active_analysis:
+                    data = (
+                        active_analysis.get_analysis_data()
+                        if hasattr(active_analysis, "get_analysis_data")
+                        else None
+                    )
+                    # Resume Tier B partials; otherwise skip
+                    needs_resume = bill_sync._tier_b_needs_resume_local(data)
+                    if not needs_resume:
+                        print(f"[DEBUG] Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
+                        self.logger.info(f"Skipping: AI analysis already exists for {bill.get_bill_identifier()}")
+                        return True, None, False
+                # Check if workflow has been stopped due to rate limiting
+                if not self.is_running:
+                    print(f"[DEBUG] Skipping: Workflow stopped due to rate limiting for {bill.get_bill_identifier()}")
+                    self.logger.info(f"Skipping: Workflow stopped due to rate limiting for {bill.get_bill_identifier()}")
+                    return False, None, False
+
+                # Cross-ingestor lease — skip Gemini if search/backfill already holds it
+                if not bill_work_lease.try_acquire(
+                    bill.id,
+                    bill_work_lease.KIND_ANALYZE,
+                    self._analysis_holder,
+                ):
+                    self.logger.info(
+                        f"Skipping: analyze lease held for {bill.get_bill_identifier()}"
+                    )
+                    try:
+                        from services.pipeline_activity_log import get_rss_activity_log
+
+                        get_rss_activity_log().append(
+                            "Analyze lease held — skipped",
+                            level="info",
+                            bill_identifier=bill.get_bill_identifier(),
+                        )
+                    except Exception:
+                        pass
+                    return False, {"skipped_reason": "lease_held"}, False
+                lease_held = True
+
+                # Check AI analyzer rate limit status with detailed quota info
+                quota_info = self.ai_analyzer.get_quota_info()
+                if quota_info['status']['is_at_limit']:
+                    print(f"[DEBUG] Skipping: AI analyzer at rate limit for {bill.get_bill_identifier()}")
+                    self.logger.info(f"Skipping: AI analyzer at rate limit for {bill.get_bill_identifier()}")
+                    return False, None, False
+                if quota_info['status']['is_approaching_limit']:
+                    print(f"[DEBUG] Skipping: AI analyzer very close to rate limit for {bill.get_bill_identifier()}")
+                    self.logger.info(f"Skipping: AI analyzer very close to rate limit for {bill.get_bill_identifier()}")
+                    return False, None, False
+
+                # Prefer persisted full text
+                full_text = bill.get_full_text(fetch_if_missing=True, persist=True)
+                if not full_text:
+                    print(f"[DEBUG] No full text available for analysis: {bill.get_bill_identifier()} (skipping)")
+                    self.logger.info(f"No full text available for analysis: {bill.get_bill_identifier()} (skipping)")
+                    return False, None, False
                 
-                # Store hidden provisions if detected (this is still handled here for workflow-specific logic)
-                if 'hidden_provisions' in analysis:
-                    self._store_hidden_provisions(bill, analysis['hidden_provisions'], analysis)
+                start_time = time.time()
+                text_length = len(full_text)
+                ident = bill.get_bill_identifier()
+                model_name = getattr(self.ai_analyzer, "model_name", None)
+
+                self.logger.info(
+                    f"Starting AI analysis for {ident} "
+                    f"(text length: {text_length:,} characters)"
+                )
+                try:
+                    from services.pipeline_activity_log import get_rss_activity_log
+                    from services.ops_alert_service import (
+                        CONTINUATION_FINISHED,
+                        CONTINUATION_QUEUED,
+                        EMPTY_RESULT,
+                        QUOTA_EXHAUSTED,
+                        UNKNOWN,
+                        notify_gemini_failure,
+                    )
+
+                    get_rss_activity_log().append(
+                        f"Starting AI analysis ({text_length:,} chars)",
+                        level="info",
+                        bill_identifier=ident,
+                    )
+                    notify_gemini_failure(
+                        CONTINUATION_QUEUED,
+                        f"RSS analysis queued for {ident}",
+                        severity="info",
+                        bill_identifier=ident,
+                        bill_id=bill.id,
+                        provider_model=model_name,
+                        source="rss",
+                        extra={"event": "queued", "pipeline": "rss"},
+                    )
+                except Exception:
+                    pass
                 
-                # Extract analysis metadata
-                chunks_analyzed = analysis.get('chunks_analyzed', 0)
-                analysis_method = analysis.get('analysis_method', 'unknown')
-                
-                # Update statistics
-                self._update_analysis_statistics(
-                    text_length=text_length,
-                    chunks_analyzed=chunks_analyzed,
-                    analysis_method=analysis_method,
-                    processing_time=processing_time,
-                    analysis_results=analysis
+                # Pass Bill object so analyzer persists AIAnalysis/Summary/categories/display_ready
+                analysis = self.ai_analyzer.analyze_bill(
+                    bill,
+                    bill.title,
+                    allow_budget_waits=True,
                 )
                 
-                # Log comprehensive analysis information
-                self.logger.info(f"✅ Chunked AI analysis completed for: {bill.get_bill_identifier()}")
-                self.logger.info(f"  📊 Method: {analysis_method}")
-                self.logger.info(f"  🔧 Chunks analyzed: {chunks_analyzed}")
-                self.logger.info(f"  📝 Text processed: {text_length:,} characters")
-                self.logger.info(f"  ⏱️ Processing time: {processing_time:.2f} seconds")
-                self.logger.info(f"  🚀 Processing speed: {text_length/processing_time:,.0f} chars/sec")
+                processing_time = time.time() - start_time
                 
-                # Log analysis components
-                if 'summary' in analysis:
-                    self.logger.info(f"  📝 Summary generated")
-                if 'policy_implications' in analysis:
-                    policy_data = analysis['policy_implications']
-                    primary_area = policy_data.get('primary_policy_area', 'Unknown')
-                    self.logger.info(f"  🎯 Primary policy area: {primary_area}")
-                if 'stakeholders' in analysis:
-                    stakeholders = analysis['stakeholders']
-                    if isinstance(stakeholders, dict):
-                        winners = len(stakeholders.get('winners', []))
-                        losers = len(stakeholders.get('losers', []))
-                        self.logger.info(f"  👥 Stakeholders: {winners} winners, {losers} losers")
-                
-                # Log hidden provision detection results
-                if 'hidden_provisions' in analysis:
-                    hidden_data = analysis['hidden_provisions']
-                    suspicious_count = hidden_data.get('total_suspicious_chunks', 0)
-                    risk_score = hidden_data.get('overall_hidden_risk_score', 0.0)
-                    self.logger.info(f"  🔍 Hidden provisions: {suspicious_count} suspicious chunks, risk score: {risk_score:.2f}")
-                
-                if 'anomalies' in analysis:
-                    anomalies_data = analysis['anomalies']
-                    anomaly_count = len(anomalies_data.get('detected_anomalies', []))
-                    self.logger.info(f"  ⚠️ Anomalies detected: {anomaly_count}")
-                
-                if 'suspicious_language' in analysis:
-                    suspicious_data = analysis['suspicious_language']
-                    pattern_findings = len(suspicious_data.get('pattern_based_findings', []))
-                    self.logger.info(f"  🚨 Suspicious language: {pattern_findings} pattern matches")
-                
-                # Log overall risk score
-                overall_risk = analysis.get('overall_risk_score', 0.0)
-                if overall_risk > 0.5:
-                    self.logger.warning(f"  ⚠️ HIGH RISK BILL - Overall risk score: {overall_risk:.2f}")
-                elif overall_risk > 0.3:
-                    self.logger.info(f"  ⚠️ MEDIUM RISK BILL - Overall risk score: {overall_risk:.2f}")
+                if analysis:
+                    print(f"[DEBUG] AI analysis completed and stored for {ident}")
+                    self.logger.info(f"AI analysis completed and stored for {ident}")
+                    
+                    chunks_analyzed = analysis.get('chunks_analyzed', 0)
+                    analysis_method = analysis.get('analysis_method', 'unknown')
+                    is_partial = bool(analysis.get("is_partial"))
+                    
+                    self._update_analysis_statistics(
+                        text_length=text_length,
+                        chunks_analyzed=chunks_analyzed,
+                        analysis_method=analysis_method,
+                        processing_time=processing_time,
+                        analysis_results=analysis
+                    )
+                    
+                    self.logger.info(f"✅ AI analysis completed for: {ident}")
+                    metadata = {
+                        'text_length': text_length,
+                        'chunks_analyzed': chunks_analyzed,
+                        'analysis_method': analysis_method,
+                        'processing_time': processing_time
+                    }
+                    try:
+                        from services.pipeline_activity_log import get_rss_activity_log
+                        from services.ops_alert_service import (
+                            CONTINUATION_FINISHED,
+                            notify_gemini_failure,
+                        )
+
+                        get_rss_activity_log().append(
+                            f"Analysis complete ({analysis_method}"
+                            f"{', partial' if is_partial else ''})",
+                            level="warning" if is_partial else "info",
+                            bill_identifier=ident,
+                        )
+                        notify_gemini_failure(
+                            CONTINUATION_FINISHED,
+                            f"RSS analysis finished for {ident}"
+                            + (" (partial)" if is_partial else ""),
+                            severity="warning" if is_partial else "info",
+                            bill_identifier=ident,
+                            bill_id=bill.id,
+                            provider_model=model_name,
+                            source="rss",
+                            completion_percentage=analysis.get("completion_percentage"),
+                            extra={
+                                "event": "finished",
+                                "pipeline": "rss",
+                                "is_partial": is_partial,
+                                "analysis_method": analysis_method,
+                            },
+                        )
+                    except Exception:
+                        pass
+                    return True, metadata, True
                 else:
-                    self.logger.info(f"  ✅ LOW RISK BILL - Overall risk score: {overall_risk:.2f}")
-                
-                # Prepare metadata for return
-                analysis_metadata = {
-                    'text_length': text_length,
-                    'chunks_analyzed': chunks_analyzed,
-                    'analysis_method': analysis_method,
-                    'processing_time': processing_time
-                }
-                
-                session.commit()
-                return True, analysis_metadata
-            else:
-                # Check if this was due to rate limiting
-                self.logger.warning(f"⚠️ AI analysis failed for: {bill.get_bill_identifier()} - likely due to rate limiting")
-                
-                # Track rate limiting for workflow management
-                self.stats['rate_limit_hits'] += 1
-                self.stats['last_rate_limit_time'] = datetime.utcnow()
-                
-                # Stop the workflow due to rate limiting
-                self.logger.error(f"🚫 RATE LIMIT EXCEEDED - Stopping workflow to prevent API abuse")
-                self.logger.error(f"   📊 Rate limit hits: {self.stats['rate_limit_hits']}")
-                self.logger.error(f"   ⏰ Last rate limit: {self.stats['last_rate_limit_time'].strftime('%Y-%m-%d %H:%M:%S')}")
-                self.logger.error(f"   💡 Workflow will need to be manually restarted when API quota resets")
-                self.logger.error(f"   📋 Remaining bills will be processed in next workflow run")
-                
-                # Mark workflow as stopped due to rate limit
-                self.stats['workflow_stopped_due_to_rate_limit'] = True
-                
-                # Stop the workflow
-                self.stop_workflow()
-                
-                return False, None
-                
+                    print(f"[DEBUG] AI analysis returned None for {ident}")
+                    self.logger.warning(f"AI analysis returned None for {ident}")
+                    try:
+                        from services.pipeline_activity_log import get_rss_activity_log
+                        from services.ops_alert_service import (
+                            EMPTY_RESULT,
+                            QUOTA_EXHAUSTED,
+                            notify_gemini_failure,
+                        )
+
+                        get_rss_activity_log().append(
+                            "Analysis returned empty",
+                            level="error",
+                            bill_identifier=ident,
+                        )
+                        quota_info = self.ai_analyzer.get_quota_info()
+                        fc = (
+                            QUOTA_EXHAUSTED
+                            if quota_info["status"]["is_at_limit"]
+                            else EMPTY_RESULT
+                        )
+                        notify_gemini_failure(
+                            fc,
+                            f"RSS analysis empty for {ident}",
+                            severity="error",
+                            bill_identifier=ident,
+                            bill_id=bill.id,
+                            provider_model=model_name,
+                            source="rss",
+                            extra={"event": "finished", "pipeline": "rss"},
+                        )
+                    except Exception:
+                        pass
+                    # Check if it's due to rate limiting
+                    quota_info = self.ai_analyzer.get_quota_info()
+                    if quota_info['status']['is_at_limit']:
+                        self.logger.error("Rate limit detected after analysis failure. Stopping workflow.")
+                        self.stats['rate_limit_hits'] += 1
+                        self.stats['last_rate_limit_time'] = datetime.utcnow()
+                        self.stats['workflow_stopped_due_to_rate_limit'] = True
+                        self.is_running = False
+                        return False, None, False
+                    return False, None, False
         except Exception as e:
-            self.logger.error(f"❌ Error performing AI analysis for {bill.get_bill_identifier()}: {e}")
-            self.stats['errors'] += 1
-            return False, None
+            print(f"[DEBUG] Exception in _perform_ai_analysis for {bill.get_bill_identifier()}: {e}")
+            self.logger.error(f"Error performing AI analysis for {bill.get_bill_identifier()}: {e}")
+            try:
+                from services.pipeline_activity_log import get_rss_activity_log
+                from services.ops_alert_service import UNKNOWN, notify_gemini_failure
+
+                ident = bill.get_bill_identifier()
+                get_rss_activity_log().append(
+                    f"Analysis error: {type(e).__name__}",
+                    level="error",
+                    bill_identifier=ident,
+                )
+                notify_gemini_failure(
+                    UNKNOWN,
+                    f"RSS analysis error: {type(e).__name__}",
+                    severity="error",
+                    bill_identifier=ident,
+                    bill_id=getattr(bill, "id", None),
+                    provider_model=getattr(self.ai_analyzer, "model_name", None),
+                    source="rss",
+                    extra={"event": "finished", "pipeline": "rss", "error": type(e).__name__},
+                )
+            except Exception:
+                pass
+            return False, None, False
+        finally:
+            if lease_held:
+                try:
+                    from app import app
+                    with app.app_context():
+                        bill_work_lease.release(
+                            getattr(bill, "id", None),
+                            bill_work_lease.KIND_ANALYZE,
+                            self._analysis_holder,
+                        )
+                except Exception as release_err:
+                    self.logger.warning(f"Failed to release analyze lease: {release_err}")
+    
     
     def _update_analysis_statistics(self, text_length: int, chunks_analyzed: int, 
                                   analysis_method: str, processing_time: float, analysis_results: Dict = None):
@@ -675,113 +851,6 @@ class WorkflowOrchestrator:
             
         except Exception as e:
             self.logger.error(f"Error updating hidden detection statistics: {e}")
-    
-    def _store_policy_categories(self, bill: Bill, categories: List[Dict], analysis: Dict = None):
-        """Store policy category mappings for the bill, including sneakiness score per category"""
-        try:
-            from db_models import BillCategoryMapping, PolicyCategory
-            import re
-            categories_stored = 0
-
-            # Prepare sneakiness mapping if analysis is provided
-            sneakiness_by_category = {}
-            if analysis and 'hidden_provisions' in analysis:
-                hidden_provisions = analysis['hidden_provisions'].get('detected_provisions', [])
-                # Build a mapping: category_name -> max sneakiness score
-                for provision in hidden_provisions:
-                    provision_text = (provision.get('text') or '') + ' ' + (provision.get('type') or '')
-                    risk_level = provision.get('risk_level', 'low')
-                    confidence = provision.get('confidence_score', 0.5)
-                    risk_value = {'low': 0.2, 'medium': 0.5, 'high': 0.8}.get(risk_level, 0.2)
-                    sneakiness_score = risk_value * confidence
-                    for cat in categories:
-                        area = cat.get('area', '')
-                        if area and re.search(re.escape(area), provision_text, re.IGNORECASE):
-                            prev = sneakiness_by_category.get(area, 0.0)
-                            sneakiness_by_category[area] = max(prev, sneakiness_score)
-            
-            for category_data in categories:
-                area = category_data.get('area')
-                if not area:
-                    continue
-                try:
-                    # Find or create policy category
-                    policy_category = session.query(PolicyCategory).filter_by(name=area).first()
-                    if not policy_category:
-                        policy_category = PolicyCategory(
-                            name=area,
-                            display_name=area.title(),
-                            description=f"Policy area: {area}",
-                            color='#007bff',
-                            icon='policy',
-                            is_active=True
-                        )
-                        session.add(policy_category)
-                        session.flush()
-                        self.logger.info(f"Created new policy category: {area}")
-                    mapping = session.query(BillCategoryMapping).filter_by(
-                        bill_id=bill.id,
-                        policy_category_id=policy_category.id
-                    ).first()
-                    # Extract relevance score from category data or use default
-                    relevance_score = category_data.get('impact_level', 'medium')
-                    if relevance_score == 'high':
-                        score = 0.9
-                    elif relevance_score == 'medium':
-                        score = 0.7
-                    elif relevance_score == 'low':
-                        score = 0.5
-                    else:
-                        score = 0.8
-                    sneakiness_score = sneakiness_by_category.get(area, 0.0)
-                    
-                    # Extract section reference and title information
-                    section_reference = None
-                    if 'section' in category_data:
-                        section_ref = category_data['section']
-                    elif 'reasoning' in category_data:
-                        # Try to extract section info from reasoning text
-                        reasoning = category_data['reasoning']
-                        import re
-                        section_match = re.search(r'[Ss]ection\s+(\d+[\w\-\.]*)', reasoning)
-                        if section_match:
-                            section_reference = f"Section {section_match.group(1)}"
-                    
-                    # Include title in section reference if available
-                    if category_data.get('title') and section_reference:
-                        section_reference = f"{section_reference}: {category_data['title'][:100]}"
-                    elif category_data.get('title'):
-                        section_reference = category_data['title'][:150]
-                    
-                    if not mapping:
-                        mapping = BillCategoryMapping(
-                            bill_id=bill.id,
-                            policy_category_id=policy_category.id,
-                            relevance_score=score,
-                            category_specific_analysis=json.dumps(category_data),
-                            sneakiness_score=sneakiness_score,
-                            section_reference=section_reference
-                        )
-                        session.add(mapping)
-                        categories_stored += 1
-                        self.logger.info(f"Created category mapping: {bill.get_bill_identifier()} -> {area} (score: {score}, sneakiness: {sneakiness_score})")
-                    else:
-                        mapping.category_specific_analysis = json.dumps(category_data)
-                        mapping.last_updated = datetime.utcnow()
-                        mapping.sneakiness_score = sneakiness_score
-                        mapping.section_reference = section_reference
-                        self.logger.info(f"Updated existing category mapping: {bill.get_bill_identifier()} -> {area} (sneakiness: {sneakiness_score})")
-                except Exception as category_error:
-                    self.logger.error(f"Error processing category '{area}': {category_error}")
-                    continue
-            if categories_stored > 0:
-                session.commit()
-                self.logger.info(f"Successfully stored {categories_stored} policy category mappings for {bill.get_bill_identifier()}")
-            else:
-                self.logger.warning(f"No policy category mappings were stored for {bill.get_bill_identifier()}")
-        except Exception as e:
-            self.logger.error(f"Error storing policy categories for {bill.get_bill_identifier()}: {e}")
-            session.rollback()
     
     def _generate_user_alerts(self, bill: Bill) -> int:
         """Generate alerts for users based on their preferences"""
@@ -1128,7 +1197,7 @@ class WorkflowOrchestrator:
     def start_workflow_web(self):
         """Start workflow in a background thread for web interface"""
         if self.is_running:
-            return {'status': 'already_running', 'message': 'Workflow is already running'}
+            return {'status': 'already_running', 'message': 'RSS pipeline is already running'}
         
         try:
             # Start workflow in a separate thread so web request doesn't hang
@@ -1143,8 +1212,14 @@ class WorkflowOrchestrator:
             self.workflow_thread = threading.Thread(target=workflow_thread, daemon=True)
             self.workflow_thread.start()
             
-            self.logger.info("Workflow started from web interface")
-            return {'status': 'success', 'message': 'Workflow started successfully'}
+            self.logger.info("RSS pipeline started from web interface")
+            try:
+                from services.pipeline_activity_log import get_rss_activity_log
+
+                get_rss_activity_log().append("RSS pipeline started", level="info")
+            except Exception:
+                pass
+            return {'status': 'success', 'message': 'RSS pipeline started successfully'}
             
         except Exception as e:
             self.logger.error(f"Error starting workflow from web: {e}")
@@ -1154,29 +1229,18 @@ class WorkflowOrchestrator:
         """Stop workflow for web interface"""
         try:
             self.is_running = False
-            self.logger.info("Workflow stopped from web interface")
-            return {'status': 'success', 'message': 'Workflow stopped successfully'}
+            self.logger.info("RSS pipeline stopped from web interface")
+            try:
+                from services.pipeline_activity_log import get_rss_activity_log
+
+                get_rss_activity_log().append("RSS pipeline stop requested", level="warning")
+            except Exception:
+                pass
+            return {'status': 'success', 'message': 'RSS pipeline stopped successfully'}
         except Exception as e:
             self.logger.error(f"Error stopping workflow from web: {e}")
             return {'status': 'error', 'message': str(e)}
     
-    def _store_hidden_provisions(self, bill, hidden_provisions_data: dict, full_analysis: dict):
-        """Store detected hidden provisions (sneaky riders) via shared helper."""
-        try:
-            from services.hidden_provisions import store_hidden_provisions
-
-            store_hidden_provisions(
-                bill,
-                hidden_provisions_data,
-                full_analysis=full_analysis,
-                replace=True,
-                db_session=self.session,
-                provider_model_fallback=getattr(self.ai_analyzer, "model_name", None),
-            )
-        except Exception as e:
-            self.logger.error(
-                f"Error storing hidden provisions for {bill.get_bill_identifier()}: {e}"
-            )
 
 def dry_run_sneakiness_mapping(categories, analysis):
     """Dry run the sneakiness mapping logic without writing to the database."""
@@ -1202,23 +1266,37 @@ def dry_run_sneakiness_mapping(categories, analysis):
         score = sneakiness_by_category.get(area, 0.0)
         print(f"  - {area}: {score}")
 
-# Global workflow orchestrator instance
-workflow_orchestrator = WorkflowOrchestrator()
+# Lazy global — avoid constructing analyzer/RSS on import (breaks unit tests / SQLite locks)
+_workflow_orchestrator = None
+
+
+def _get_module_orchestrator():
+    global _workflow_orchestrator
+    if _workflow_orchestrator is None:
+        _workflow_orchestrator = WorkflowOrchestrator()
+    return _workflow_orchestrator
+
 
 def start_workflow_service(enable_rss=True, enable_backfill=False):
     """Start the workflow service (no Flask app context required)"""
-    workflow_orchestrator.start_workflow(
+    _get_module_orchestrator().start_workflow(
         enable_rss=enable_rss,
         enable_backfill=enable_backfill
     )
 
 def stop_workflow_service():
     """Stop the workflow service"""
-    workflow_orchestrator.stop_workflow()
+    _get_module_orchestrator().stop_workflow()
 
 def get_workflow_status():
     """Get workflow status"""
-    return workflow_orchestrator.get_workflow_status()
+    return _get_module_orchestrator().get_workflow_status()
+
+# Back-compat alias used by some scripts/docs
+def __getattr__(name):
+    if name == "workflow_orchestrator":
+        return _get_module_orchestrator()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 if __name__ == "__main__":
     from db_models import Bill

@@ -88,9 +88,12 @@ class ForceContinueAnalysisTest(unittest.TestCase):
                             "time_until_reset": 0
                         }
                         import routes as routes_mod
-                        with routes_mod._analyzing_lock:
-                            routes_mod._analyzing_bill_ids.discard(55)
-                        _perform_analysis_async(bill, force_continue=True)
+                        with mock.patch(
+                            "routes.bill_work_lease.try_acquire", return_value=True
+                        ), mock.patch(
+                            "routes.bill_work_lease.release"
+                        ):
+                            _perform_analysis_async(bill, force_continue=True)
                         mock_perf.assert_called_once_with(
                             fresh, force_continue=True, allow_budget_waits=False
                         )

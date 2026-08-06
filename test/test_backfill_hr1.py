@@ -33,13 +33,13 @@ def backfill_hr1_method1_direct_api():
     try:
         from app import app, db
         from db_models import Bill, BillAction
-        from services.congress_api import CongressAPI
+        from services.congress_api import get_shared_congress_api
         from services.bill_processor import BillProcessor
         from services.enhanced_ai_analyzer import EnhancedAIAnalyzer
-        from routes import fetch_bill_actions_from_api
+        from services import bill_sync
         
-        congress_api = CongressAPI()
-        bill_processor = BillProcessor()
+        congress_api = get_shared_congress_api()
+        bill_processor = BillProcessor(congress_api=congress_api)
         ai_analyzer = EnhancedAIAnalyzer()
         
         with app.app_context():
@@ -77,9 +77,9 @@ def backfill_hr1_method1_direct_api():
             
             logger.info(f"✅ Bill processed: {bill.get_bill_identifier()}")
             
-            # Fetch bill actions
+            # Fetch bill actions via shared sync
             logger.info("Fetching bill actions...")
-            fetch_bill_actions_from_api(bill)
+            bill_sync.refresh_activity(bill, congress_api=congress_api)
             
             actions_count = len(bill.actions)
             logger.info(f"✅ Fetched {actions_count} actions")

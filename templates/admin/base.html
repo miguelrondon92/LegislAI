@@ -30,15 +30,18 @@
     <!-- Admin Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark admin-header">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('workflow_dashboard') }}">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('rss_dashboard') }}">
                 <i data-feather="settings" class="me-2"></i>
-                LegislAI Workflow Admin
+                LegislAI Admin
                 <span class="admin-badge">ADMIN</span>
             </a>
             
             <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('workflow_dashboard') }}">
-                    <i data-feather="activity" class="me-1"></i>Dashboard
+                <a class="nav-link" href="{{ url_for('rss_dashboard') }}">
+                    <i data-feather="rss" class="me-1"></i>RSS
+                </a>
+                <a class="nav-link" href="{{ url_for('backfill_dashboard') }}">
+                    <i data-feather="database" class="me-1"></i>Backfill
                 </a>
                 <a class="nav-link" href="/health" target="_blank">
                     <i data-feather="heart" class="me-1"></i>Health

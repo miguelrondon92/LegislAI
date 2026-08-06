@@ -31,6 +31,7 @@
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
+                {# User-facing nav — left #}
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('index') }}">
@@ -42,16 +43,6 @@
                             <i data-feather="search" class="me-1"></i>Search Bills
                         </a>
                     </li>
-                    {% if session.get('is_admin') %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('ops_logs', view='unread') }}">
-                            <i data-feather="terminal" class="me-1"></i>Ops logs
-                            {% if ops_nav_unread_count %}
-                            <span class="badge bg-danger">{{ ops_nav_unread_count }}</span>
-                            {% endif %}
-                        </a>
-                    </li>
-                    {% endif %}
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('auth.policy_interests') }}">
@@ -63,17 +54,31 @@
                             <i data-feather="bell" class="me-1"></i>Alerts
                         </a>
                     </li>
+                    {% endif %}
+                </ul>
+
+                {# Admin tools + account — right #}
+                <ul class="navbar-nav ms-auto align-items-lg-center">
                     {% if session.get('is_admin') %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('workflow_dashboard') }}">
-                            <i data-feather="activity" class="me-1"></i>Workflow
+                        <a class="nav-link" href="{{ url_for('rss_dashboard') }}">
+                            <i data-feather="rss" class="me-1"></i>RSS
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('backfill_dashboard') }}">
+                            <i data-feather="database" class="me-1"></i>Backfill
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('ops_logs', view='unread') }}">
+                            <i data-feather="terminal" class="me-1"></i>Ops logs
+                            {% if ops_nav_unread_count %}
+                            <span class="badge bg-danger">{{ ops_nav_unread_count }}</span>
+                            {% endif %}
                         </a>
                     </li>
                     {% endif %}
-                    {% endif %}
-                </ul>
-                
-                <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">

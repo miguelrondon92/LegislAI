@@ -54,7 +54,7 @@ def test_backoff_logic():
             
             # Try to analyze a bill during pause
             logger.info("Attempting analysis during rate limit pause...")
-            success, metadata = orchestrator._perform_ai_analysis(bill)
+            success, metadata, _analysis_ran = orchestrator._perform_ai_analysis(bill)
             
             if not success:
                 logger.info("✅ Correctly skipped analysis during rate limit pause")
@@ -70,7 +70,7 @@ def test_backoff_logic():
             
             # Test normal analysis (this will likely hit rate limits in real scenario)
             logger.info("Testing normal analysis (may hit rate limits)...")
-            success, metadata = orchestrator._perform_ai_analysis(bill)
+            success, metadata, _analysis_ran = orchestrator._perform_ai_analysis(bill)
             
             if success:
                 logger.info("✅ Analysis completed successfully")

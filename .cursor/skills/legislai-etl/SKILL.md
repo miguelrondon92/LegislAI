@@ -7,7 +7,7 @@ description: Ingest and normalize congressional data for LegislAI via Congress.g
 
 ## Scope
 
-`services/congress_api.py`, `services/congress_rss.py`, `services/rss_monitoring.py`, `services/bill_processor.py`, `services/workflow_bill_processor.py`, `services/backfill_orchestrator.py`, related scripts under `scripts/monitoring/` and Congress debug scripts.
+`services/congress_api.py`, `services/congress_rss.py`, `services/rss_monitoring.py`, `services/bill_processor.py`, `services/bill_sync.py`, `services/backfill_orchestrator.py`, related scripts under `scripts/monitoring/` and Congress debug scripts.
 
 ## Responsibilities
 

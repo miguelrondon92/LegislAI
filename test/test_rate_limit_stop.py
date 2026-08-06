@@ -80,7 +80,7 @@ def test_rate_limit_stop():
             # Test AI analysis during stopped state
             logger.info("Testing AI analysis during stopped workflow...")
             orchestrator.is_running = False  # Simulate stopped state
-            success, metadata = orchestrator._perform_ai_analysis(bill)
+            success, metadata, _analysis_ran = orchestrator._perform_ai_analysis(bill)
             
             if not success:
                 logger.info("✅ Correctly skipped analysis when workflow is stopped")

@@ -6,8 +6,9 @@ Update this file when a layer changes the data shape; then run `legislai-pipelin
 ## End-to-end flow
 
 ```
-[ETL] Congress API / RSS
+[ETL] Congress API / RSS  — via services/bill_sync.sync_bill (all entry points)
         │  Bill identity: congress + bill_type + bill_number
+        │  Two freshness axes (see below)
         │  Metadata: title, summary, sponsor_*, status, dates, actions
         ▼
 [Database] Bill (active, version) + BillAction
@@ -33,6 +34,32 @@ Update this file when a layer changes the data shape; then run `legislai-pipelin
         ▼
 [Analysis enrichers] async Gemini → stakeholders + policy_analysis ready
 ```
+
+### ETL entry points (unified via `bill_sync`)
+
+| Entry | Activity refresh | Content ingest |
+|-------|------------------|----------------|
+| Bill search / bill detail | TTL-gated (default 6h), async off request thread | On miss only |
+| RSS / workflow | Always on discovery | On miss; existing bills get activity refresh |
+| Backfill CLI | Non-terminal or recent `last_action_date` | `allow_content_ingest=True` |
+
+### Two freshness axes
+
+1. **Activity refresh** (`bill_sync.refresh_activity`) — append missing `BillAction` rows (dedupe `(bill_id, action_date, action_text)`), update `status` / `last_action_date` / `last_updated` on the **active** row. No Gemini. Does **not** fork a Bill version. Does **not** change `display_ready`.
+2. **Content ingest** (`BillProcessor.process_bill_data`) — first create or deliberate re-fetch. May fork a new `Bill` version on `content_hash` change (title+summary+full_text). New version starts `display_ready=False` with no carried-forward analysis (known trade-off; version model unchanged).
+
+Never set `display_ready` in ETL. Analysis owns readiness after artifacts exist.
+
+### Cross-ingestor gates (search / RSS / backfill)
+
+- **Bill work lease** (`services/bill_work_lease.py`, table `bill_work_lease`): unique `(bill_id, work_kind)` with TTL. Kinds: `analyze`, `enrich`. Search, workflow, and backfill must `try_acquire` before Gemini; skip/defer if held.
+- **Shared Gemini budget** (`services/gemini_rate_budget.py` + `get_shared_ai_analyzer()`): one process-wide FIFO RPM/TPM window (15 RPM / 220k usable TPM). Counters also persisted in `gemini_rate_budget_state` so CLI backfill and Flask share the ceiling.
+
+### Admin UIs
+
+- **RSS dashboard** (`/rss`, legacy `/workflow`) — controls `WorkflowOrchestrator` via `/api/workflow/*`; activity ring at `/api/workflow/logs`.
+- **Backfill dashboard** (`/backfill`) — controls in-process `BackfillOrchestrator` via `/api/backfill/*`; activity ring at `/api/backfill/logs`.
+- Both pipelines append **OpsAlert** rows on real Gemini analyze start/finish/fail with `source=rss` or `source=backfill` (lease / already-analyzed skips stay ring-buffer only).
 
 ## Identity keys (immutable)
 
@@ -140,7 +167,7 @@ Downstream enrichers (`services/analysis_enrichers.py` → `run_downstream_enric
 
 Ops classes: `enrichment_queued`, `enrichment_finished` (plus existing Gemini failure classes). Extra may include `limit_cause`, `remaining_requests`, `event=deferred|queued|finished`.
 
-API: separate `_enriching_bill_ids` lock (must not block Tier B resume). Template context: `enrichment_flags` (`stakeholders_pending`, `policy_analysis_pending`, `any_enrichment_pending`, `enrichment_queued`).
+API: enrich uses DB lease kind `enrich` via `bill_work_lease` (must not block Tier B resume / `analyze` lease). Template context: `enrichment_flags` (`stakeholders_pending`, `policy_analysis_pending`, `any_enrichment_pending`, `enrichment_queued`).
 
 Tests: `test/test_downstream_enrichers.py`, `test/test_size_aware_analysis.py`.
 

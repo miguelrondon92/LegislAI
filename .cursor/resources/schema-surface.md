@@ -6,7 +6,7 @@ Authoritative definitions live in `db_models.py`. This is a navigation aid for s
 
 | Model | Purpose | Key fields / notes |
 |-------|---------|-------------------|
-| `Bill` | Legislative bill | Natural key `congress,bill_type,bill_number`; `full_text` (persisted Congress text), `full_text_fetched_at`, `content_hash`; `active`, `version`, `display_ready`; legacy JSON columns still exist — prefer related tables |
+| `Bill` | Legislative bill | Natural key `congress,bill_type,bill_number`; `full_text` (persisted Congress text), `full_text_fetched_at`, `content_hash`; `synced_congress_update_date` (shared ETL freshness vs Congress `updateDate`); `backfill_last_visited_at` (catalog walk only); `active`, `version`, `display_ready`; legacy JSON columns still exist — prefer related tables |
 | `BillAction` | Timeline events | Ordered by `action_date` |
 | `AIAnalysis` | Versioned AI results | `analysis_data` JSON text; `complexity_score`, `controversy_score`; `provider_model` (Gemini at write time); `active`, `analysis_version`. Enrichment fields live **inside** JSON (`policy_areas`, `policy_analysis`, `stakeholders`) — no separate table |
 | `Summary` | Versioned summaries | `summary_text`, `plain_language_summary`, `key_provisions` JSON; `provider_model`; `active` |
@@ -18,6 +18,9 @@ Authoritative definitions live in `db_models.py`. This is a navigation aid for s
 | `WatchlistItem` | User tracking | Per-user bill list |
 | `AnalysisSession` | Analysis session tracking | Used by analysis session scheduler |
 | `OpsAlert` | Programmer Gemini/ops failures | `is_read`, `provider_model`, bill filters; UI at `/ops/logs` |
+| `BillWorkLease` | Cross-ingestor work mutex | Unique `(bill_id, work_kind)` for `analyze` / `enrich`; TTL + holder |
+| `GeminiRateBudgetState` | Cross-process Gemini ceiling | Single row `id=1`: minute window RPM/TPM counters |
+| `BackfillCatalogState` | Per-congress backfill cursor | `next_index` over `introducedDate+asc` catalog; `sort_key` |
 
 ## Preferred Bill accessors
 
