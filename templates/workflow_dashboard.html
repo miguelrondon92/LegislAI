@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block title %}RSS Dashboard - Legislative Analysis Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2 class="card-title mb-2">
+                            <i data-feather="rss" class="me-2"></i>
+                            RSS Dashboard
+                        </h2>
+                        <p class="card-subtitle mb-0 opacity-75">
+                            Monitor and control Congress.gov RSS ingestion and analysis.<br>
+                            <small><i data-feather="info" width="12" height="12" class="me-1"></i>RSS pipeline runs in the background — safe to navigate away</small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-light" onclick="startWorkflow()">
+                                <i data-feather="play" class="me-1"></i>Start RSS
+                            </button>
+                            <button type="button" class="btn btn-light" onclick="stopWorkflow()">
+                                <i data-feather="square" class="me-1"></i>Stop RSS
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="info" class="me-2"></i>
+                    RSS Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="workflow-status" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading RSS status...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i data-feather="file-text" class="mb-2" style="width: 32px; height: 32px;"></i>
+                <h4 id="bills-discovered">-</h4>
+                <p class="mb-0">Bills Discovered</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i data-feather="database" class="mb-2" style="width: 32px; height: 32px;"></i>
+                <h4 id="bills-processed">-</h4>
+                <p class="mb-0">Bills Processed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i data-feather="cpu" class="mb-2" style="width: 32px; height: 32px;"></i>
+                <h4 id="bills-analyzed">-</h4>
+                <p class="mb-0">Bills Analyzed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i data-feather="bell" class="mb-2" style="width: 32px; height: 32px;"></i>
+                <h4 id="notifications-sent">-</h4>
+                <p class="mb-0">Notifications Sent</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i data-feather="terminal" class="me-2"></i>
+                    Activity log
+                </h5>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadActivityLogs()">
+                    <i data-feather="refresh-cw" class="me-1"></i>Refresh
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <pre id="activity-log" class="activity-log mb-0">Loading activity…</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i data-feather="clock" class="me-2"></i>
+                    Recent RSS Items
+                </h5>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="refreshWorkflowItems()">
+                    <i data-feather="refresh-cw" class="me-1"></i>Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="workflow-items" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading recent items...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i data-feather="git-branch" class="me-2"></i>
+                    RSS Process
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="workflow-step">
+                            <div class="workflow-icon bg-primary">
+                                <i data-feather="rss" style="width: 24px; height: 24px;"></i>
+                            </div>
+                            <h6 class="mt-2">RSS Monitoring</h6>
+                            <small class="text-muted">Monitor Congress.gov RSS feeds for new bills</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="workflow-step">
+                            <div class="workflow-icon bg-info">
+                                <i data-feather="download" style="width: 24px; height: 24px;"></i>
+                            </div>
+                            <h6 class="mt-2">Bill Processing</h6>
+                            <small class="text-muted">Fetch and store bill data from Congress API</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="workflow-step">
+                            <div class="workflow-icon bg-warning">
+                                <i data-feather="cpu" style="width: 24px; height: 24px;"></i>
+                            </div>
+                            <h6 class="mt-2">AI Analysis</h6>
+                            <small class="text-muted">Analyze bill content using AI</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="workflow-step">
+                            <div class="workflow-icon bg-success">
+                                <i data-feather="bell" style="width: 24px; height: 24px;"></i>
+                            </div>
+                            <h6 class="mt-2">User Notifications</h6>
+                            <small class="text-muted">Notify relevant users of new analysis</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function startWorkflow() {
+    fetch('/api/workflow/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success' || data.status === 'already_running') {
+            showAlert(data.message || 'RSS pipeline started.', 'success');
+            setTimeout(loadWorkflowStatus, 1000);
+            setTimeout(loadActivityLogs, 1000);
+        } else {
+            showAlert('Error starting RSS: ' + data.message, 'danger');
+        }
+    })
+    .catch(error => showAlert('Error starting RSS: ' + error, 'danger'));
+}
+
+function stopWorkflow() {
+    fetch('/api/workflow/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showAlert('RSS pipeline stopped.', 'success');
+            setTimeout(loadWorkflowStatus, 1000);
+            setTimeout(loadActivityLogs, 1000);
+        } else {
+            showAlert('Error stopping RSS: ' + data.message, 'danger');
+        }
+    })
+    .catch(error => showAlert('Error stopping RSS: ' + error, 'danger'));
+}
+
+function loadWorkflowStatus() {
+    fetch('/api/workflow/status')
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+    .then(updateWorkflowStatus)
+    .catch(error => {
+        document.getElementById('workflow-status').innerHTML =
+            '<div class="alert alert-danger">Error loading RSS status: ' + error.message + '</div>';
+    });
+}
+
+function updateWorkflowStatus(status) {
+    const statusDiv = document.getElementById('workflow-status');
+    const isRunning = status.is_running || false;
+    const queueSize = status.queue_size || 0;
+    const lastRun = status.last_run || null;
+
+    statusDiv.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="d-flex align-items-center">
+                    <div class="status-indicator ${isRunning ? 'bg-success' : 'bg-danger'} me-3"></div>
+                    <div>
+                        <h5 class="mb-1">Status: ${isRunning ? 'Running' : 'Stopped'}</h5>
+                        <small class="text-muted">Queue Size: ${queueSize}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <small class="text-muted">
+                    Last Run: ${lastRun ? new Date(lastRun).toLocaleString() : 'Never'}
+                </small>
+            </div>
+        </div>
+    `;
+
+    const stats = status.statistics || {};
+    document.getElementById('bills-discovered').textContent = stats.bills_discovered || 0;
+    document.getElementById('bills-processed').textContent = stats.bills_processed || 0;
+    document.getElementById('bills-analyzed').textContent = stats.bills_analyzed || 0;
+    document.getElementById('notifications-sent').textContent = stats.alerts_generated || 0;
+}
+
+function loadActivityLogs() {
+    fetch('/api/workflow/logs?limit=100')
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(data => {
+        const el = document.getElementById('activity-log');
+        const entries = data.entries || [];
+        if (!entries.length) {
+            el.textContent = 'No activity yet.';
+            return;
+        }
+        el.textContent = entries.map(e => {
+            const bill = e.bill_identifier ? ` [${e.bill_identifier}]` : '';
+            return `${e.ts} ${e.level.toUpperCase()}${bill} ${e.message}`;
+        }).join('\n');
+        el.scrollTop = el.scrollHeight;
+    })
+    .catch(err => {
+        document.getElementById('activity-log').textContent = 'Error loading logs: ' + err.message;
+    });
+}
+
+function loadWorkflowItems() {
+    fetch('/api/workflow/recent?limit=10')
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+    .then(data => updateWorkflowItems(data.items || []))
+    .catch(error => {
+        document.getElementById('workflow-items').innerHTML =
+            '<div class="alert alert-danger">Error loading RSS items: ' + error.message + '</div>';
+    });
+}
+
+function updateWorkflowItems(items) {
+    const itemsDiv = document.getElementById('workflow-items');
+    if (items.length === 0) {
+        itemsDiv.innerHTML = '<p class="text-muted">No recent RSS items</p>';
+        return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-sm">';
+    html += '<thead><tr><th>Bill</th><th>Status</th><th>Discovered</th><th>Completed</th><th>Error</th></tr></thead><tbody>';
+    items.forEach(item => {
+        const statusClass = getStatusClass(item.status);
+        const discovered = new Date(item.discovered_at).toLocaleString();
+        const completed = item.processing_completed ? new Date(item.processing_completed).toLocaleString() : '-';
+        html += `
+            <tr>
+                <td><strong>${item.bill_identifier}</strong></td>
+                <td><span class="badge ${statusClass}">${item.status}</span></td>
+                <td><small>${discovered}</small></td>
+                <td><small>${completed}</small></td>
+                <td><small class="text-danger">${item.error_message || '-'}</small></td>
+            </tr>
+        `;
+    });
+    html += '</tbody></table></div>';
+    itemsDiv.innerHTML = html;
+}
+
+function getStatusClass(status) {
+    switch (status) {
+        case 'completed': return 'bg-success';
+        case 'processing': return 'bg-warning';
+        case 'failed': return 'bg-danger';
+        case 'pending': return 'bg-secondary';
+        default: return 'bg-secondary';
+    }
+}
+
+function refreshWorkflowItems() {
+    loadWorkflowItems();
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show mb-4`;
+    alertDiv.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    const container = document.querySelector('main.container') || document.querySelector('.container');
+    const firstRow = container ? container.querySelector('.row') : null;
+    if (container && firstRow) container.insertBefore(alertDiv, firstRow);
+    else if (container) container.insertBefore(alertDiv, container.firstChild);
+    else document.body.appendChild(alertDiv);
+    setTimeout(() => { if (alertDiv.parentNode) alertDiv.remove(); }, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadWorkflowStatus();
+    loadWorkflowItems();
+    loadActivityLogs();
+    setInterval(() => {
+        loadWorkflowStatus();
+        loadWorkflowItems();
+        loadActivityLogs();
+    }, 10000);
+});
+</script>
+
+<style>
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.workflow-step { padding: 1rem; }
+.workflow-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    color: white;
+}
+.activity-log {
+    max-height: 280px;
+    overflow-y: auto;
+    background: #1a1d21;
+    color: #d7dde5;
+    font-size: 0.8rem;
+    padding: 0.75rem 1rem;
+    margin: 0;
+    white-space: pre-wrap;
+}
+</style>
+{% endblock %}

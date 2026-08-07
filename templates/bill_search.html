@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+
+{% block title %}Bill Search - Legislative Analysis Platform (Updated 119th Congress){% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i data-feather="search" class="me-2"></i>
+                    Search Congressional Bills
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('bill_search') }}">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label for="search_type" class="form-label">Search Type</label>
+                            <select class="form-select" id="search_type" name="search_type" required>
+                                <option value="bill_number" {% if search_type == 'bill_number' %}selected{% endif %}>Bill Number</option>
+                                <option value="keyword" {% if search_type == 'keyword' %}selected{% endif %}>Keyword Search</option>
+                                <option value="sponsor" {% if search_type == 'sponsor' %}selected{% endif %}>Sponsor Name</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5 mb-3">
+                            <label for="search_query" class="form-label">Search Query</label>
+                            <input type="text" class="form-control" id="search_query" name="search_query" 
+                                   value="{{ search_query }}" placeholder="Enter bill number, keywords, or sponsor name..." 
+                                   autocomplete="off">
+                            <div class="form-text">
+                                <span id="search_help">Examples: HR-1234, S-567, HJRES-45</span>
+                            </div>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <label for="congress" class="form-label">Congress</label>
+                            <select class="form-select" id="congress" name="congress">
+                                <option value="119" {% if congress == 119 %}selected{% endif %}>119th (Current)</option>
+                                <option value="118" {% if congress == 118 %}selected{% endif %}>118th</option>
+                                <option value="117" {% if congress == 117 %}selected{% endif %}>117th</option>
+                                <option value="116" {% if congress == 116 %}selected{% endif %}>116th</option>
+                                <option value="115" {% if congress == 115 %}selected{% endif %}>115th</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i data-feather="search" class="me-2"></i>Search
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h4 id="loading-title" class="text-dark">Processing your search...</h4>
+        <p id="loading-message" class="text-dark">Searching for bill in our database...</p>
+        <div class="progress mt-3" style="height: 6px;">
+            <div id="loading-progress" class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" style="width: 10%"></div>
+        </div>
+        <small id="loading-detail" class="text-secondary mt-2 d-block">This may take up to 30 seconds for new bills</small>
+    </div>
+</div>
+
+{% if error_message %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="alert alert-warning" role="alert">
+            <i data-feather="alert-triangle" class="me-2"></i>
+            {{ error_message }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if background_analysis_info %}
+<div class="row">
+    <div class="col-12 mb-3">
+        <div class="alert alert-info" role="alert">
+            <i data-feather="activity" class="me-2"></i>
+            <strong>Background Analysis in Progress</strong> - 
+            {{ background_analysis_info.count }} bill{{ 's' if background_analysis_info.count != 1 else '' }} 
+            {{ 'are' if background_analysis_info.count != 1 else 'is' }} being analyzed in the background. 
+            You can navigate away and the analysis will continue. Refresh the page later to see updated results.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if bills %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i data-feather="list" class="me-2"></i>
+                    Search Results ({{ bills|length }} bills found)
+                </h5>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleView('list')">
+                        <i data-feather="list"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleView('grid')">
+                        <i data-feather="grid"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- List View -->
+                <div id="list-view">
+                    {% for bill in bills %}
+                    <div class="card mb-3 bill-item">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5 class="card-title">
+                                        <a href="{{ url_for('bill_analysis', congress=bill.congress, bill_type=bill.bill_type, bill_number=bill.bill_number) }}" 
+                                           class="text-decoration-none">
+                                            {{ bill.get_bill_identifier() }}
+                                        </a>
+                                        <span class="badge bg-secondary ms-2">{{ bill.congress }}th Congress</span>
+                                    </h5>
+                                    
+                                    {% if bill.title %}
+                                    <h6 class="card-subtitle mb-2 text-muted">{{ bill.title }}</h6>
+                                    {% endif %}
+                                    
+                                    <div class="row mb-2">
+                                        {% if bill.sponsor_name %}
+                                        <div class="col-md-6">
+                                            <small class="text-muted">
+                                                <i data-feather="user" style="width: 14px; height: 14px;"></i>
+                                                <strong>Sponsor:</strong> {{ bill.sponsor_name }}
+                                                {% if bill.sponsor_party and bill.sponsor_state %}
+                                                    ({{ bill.sponsor_party }}-{{ bill.sponsor_state }})
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if bill.introduced_date %}
+                                        <div class="col-md-6">
+                                            <small class="text-muted">
+                                                <i data-feather="calendar" style="width: 14px; height: 14px;"></i>
+                                                <strong>Introduced:</strong> {{ bill.introduced_date.strftime('%B %d, %Y') }}
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if bill.summary %}
+                                    <p class="card-text">
+                                        {{ (bill.summary | clean_summary)[:200] }}{% if (bill.summary | clean_summary)|length > 200 %}...{% endif %}
+                                    </p>
+                                    {% endif %}
+                                    
+                                    {% if bill.status %}
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i data-feather="activity" style="width: 14px; height: 14px;"></i>
+                                            <strong>Status:</strong> {{ bill.status[:100] }}{% if bill.status|length > 100 %}...{% endif %}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 d-flex flex-column justify-content-between">
+                                    <div class="mb-3">
+                                        {% set complexity = bill.get_complexity_score_new() %}
+                                        {% if complexity is not none %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-info">
+                                                Complexity: {{ "%.0f"|format(complexity * 100) }}/100
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% set hidden_provisions_count = bill.get_hidden_provisions_count() %}
+                                        {% if hidden_provisions_count.total > 0 %}
+                                        <div class="mb-2">
+                                            {% if hidden_provisions_count.high > 0 %}
+                                            <span class="badge bg-danger">
+                                                <i data-feather="alert-triangle" style="width: 12px; height: 12px;"></i>
+                                                {{ hidden_provisions_count.high }} High Risk
+                                            </span>
+                                            {% endif %}
+                                            {% if hidden_provisions_count.medium > 0 %}
+                                            <span class="badge bg-warning">
+                                                <i data-feather="alert-circle" style="width: 12px; height: 12px;"></i>
+                                                {{ hidden_provisions_count.medium }} Medium Risk
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% set ai_analysis = bill.get_active_ai_analysis() %}
+                                        {% if ai_analysis %}
+                                        {% set analysis_data = ai_analysis.get_analysis_data() %}
+                                        {% if analysis_data and analysis_data.get('is_partial', False) %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-warning text-dark">
+                                                <i data-feather="zap" style="width: 12px; height: 12px;"></i>
+                                                {{ "%.0f"|format(analysis_data.get('completion_percentage', 0)) }}% Analysis
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                        {% endif %}
+                                        
+                                        {% if bill.get_policy_categories() %}
+                                        {% set categories = bill.get_policy_categories() %}
+                                        {% if categories.primary_policy_area %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-primary">{{ categories.primary_policy_area.title() }}</span>
+                                        </div>
+                                        {% endif %}
+                                        {% endif %}
+                                        
+                                        {% if not bill.display_ready %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-danger">
+                                                <i data-feather="clock" style="width: 12px; height: 12px;"></i>
+                                                Analysis In Progress
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="d-grid gap-2">
+                                        <a href="{{ url_for('bill_analysis', congress=bill.congress, bill_type=bill.bill_type, bill_number=bill.bill_number) }}" 
+                                           class="btn btn-primary btn-sm">
+                                            <i data-feather="eye" class="me-1"></i>View Analysis
+                                        </a>
+                                        <a href="{{ url_for('add_to_watchlist', bill_id=bill.id) }}" 
+                                           class="btn btn-outline-secondary btn-sm">
+                                            <i data-feather="bookmark" class="me-1"></i>Add to Watchlist
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Grid View (Hidden by default) -->
+                <div id="grid-view" style="display: none;">
+                    <div class="row">
+                        {% for bill in bills %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100 bill-card">
+                                <div class="card-body d-flex flex-column">
+                                    <h6 class="card-title">
+                                        <a href="{{ url_for('bill_analysis', congress=bill.congress, bill_type=bill.bill_type, bill_number=bill.bill_number) }}" 
+                                           class="text-decoration-none">
+                                            {{ bill.get_bill_identifier() }}
+                                        </a>
+                                    </h6>
+                                    
+                                    {% if bill.title %}
+                                    <p class="card-text small">
+                                        {{ bill.title[:80] }}{% if bill.title|length > 80 %}...{% endif %}
+                                    </p>
+                                    {% endif %}
+                                    
+                                    {% if bill.sponsor_name %}
+                                    <small class="text-muted mb-2">
+                                        {{ bill.sponsor_name }}
+                                        {% if bill.sponsor_party %}({{ bill.sponsor_party }}){% endif %}
+                                    </small>
+                                    {% endif %}
+                                    
+                                    <div class="mt-auto">
+                                        {% set complexity = bill.get_complexity_score_new() %}
+                                        {% if complexity is not none %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-info">
+                                                Complexity: {{ "%.0f"|format(complexity * 100) }}
+                                            </span>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% set hidden_provisions_count = bill.get_hidden_provisions_count() %}
+                                        {% set significant_provisions = hidden_provisions_count.high + hidden_provisions_count.medium %}
+                                        {% if significant_provisions > 0 %}
+                                        <div class="mb-2">
+                                            <small class="text-danger">
+                                                <i data-feather="eye" style="width: 12px; height: 12px;"></i>
+                                                {{ significant_provisions }} Risky Provisions
+                                            </small>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="d-grid">
+                                            <a href="{{ url_for('bill_analysis', congress=bill.congress, bill_type=bill.bill_type, bill_number=bill.bill_number) }}" 
+                                               class="btn btn-primary btn-sm">
+                                                View Analysis
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not bills and not error_message %}
+<!-- No search performed yet -->
+<div class="row">
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i data-feather="file-text" class="mb-3 text-muted" style="width: 64px; height: 64px;"></i>
+            <h4 class="text-muted">Search Congressional Bills</h4>
+            <p class="text-muted">
+                Use the search form above to find bills by number, keywords, or sponsor name.<br>
+                Connect with real-time data from Congress.gov.
+            </p>
+            
+            <div class="row mt-4">
+                <div class="col-md-4 offset-md-2">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Bill Numbers</h6>
+                            <p class="card-text small">
+                                Search specific bills:<br>
+                                HR-1234, S-567, HJRES-45
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Keywords</h6>
+                            <p class="card-text small">
+                                Find bills by topic:<br>
+                                healthcare, climate, immigration
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.loading-overlay .progress {
+    background-color: #e9ecef;
+}
+
+.loading-overlay .progress-bar {
+    transition: width 0.5s ease;
+}
+
+@media (max-width: 768px) {
+    .loading-content {
+        padding: 1.5rem;
+        max-width: 350px;
+    }
+    
+    .loading-content h4 {
+        font-size: 1.2rem;
+    }
+}
+</style>
+
+<script>
+// Update search help text based on search type
+document.getElementById('search_type').addEventListener('change', function() {
+    const helpText = document.getElementById('search_help');
+    const searchInput = document.getElementById('search_query');
+    
+    switch (this.value) {
+        case 'bill_number':
+            helpText.textContent = 'Examples: HR-1234, HR 1, H.R.1, S-567, HJRES-45';
+            searchInput.placeholder = 'Enter bill number (e.g., HR 1, HR-1, H.R.1)...';
+            break;
+        case 'keyword':
+            helpText.textContent = 'Examples: healthcare, climate change, tax reform';
+            searchInput.placeholder = 'Enter keywords...';
+            break;
+        case 'sponsor':
+            helpText.textContent = 'Examples: Smith, Johnson, Garcia';
+            searchInput.placeholder = 'Enter sponsor name...';
+            break;
+    }
+});
+
+// Form validation and progressive loading
+document.querySelector('form').addEventListener('submit', function(e) {
+    const searchInput = document.getElementById('search_query');
+    const searchValue = searchInput.value.trim();
+    
+    // Only prevent submission if completely empty
+    if (!searchValue) {
+        e.preventDefault();
+        alert('Please enter a search term');
+        searchInput.focus();
+        return false;
+    }
+    
+    // Show loading overlay with progressive updates
+    showProgressiveLoading();
+    
+    // Allow form to submit normally
+    return true;
+});
+
+function showProgressiveLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    const title = document.getElementById('loading-title');
+    const message = document.getElementById('loading-message');
+    const progress = document.getElementById('loading-progress');
+    const detail = document.getElementById('loading-detail');
+    
+    // Show overlay
+    overlay.style.display = 'flex';
+    
+    // Progressive status updates
+    const stages = [
+        {
+            time: 0,
+            title: 'Processing your search...',
+            message: 'Searching for bill in our database...',
+            progress: 10,
+            detail: 'Checking existing records'
+        },
+        {
+            time: 3000,
+            title: 'Fetching bill data...',
+            message: 'Bill not in our records, searching Congress.gov...',
+            progress: 30,
+            detail: 'Retrieving official bill information'
+        },
+        {
+            time: 8000,
+            title: 'Processing bill data...',
+            message: 'Bill found! Processing legislative information...',
+            progress: 50,
+            detail: 'Parsing bill text and metadata'
+        },
+        {
+            time: 12000,
+            title: 'Running AI analysis...',
+            message: 'Analyzing bill content and policy implications...',
+            progress: 70,
+            detail: 'This may take a moment for complex bills'
+        },
+        {
+            time: 20000,
+            title: 'Finalizing analysis...',
+            message: 'Generating summary and complexity assessment...',
+            progress: 90,
+            detail: 'Almost done!'
+        },
+        {
+            time: 25000,
+            title: 'Completing search...',
+            message: 'Preparing results for display...',
+            progress: 95,
+            detail: 'Just a few more seconds'
+        }
+    ];
+    
+    stages.forEach(stage => {
+        setTimeout(() => {
+            title.textContent = stage.title;
+            message.textContent = stage.message;
+            progress.style.width = stage.progress + '%';
+            detail.textContent = stage.detail;
+        }, stage.time);
+    });
+    
+    // Safety timeout - hide overlay after 35 seconds in case something goes wrong
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 35000);
+}
+
+console.log('Bill search page loaded with improved validation');
+
+// Toggle between list and grid view
+function toggleView(viewType) {
+    const listView = document.getElementById('list-view');
+    const gridView = document.getElementById('grid-view');
+    
+    if (viewType === 'list') {
+        listView.style.display = 'block';
+        gridView.style.display = 'none';
+    } else {
+        listView.style.display = 'none';
+        gridView.style.display = 'block';
+    }
+    
+    // Update active button
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.closest('.btn').classList.add('active');
+}
+
+// Initialize feather icons for any dynamically loaded content
+document.addEventListener('DOMContentLoaded', function() {
+    feather.replace();
+});
+</script>
+{% endblock %}

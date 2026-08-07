@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+
+{% block title %}Backfill Dashboard - Legislative Analysis Platform{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2 class="card-title mb-2">
+                            <i data-feather="database" class="me-2"></i>
+                            Backfill Dashboard
+                        </h2>
+                        <p class="card-subtitle mb-0 opacity-75">
+                            Systematically ingest and analyze historical bills for a Congress session.<br>
+                            <small><i data-feather="info" width="12" height="12" class="me-1"></i>Shares Gemini budget and bill leases with RSS and search</small>
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-light" onclick="startBackfill()">
+                                <i data-feather="play" class="me-1"></i>Start
+                            </button>
+                            <button type="button" class="btn btn-light" onclick="stopBackfill()">
+                                <i data-feather="square" class="me-1"></i>Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i data-feather="sliders" class="me-2"></i>Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label" for="congress-session">Congress</label>
+                        <input type="number" class="form-control" id="congress-session" value="119" min="100" max="200">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="processing-mode">Mode</label>
+                        <select class="form-select" id="processing-mode">
+                            <option value="full_processing">Full processing</option>
+                            <option value="analysis_only">Analysis only</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="start-index">Start index</label>
+                        <input type="number" class="form-control" id="start-index" min="0" placeholder="Cursor" value="">
+                        <div class="form-text">0 = oldest introduced; empty = cursor</div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="max-bills">Window size</label>
+                        <input type="number" class="form-control" id="max-bills" min="1" placeholder="No limit" value="">
+                        <div class="form-text">Next N bills from start</div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" id="continue-cursor" checked>
+                            <label class="form-check-label" for="continue-cursor">Continue from cursor</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" id="resume-backfill" checked>
+                            <label class="form-check-label" for="resume-backfill">Resume run state</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i data-feather="info" class="me-2"></i>Backfill Status</h5>
+            </div>
+            <div class="card-body">
+                <div id="backfill-status" class="text-center">
+                    <div class="spinner-border text-secondary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading backfill status...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-2">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h4 id="stat-discovered">-</h4>
+                <p class="mb-0">Window</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h4 id="stat-processed">-</h4>
+                <p class="mb-0">Visited</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <h4 id="stat-analyzed">-</h4>
+                <p class="mb-0">Analyzed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-secondary text-white">
+            <div class="card-body text-center">
+                <h4 id="stat-skipped">-</h4>
+                <p class="mb-0">Skipped fresh</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <h4 id="stat-failed">-</h4>
+                <p class="mb-0">Failed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-dark text-white">
+            <div class="card-body text-center">
+                <h4 id="stat-cursor">-</h4>
+                <p class="mb-0">Next index</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4" id="display-ready-row" style="display:none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <strong>Display-ready progress:</strong>
+                <span id="display-ready-progress">-</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i data-feather="terminal" class="me-2"></i>Activity log</h5>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadBackfillLogs()">
+                    <i data-feather="refresh-cw" class="me-1"></i>Refresh
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <pre id="activity-log" class="activity-log mb-0">Loading activity…</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i data-feather="alert-triangle" class="me-2"></i>Recent errors</h5>
+            </div>
+            <div class="card-body">
+                <div id="recent-errors" class="text-muted">None</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function startBackfill() {
+    const maxBillsRaw = (document.getElementById('max-bills').value || '').trim();
+    const startRaw = (document.getElementById('start-index').value || '').trim();
+    const body = {
+        congress_session: parseInt(document.getElementById('congress-session').value, 10) || 119,
+        processing_mode: document.getElementById('processing-mode').value,
+        resume: document.getElementById('resume-backfill').checked,
+        continue_from_cursor: document.getElementById('continue-cursor').checked
+    };
+    if (maxBillsRaw !== '') {
+        const maxBills = parseInt(maxBillsRaw, 10);
+        if (!Number.isFinite(maxBills) || maxBills < 1) {
+            showAlert('Window size must be a positive integer (or leave empty).', 'danger');
+            return;
+        }
+        body.max_bills = maxBills;
+    }
+    if (startRaw !== '') {
+        const startIndex = parseInt(startRaw, 10);
+        if (!Number.isFinite(startIndex) || startIndex < 0) {
+            showAlert('Start index must be >= 0 (or leave empty for cursor).', 'danger');
+            return;
+        }
+        body.start_index = startIndex;
+    }
+    fetch('/api/backfill/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success' || data.status === 'already_running') {
+            showAlert(data.message || 'Backfill started.', 'success');
+            setTimeout(refreshAll, 800);
+        } else {
+            showAlert('Error: ' + (data.message || 'unknown'), 'danger');
+        }
+    })
+    .catch(err => showAlert('Error starting backfill: ' + err, 'danger'));
+}
+
+function stopBackfill() {
+    fetch('/api/backfill/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showAlert(data.message || 'Pause requested.', 'success');
+            setTimeout(refreshAll, 800);
+        } else {
+            showAlert('Error: ' + (data.message || 'unknown'), 'danger');
+        }
+    })
+    .catch(err => showAlert('Error stopping backfill: ' + err, 'danger'));
+}
+
+function loadBackfillStatus() {
+    fetch('/api/backfill/status')
+    .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(updateBackfillStatus)
+    .catch(err => {
+        document.getElementById('backfill-status').innerHTML =
+            '<div class="alert alert-danger">Error loading status: ' + err.message + '</div>';
+    });
+}
+
+function updateBackfillStatus(s) {
+    const running = !!s.is_running;
+    const status = s.status || 'not_started';
+    const discovery = s.discovery || {};
+    const processing = s.processing || {};
+    const catalog = s.catalog || {};
+    const windowInfo = s.window || {};
+    const winLabel = (windowInfo.start != null && windowInfo.size != null)
+        ? `window ${windowInfo.start}..${windowInfo.start + Math.max((windowInfo.size || 1) - 1, 0)}`
+        : '';
+    document.getElementById('backfill-status').innerHTML = `
+        <div class="row text-start">
+            <div class="col-md-6">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="status-indicator ${running ? 'bg-success' : 'bg-secondary'} me-3"></div>
+                    <div>
+                        <h5 class="mb-1">${running ? 'Running' : 'Idle'} — <code>${status}</code></h5>
+                        <small class="text-muted">Congress ${s.congress_session || '-'} · mode ${s.processing_mode || '-'}${s.max_bills_per_session ? ' · max ' + s.max_bills_per_session : ''}${winLabel ? ' · ' + winLabel : ''}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <small class="text-muted d-block">Last bill: ${processing.last_processed || '-'}</small>
+                <small class="text-muted d-block">Catalog next: ${catalog.next_index != null ? catalog.next_index : '-'} (${catalog.sort_key || 'introducedDate+asc'})</small>
+                <small class="text-muted d-block">Last update: ${s.last_update || '-'}</small>
+            </div>
+        </div>
+    `;
+    document.getElementById('stat-discovered').textContent =
+        windowInfo.size != null ? windowInfo.size : (discovery.total_discovered || 0);
+    document.getElementById('stat-processed').textContent =
+        processing.visited != null ? processing.visited : (processing.bills_processed || 0);
+    document.getElementById('stat-analyzed').textContent = processing.bills_analyzed || 0;
+    document.getElementById('stat-skipped').textContent = processing.skipped_fresh || 0;
+    document.getElementById('stat-failed').textContent = processing.bills_failed || 0;
+    document.getElementById('stat-cursor').textContent =
+        catalog.next_index != null ? catalog.next_index : '-';
+
+    const stats = s.stats || {};
+    const row = document.getElementById('display-ready-row');
+    if (s.processing_mode === 'analysis_only' || stats.display_ready_goal_count) {
+        row.style.display = '';
+        const made = stats.bills_made_display_ready || 0;
+        const goal = stats.display_ready_goal_count || '-';
+        document.getElementById('display-ready-progress').textContent =
+            `${made} made this session · goal ${goal}`;
+    } else {
+        row.style.display = 'none';
+    }
+
+    const errors = (s.errors && s.errors.recent_errors) || [];
+    const errEl = document.getElementById('recent-errors');
+    if (!errors.length) {
+        errEl.innerHTML = '<span class="text-muted">None</span>';
+    } else {
+        errEl.innerHTML = '<ul class="mb-0">' + errors.map(e =>
+            `<li><code>${e.bill_id || ''}</code> ${e.message || JSON.stringify(e)}</li>`
+        ).join('') + '</ul>';
+    }
+}
+
+function loadBackfillLogs() {
+    fetch('/api/backfill/logs?limit=100')
+    .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(data => {
+        const el = document.getElementById('activity-log');
+        const entries = data.entries || [];
+        if (!entries.length) {
+            el.textContent = 'No activity yet.';
+            return;
+        }
+        el.textContent = entries.map(e => {
+            const bill = e.bill_identifier ? ` [${e.bill_identifier}]` : '';
+            return `${e.ts} ${e.level.toUpperCase()}${bill} ${e.message}`;
+        }).join('\n');
+        el.scrollTop = el.scrollHeight;
+    })
+    .catch(err => {
+        document.getElementById('activity-log').textContent = 'Error loading logs: ' + err.message;
+    });
+}
+
+function refreshAll() {
+    loadBackfillStatus();
+    loadBackfillLogs();
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show mb-4`;
+    alertDiv.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    const container = document.querySelector('main.container') || document.querySelector('.container');
+    const firstRow = container ? container.querySelector('.row') : null;
+    if (container && firstRow) container.insertBefore(alertDiv, firstRow);
+    else if (container) container.insertBefore(alertDiv, container.firstChild);
+    setTimeout(() => { if (alertDiv.parentNode) alertDiv.remove(); }, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    refreshAll();
+    setInterval(refreshAll, 10000);
+});
+</script>
+<style>
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.activity-log {
+    max-height: 280px;
+    overflow-y: auto;
+    background: #1a1d21;
+    color: #d7dde5;
+    font-size: 0.8rem;
+    padding: 0.75rem 1rem;
+    margin: 0;
+    white-space: pre-wrap;
+}
+</style>
+{% endblock %}

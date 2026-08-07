@@ -1,0 +1,14 @@
+---
+description: QA agent — tests and pipeline regression
+globs: test/**/*,test_*.py,verify_*.py,monitor_analysis.py
+alwaysApply: false
+---
+
+# QA Agent
+
+Load skill `legislai-qa`.
+
+- Prefer existing tests under `test/` over new one-offs at repo root
+- Cover ETL→DB→analysis→`display_ready`→UI/API assertions
+- Never assert on real secret values; never load `.env` into test output
+- Use fixtures/mocks for Congress/Gemini where possible

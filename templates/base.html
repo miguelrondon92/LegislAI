@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Legislative Analysis Platform{% endblock %}</title>
+    
+    <!-- Bootstrap CSS with Replit dark theme -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+                <i data-feather="file-text" class="me-2"></i>
+                LegislAI
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                {# User-facing nav — left #}
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">
+                            <i data-feather="home" class="me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('bill_search') }}">
+                            <i data-feather="search" class="me-1"></i>Search Bills
+                        </a>
+                    </li>
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.policy_interests') }}">
+                            <i data-feather="target" class="me-1"></i>Policy Interests
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('alerts') }}">
+                            <i data-feather="bell" class="me-1"></i>Alerts
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+
+                {# Admin tools + account — right #}
+                <ul class="navbar-nav ms-auto align-items-lg-center">
+                    {% if session.get('is_admin') %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('rss_dashboard') }}">
+                            <i data-feather="rss" class="me-1"></i>RSS
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('backfill_dashboard') }}">
+                            <i data-feather="database" class="me-1"></i>Backfill
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('ops_logs', view='unread') }}">
+                            <i data-feather="terminal" class="me-1"></i>Ops logs
+                            {% if ops_nav_unread_count %}
+                            <span class="badge bg-danger">{{ ops_nav_unread_count }}</span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i data-feather="user" class="me-1"></i>{{ current_user.get_full_name() }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                                <i data-feather="settings" class="me-2"></i>Profile
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.policy_interests') }}">
+                                <i data-feather="target" class="me-2"></i>Policy Interests
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.signout') }}">
+                                <i data-feather="log-out" class="me-2"></i>Sign Out
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.signin') }}">
+                            <i data-feather="log-in" class="me-1"></i>Sign In
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-outline-primary btn-sm ms-2" href="{{ url_for('auth.signup') }}">
+                            <i data-feather="user-plus" class="me-1"></i>Sign Up
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="container my-4">
+        {% block content %}
+        <div class="text-center py-5">
+            <h1 class="display-4 mb-4">AI-Powered Legislative Analysis</h1>
+            <p class="lead text-muted">
+                Democratizing understanding of congressional bills through intelligent analysis and personalized insights.
+            </p>
+            
+            {% if not current_user.is_authenticated %}
+            <div class="mt-4">
+                <a href="{{ url_for('auth.signup') }}" class="btn btn-primary btn-lg me-3">
+                    <i data-feather="user-plus" class="me-2"></i>Get Started
+                </a>
+                <a href="{{ url_for('auth.signin') }}" class="btn btn-outline-primary btn-lg">
+                    <i data-feather="log-in" class="me-2"></i>Sign In
+                </a>
+            </div>
+            {% endif %}
+            
+            <div class="row mt-5">
+                <div class="col-md-4">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <i data-feather="search" class="mb-3" style="width: 48px; height: 48px;"></i>
+                            <h5>Search Bills</h5>
+                            <p class="text-muted">Find and analyze congressional bills by number, keyword, or sponsor.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <i data-feather="cpu" class="mb-3" style="width: 48px; height: 48px;"></i>
+                            <h5>AI Analysis</h5>
+                            <p class="text-muted">Get intelligent insights on policy implications and stakeholder impacts.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <i data-feather="bell" class="mb-3" style="width: 48px; height: 48px;"></i>
+                            <h5>Personalized Alerts</h5>
+                            <p class="text-muted">Receive notifications about bills that match your policy interests.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark border-top mt-5 py-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-light">LegislAI</h6>
+                    <p class="text-muted small">
+                        Powered by Congress.gov API and OpenAI for accurate, real-time legislative analysis.
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="text-muted small mb-0">
+                        <i data-feather="database" class="me-1"></i>
+                        Data sourced from official Congressional records
+                    </p>
+                    <p class="text-muted small">
+                        <i data-feather="cpu" class="me-1"></i>
+                        AI-powered analysis for enhanced understanding
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- Initialize Feather Icons -->
+    <script>
+        feather.replace();
+    </script>
+    
+    <!-- Page-specific scripts -->
+    {% block scripts %}{% endblock %}
+</body>
+</html>

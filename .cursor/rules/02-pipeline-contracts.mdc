@@ -1,0 +1,16 @@
+---
+description: Cross-layer pipeline contract for LegislAI data flow
+alwaysApply: true
+---
+
+# Pipeline contracts
+
+When changing ingestion, models, analysis JSON, routes context, or templates:
+
+1. Check `.cursor/resources/pipeline-contract.md`
+2. Preserve Bill natural key `(congress, bill_type, bill_number)` + `active`
+3. Prefer `AIAnalysis` / `Summary` tables over legacy `Bill.ai_analysis`
+4. Keep `display_ready` semantics (see display-ready contract)
+5. Emit a handoff naming every downstream owner
+
+Category extraction must keep supporting `categories`, `category_breakdown`, and `primary_category` / `secondary_categories` formats unless all writers and readers are updated together.

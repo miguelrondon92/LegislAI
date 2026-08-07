@@ -1,0 +1,93 @@
+Subject: 🚨 LegislAI: 2 High Priority Bills + 0 More
+To: your-email@example.com
+From: LegislAI Notifications
+Date: 2025-07-14 23:19:37.844531
+
+Hello m r,
+
+🎯 You have 2 new legislative analysises matching your policy interests!
+
+🚨 HIGH PRIORITY ALERTS
+========================================
+
+📄 BILL: 119-HR77777
+🔗 Direct Link: http://localhost:5000/bill/119/hr/77777
+📝 Title: Notification Test Bill for migron - Budget and Fiscal Policy
+
+🎯 Relevant to: Budget and Fiscal Policy
+💯 Your interest level: 🔥 Very High Interest
+
+📊 KEY INSIGHTS:
+   ✅ No concerning hidden provisions detected
+   🏛️ Status: Introduced
+   👤 Sponsor: Notification Test Sponsor (Test)
+
+📝 SUMMARY:
+A test bill created to verify notifications work for migron. This bill relates to Budget and Fiscal Policy policies.
+
+🔗 ACTIONS:
+   📖 Read full analysis: http://localhost:5000/bill/119/hr/77777
+   👀 Add to watchlist: http://localhost:5000/bill/119/hr/77777#watchlist
+   📤 Share this bill: http://localhost:5000/bill/119/hr/77777#share
+
+📄 BILL: 119-HR55555
+🔗 Direct Link: http://localhost:5000/bill/119/hr/55555
+📝 Title: FINAL TEST: Advanced Technology Privacy Protection Act
+
+🎯 Relevant to: Communications and Technology
+💯 Your interest level: 🔥 Very High Interest
+
+📊 KEY INSIGHTS:
+   ✅ No concerning hidden provisions detected
+   🏛️ Status: Introduced
+   👤 Sponsor: Privacy Protection Committee (Bipartisan)
+
+📝 SUMMARY:
+This bill establishes comprehensive privacy protections for digital communications and regulates emerging technologies to protect consumer rights.
+
+🔗 ACTIONS:
+   📖 Read full analysis: http://localhost:5000/bill/119/hr/55555
+   👀 Add to watchlist: http://localhost:5000/bill/119/hr/55555#watchlist
+   📤 Share this bill: http://localhost:5000/bill/119/hr/55555#share
+
+📂 YOUR ACTIVE SUBSCRIPTIONS
+========================================
+• Budget and Fiscal Policy: 🔥 Very High Interest
+• Civil Rights and Liberties: 🔥 Very High Interest
+• Communications and Technology: 🔥 Very High Interest
+• Criminal Justice and Law Enforcement: 🔥 High Interest
+• Native American Affairs: 📋 Minimal Interest
+
+🔗 QUICK ACTIONS
+========================================
+📊 View Dashboard: http://localhost:5000/
+🔍 Search Bills: http://localhost:5000/bill_search
+🔔 Manage Alerts: http://localhost:5000/alerts
+⚙️ Update Preferences: http://localhost:5000/profile
+👤 Edit Profile: http://localhost:5000/auth/profile
+
+📱 MOBILE ACCESS
+Access LegislAI on any device: http://localhost:5000
+
+📧 EMAIL PREFERENCES
+Current frequency: Weekly
+Change frequency: http://localhost:5000/profile
+
+❓ NEED HELP?
+Reply to this email or visit our help section for support.
+
+🏛️ ABOUT LEGISLAI
+LegislAI uses advanced AI to analyze U.S. legislation and identify
+bills that match your policy interests. Our system detects hidden
+provisions, complexity scores, and stakeholder impacts to keep
+you informed about legislation that matters to you.
+
+Best regards,
+The LegislAI Team
+
+---
+This email was sent to your-email@example.com because you have active
+LegislAI notification subscriptions. You can unsubscribe or modify
+your preferences at: http://localhost:5000/profile
+
+© 2025 LegislAI - Legislative Intelligence Platform

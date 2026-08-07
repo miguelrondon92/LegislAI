@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}Search Bills - Legislative Analysis Platform{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="fas fa-search me-2"></i>Search Congressional Bills</h2>
+        <p class="text-muted">Search through current and historical congressional bills using the Congress.gov database.</p>
+    </div>
+</div>
+
+<!-- Search Form -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('bill_search') }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="query" class="form-label">Search Terms</label>
+                            <input type="text" class="form-control" id="query" name="q" 
+                                   value="{{ query }}" placeholder="Enter keywords, bill number, or topic...">
+                            <div class="form-text">
+                                Examples: "climate change", "HR 1234", "healthcare"
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <label for="congress" class="form-label">Congress</label>
+                            <select class="form-select" id="congress" name="congress">
+                                <option value="119" {% if congress == 119 %}selected{% endif %}>119th (Current)</option>
+                                <option value="118" {% if congress == 118 %}selected{% endif %}>118th</option>
+                                <option value="117" {% if congress == 117 %}selected{% endif %}>117th</option>
+                                <option value="116" {% if congress == 116 %}selected{% endif %}>116th</option>
+                                <option value="115" {% if congress == 115 %}selected{% endif %}>115th</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <label for="bill_type" class="form-label">Bill Type</label>
+                            <select class="form-select" id="bill_type" name="type">
+                                <option value="" {% if not bill_type %}selected{% endif %}>All Types</option>
+                                <option value="hr" {% if bill_type == 'hr' %}selected{% endif %}>House Bills (HR)</option>
+                                <option value="s" {% if bill_type == 's' %}selected{% endif %}>Senate Bills (S)</option>
+                                <option value="hjres" {% if bill_type == 'hjres' %}selected{% endif %}>House Joint Resolutions</option>
+                                <option value="sjres" {% if bill_type == 'sjres' %}selected{% endif %}>Senate Joint Resolutions</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>Search Bills
+                        </button>
+                        <a href="{{ url_for('bill_search') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i>Clear
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Results -->
+{% if query or bill_type %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Search Results
+                        {% if bills %}
+                            <span class="badge bg-secondary ms-2">{{ bills|length }} found</span>
+                        {% endif %}
+                    </h5>
+                    
+                    {% if bills %}
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary active" onclick="toggleView('list')">
+                                <i class="fas fa-list"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="toggleView('grid')">
+                                <i class="fas fa-th"></i>
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body">
+                    {% if error_message %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            {{ error_message }}
+                        </div>
+                    {% elif bills %}
+                        <!-- List View (default) -->
+                        <div id="list-view">
+                            {% for bill in bills %}
+                                <div class="card mb-3 border-start border-primary border-3">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                                    <h5 class="card-title mb-1">
+                                                        {{ bill.get('number', 'Unknown Bill') }}
+                                                    </h5>
+                                                    <span class="{{ format_status_badge(bill.get('latestAction', {}).get('text', '')) }}">
+                                                        {{ bill.get('latestAction', {}).get('text', 'Unknown Status')[:30] }}{% if (bill.get('latestAction', {}).get('text', '')|length) > 30 %}...{% endif %}
+                                                    </span>
+                                                </div>
+                                                
+                                                <h6 class="card-subtitle text-muted mb-2">
+                                                    {{ truncate_text(bill.get('title', 'No title available'), 150) }}
+                                                </h6>
+                                                
+                                                <div class="row text-muted small mb-2">
+                                                    <div class="col-sm-6">
+                                                        <i class="fas fa-user me-1"></i>
+                                                        <strong>Sponsor:</strong> 
+                                                        {{ bill.get('sponsors', [{}])[0].get('fullName', 'Unknown') if bill.get('sponsors') else 'Unknown' }}
+                                                    </div>
+                                                    <div class="col-sm-6">
+                                                        <i class="fas fa-calendar me-1"></i>
+                                                        <strong>Introduced:</strong> 
+                                                        {{ get_readable_date(bill.get('introducedDate')) if bill.get('introducedDate') else 'Unknown' }}
+                                                    </div>
+                                                </div>
+                                                
+                                                {% if bill.get('policyArea') %}
+                                                    <div class="mb-2">
+                                                        <span class="badge bg-info">{{ bill.get('policyArea', {}).get('name', 'Unknown Policy Area') }}</span>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <div class="col-md-4 text-md-end">
+                                                <div class="d-flex flex-column gap-2">
+                                                    <a href="{{ url_for('bill_detail', bill_id=bill.get('number', '').replace('.', '').replace(' ', '')) }}" 
+                                                       class="btn btn-primary btn-sm">
+                                                        <i class="fas fa-eye me-1"></i>View Details
+                                                    </a>
+                                                    
+                                                    {% if bill.get('textVersions') %}
+                                                        <a href="#" class="btn btn-outline-secondary btn-sm" onclick="alert('Full text viewing will be implemented')">
+                                                            <i class="fas fa-file-text me-1"></i>Full Text
+                                                        </a>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Grid View (hidden by default) -->
+                        <div id="grid-view" style="display: none;">
+                            <div class="row">
+                                {% for bill in bills %}
+                                    <div class="col-lg-6 col-xl-4 mb-4">
+                                        <div class="card h-100">
+                                            <div class="card-header">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <h6 class="mb-0">{{ bill.get('number', 'Unknown') }}</h6>
+                                                    <span class="badge bg-secondary small">
+                                                        {{ get_readable_date(bill.get('introducedDate')) if bill.get('introducedDate') else 'Unknown' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="card-body">
+                                                <p class="card-text">
+                                                    {{ truncate_text(bill.get('title', 'No title available'), 100) }}
+                                                </p>
+                                                
+                                                <div class="mb-2">
+                                                    <small class="text-muted">
+                                                        <strong>Sponsor:</strong> 
+                                                        {{ (bill.get('sponsors', [{}])[0].get('fullName', 'Unknown')[:20] + '...') if bill.get('sponsors') and bill.get('sponsors')[0].get('fullName', '')|length > 20 else (bill.get('sponsors', [{}])[0].get('fullName', 'Unknown') if bill.get('sponsors') else 'Unknown') }}
+                                                    </small>
+                                                </div>
+                                                
+                                                <span class="{{ format_status_badge(bill.get('latestAction', {}).get('text', '')) }}">
+                                                    {{ bill.get('latestAction', {}).get('text', 'Unknown')[:20] }}{% if (bill.get('latestAction', {}).get('text', '')|length) > 20 %}...{% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="card-footer">
+                                                <a href="{{ url_for('bill_detail', bill_id=bill.get('number', '').replace('.', '').replace(' ', '')) }}" 
+                                                   class="btn btn-primary btn-sm w-100">
+                                                    <i class="fas fa-eye me-1"></i>View Details
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h5>No bills found</h5>
+                            <p class="text-muted">
+                                Try adjusting your search terms or filters to find relevant bills.
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <!-- Default state when no search has been performed -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5>Enter search terms to find bills</h5>
+                    <p class="text-muted">
+                        Use the search form above to find congressional bills by keywords, bill numbers, or topics.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleView(viewType) {
+    const listView = document.getElementById('list-view');
+    const gridView = document.getElementById('grid-view');
+    const buttons = document.querySelectorAll('.btn-group button');
+    
+    // Remove active class from all buttons
+    buttons.forEach(btn => btn.classList.remove('active'));
+    
+    if (viewType === 'grid') {
+        listView.style.display = 'none';
+        gridView.style.display = 'block';
+        buttons[1].classList.add('active');
+    } else {
+        listView.style.display = 'block';
+        gridView.style.display = 'none';
+        buttons[0].classList.add('active');
+    }
+}
+</script>
+{% endblock %}
